@@ -1,9 +1,28 @@
 import os
 import subprocess
 
+def find_git_root():
+    """Finds the root directory of the Git repository."""
+    try:
+        # Run the git command to find the top-level directory
+        result = subprocess.run(
+            ['git', 'rev-parse', '--show-toplevel'],
+            capture_output=True,
+            text=True,
+            check=True,
+            encoding='utf-8'
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback to the current directory if git command fails or git isn't found
+        return os.getcwd()
+
+# Find the repository root once when the script starts
+GIT_ROOT_DIR = find_git_root()
+print(f"Git commands will be executed from: {GIT_ROOT_DIR}") # Optional: for debugging
 
 def _run_command(command: list[str]) -> str:
-    """A helper function to run shell commands, log the output, and return it."""
+    """A helper function to run shell commands from the Git root directory."""
     try:
         result = subprocess.run(
             command,
@@ -11,19 +30,16 @@ def _run_command(command: list[str]) -> str:
             text=True,
             check=True,
             encoding='utf-8',
-            cwd=os.getcwd()
+            cwd=GIT_ROOT_DIR
         )
         output = result.stdout.strip()
 
-        # --- START: Added Logging ---
         if not output:
             response_string = f"✅ Command '{' '.join(command)}' executed successfully with no output."
         else:
             response_string = f"✅ Success:\n---\n{output}\n---"
 
         print(f"Tool Output:\n{response_string}")
-        # --- END: Added Logging ---
-
         return response_string
 
     except FileNotFoundError as e:
