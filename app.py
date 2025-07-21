@@ -1,34 +1,63 @@
+# app.py
 import asyncio
-import subprocess
 from typing import List, Dict
 
 import chainlit as cl
-from anton import Anton
+from anton import Anton  # <-- Import the new Anton class
 
-anton = Anton()
+
+# NOTE: Your server with `execute_agent` must be running separately
+# You can run it with: uvicorn your_server_file:app --host 0.0.0.0 --port 8000
 
 
 @cl.on_chat_start
 async def on_chat_start():
     """Initializes the assistant and its memory when a new chat session starts."""
-    cl.user_session.set("anton", anton)
+    cl.user_session.set("anton", Anton())  # <-- Initialize our new class
     cl.user_session.set("chat_history", [])
-    await cl.Message(
-        content="Anton is ready. I will remember the key points of our conversation to provide better answers. Let's begin!"
-    ).send()
+
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    """Handles incoming messages, streams the response, and learns from the exchange."""
+    """
+    Handles incoming messages, streams thoughts and the final response,
+    and learns from the exchange.
+    """
+    anton: Anton = cl.user_session.get("anton")
     chat_history: List[Dict] = cl.user_session.get("chat_history")
 
+    # Initialize the UI elements for thoughts and the final answer
     thought_msg = cl.Message(content="", author="Thinking", parent_id=message.id)
     answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
+    await thought_msg.send()  # Send the empty message to get an ID
 
-    async for content in anton.stream_response(user_prompt=message.content, chat_history=chat_history):
-            await answer_msg.stream_token(content)
+    final_answer = ""
+    try:
+        # The new stream yields structured dictionaries
+        async for chunk in anton.stream_response(
+                user_prompt=message.content, chat_history=chat_history
+        ):
+            if chunk["type"] == "thought":
+                # Stream thoughts to the "Thinking" message box
+                # The "•" creates a nice bulleted list of thoughts
+                await thought_msg.stream_token(f"• {chunk['content']}\n")
 
-    # Update standard chat history
-    chat_history.append({"role": "user", "content": message.content})
-    chat_history.append({"role": "assistant", "content": answer_msg.content})
-    cl.user_session.set("chat_history", chat_history)
+            elif chunk["type"] == "tool_result":
+                # Display tool results clearly in the thought process
+                result_str = f"\n*Tool Result:*\n```json\n{chunk['content']}\n```\n"
+                await thought_msg.stream_token(result_str)
+
+            elif chunk["type"] == "token":
+                # Stream final answer tokens to the main answer message
+                await answer_msg.stream_token(chunk["content"])
+                final_answer += chunk["content"]
+
+    finally:
+        await thought_msg.update()
+
+        await answer_msg.update()
+
+        # Update standard chat history
+        chat_history.append({"role": "user", "content": message.content})
+        chat_history.append({"role": "assistant", "content": final_answer})
+        cl.user_session.set("chat_history", chat_history)

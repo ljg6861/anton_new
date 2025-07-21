@@ -6,8 +6,6 @@ class ExecutePythonCode:
     """
     A tool for executing Python code in a secure Docker container.
     """
-    # 1. The schema is now a simple dictionary attribute.
-    #    Our server reads this to tell the LLM how the tool works.
     function = {
         "type": "function",
         "function": {
@@ -15,20 +13,22 @@ class ExecutePythonCode:
             "description": (
                 "Executes a string of Python code in a secure Docker container and returns the output. "
                 "IMPORTANT: This tool cannot save files or interact with the local file system. "
-                "DO NOT try to read or write files with this tool. "
                 "It is solely for running code and getting the results back."
             ),
-            "parameters": [{
-                "name": "code",
-                "type": "string",
-                "description": "The raw Python code to be executed.",
-                "required": True
-            }]
+            # CORRECTED: 'parameters' is now a dictionary
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "The raw Python code to be executed."
+                    }
+                },
+                "required": ["code"]
+            }
         }
     }
 
-    # 2. The core logic is now in a 'run' method.
-    #    It now accepts a dictionary of arguments directly.
     def run(self, arguments: dict) -> str:
         """
         Executes the tool's logic.
@@ -40,8 +40,8 @@ class ExecutePythonCode:
             if not code:
                 return "❌ Error: No code provided to execute."
 
-            # The Docker execution logic remains the same - it's solid.
             client = docker.from_env()
+            # Use shlex.quote for robust shell escaping
             escaped_code = shlex.quote(code.strip())
             command = f'python -c {escaped_code}'
 
@@ -55,13 +55,13 @@ class ExecutePythonCode:
             )
 
             result = container_output.decode('utf-8').strip()
-
-            return result
+            return f"✅ Code executed successfully:\n---\n{result}\n---" if result else "✅ Code executed successfully with no output."
 
         except docker.errors.ContainerError as e:
             error_output = e.stderr.decode('utf-8') if e.stderr else str(e)
             return f"❌ An error occurred during code execution:\n```\n{error_output.strip()}\n```"
         except docker.errors.APIError as e:
-            return f"❌ An error occurred with the Docker API: {e}"
+            # This can happen if the Docker daemon isn't running
+            return f"❌ An error occurred with the Docker API: {e}. Is the Docker daemon running?"
         except Exception as e:
             return f"❌ An unexpected error occurred: {type(e).__name__}: {str(e)}"

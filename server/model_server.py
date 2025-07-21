@@ -1,34 +1,39 @@
+import asyncio
 import logging
 import os
+from queue import Queue
+from typing import List, Optional, Dict, Any
+import json # Added for pretty printing debug logs
+
 import torch
 import uvicorn
-from typing import List, Optional
-
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
-
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
 )
 
-from server.run_agent import execute_agent
+from server.agent.agent_loop import run_agent_loop
+from server.helpers import evaluate_turn_for_memorability
 from server.stream_base_model import stream_base_model
+from utils.memory_manager import MemoryManager
+
 # --- Configuration ---
 os.environ["HF_HOME"] = "./hf_cache"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MAIN_LLM_MODEL_ID = 'Qwen/Qwen3-14B'
-SUMMARIZER_MODEL_ID = 'sshleifer/distilbart-cnn-12-6'
+MAIN_LLM_MODEL_ID = 'Qwen/Qwen3-8B'
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000
 
 # --- Global State ---
 models = {}
+memory_manager = None
 
 
 # --- Pydantic Models ---
@@ -36,11 +41,28 @@ class OpenAIChatMessage(BaseModel):
     role: str
     content: str
 
+class StoreTurnRequest(BaseModel):
+    user_prompt: str
+    assistant_response: str
+
+class MemoryQueryRequest(BaseModel):
+    query: str
+    k: int = 3
+
+class FunctionDefinition(BaseModel):
+    name: str
+    description: str
+    parameters: Dict[str, Any]
+
+class ToolDefinition(BaseModel):
+    type: str = "function"
+    function: FunctionDefinition
 
 class AgentChatRequest(BaseModel):
     messages: List[OpenAIChatMessage]
+    tools: Optional[List[ToolDefinition]] = None
     temperature: Optional[float] = 0.5
-
+    think: Optional[bool] = True
 
 class OpenAIChatCompletionRequest(BaseModel):
     messages: List[OpenAIChatMessage]
@@ -52,7 +74,8 @@ class OpenAIChatCompletionRequest(BaseModel):
 
 # --- Model Loading ---
 def load_main_llm():
-    logger.info(f"Loading main LLM: {MAIN_LLM_MODEL_ID} with 4-bit quantization...")
+    global memory_manager
+    logger.info(f"Attempting to load main LLM: {MAIN_LLM_MODEL_ID}")
     if not torch.cuda.is_available():
         logger.error("❌ No CUDA devices found. This model requires a GPU.")
         raise RuntimeError("CUDA is not available, but is required for this model.")
@@ -64,64 +87,132 @@ def load_main_llm():
         bnb_4bit_compute_dtype=torch.bfloat16,
         bnb_4bit_use_double_quant=True,
     )
+    logger.info("Using 4-bit quantization with BitsAndBytes.")
+    logger.debug(f"Quantization config: {quantization_config}")
+
     try:
+        logger.info("Loading tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained(MAIN_LLM_MODEL_ID)
+        models['main_llm_tokenizer'] = tokenizer
+        logger.info("✅ Tokenizer loaded.")
+
+        logger.info("Loading model... (This may take a moment)")
         model = AutoModelForCausalLM.from_pretrained(
             MAIN_LLM_MODEL_ID,
             quantization_config=quantization_config,
             device_map="auto",
             torch_dtype=torch.bfloat16,
         )
-        # summarizer_tokenizer = AutoTokenizer.from_pretrained(SUMMARIZER_MODEL_ID)
-        # summarizer_model = AutoModelForCausalLM.from_pretrained(SUMMARIZER_MODEL_ID)
-        # models['summarizer_tokenizer'] = summarizer_tokenizer
-        # models['summarizer_model'] = summarizer_model
-        models['main_llm_tokenizer'] = tokenizer
         models['main_llm_model'] = model
-        logger.info("✅ Main LLM loaded successfully.")
+        logger.info(f"✅ Model loaded and mapped to device(s): {model.device}")
+
+        logger.info("Initializing MemoryManager...")
+        memory_manager = MemoryManager()
+        logger.info("✅ MemoryManager initialized successfully.")
     except Exception as e:
-        logger.error(f"❌ Failed to load main LLM: {e}")
+        logger.error(f"❌ Failed to load main LLM: {e}", exc_info=True)
         raise
 
 
 # --- FastAPI Lifespan ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Server starting up...")
+    logger.info("🚀 Server starting up...")
     load_main_llm()
-    logger.info("✅ Server is ready and listening.")
+    logger.info("✅ Server is fully initialized and ready to accept requests.")
     yield
-    logger.info("Server shutting down.")
+    logger.info("🌙 Server shutting down.")
     models.clear()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+    logger.info("Server shutdown complete.")
 
 
 # --- FastAPI App Initialization ---
-app = FastAPI(title="Simple Agent Server", lifespan=lifespan)
+app = FastAPI(title="Anton Agent Server", version="1.0.0", lifespan=lifespan)
 
 
 # --- API Endpoints ---
+@app.post("/v1/memory/retrieve")
+async def retrieve_memory(request: MemoryQueryRequest):
+    logger.info(f"Received request on /v1/memory/retrieve for query: '{request.query}'")
+    if not memory_manager:
+        logger.error("MemoryManager not initialized, cannot retrieve memory.")
+        raise HTTPException(status_code=503, detail="MemoryManager not initialized")
+    try:
+        results = memory_manager.query_memories(request.query, request.k)
+        logger.info(f"Retrieved {len(results)} memories for query.")
+        logger.debug(f"Retrieved memories: {results}")
+        return {"memories": results}
+    except Exception as e:
+        logger.error(f"Failed to retrieve memories: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve memories.")
+
 @app.post("/v1/chat/stream")
 async def chat_completions_stream(request: OpenAIChatCompletionRequest):
+    logger.info("Received request on /v1/chat/stream")
+    logger.debug(f"Request details: {request.model_dump_json(indent=2)}")
     model = models.get('main_llm_model')
     tokenizer = models.get('main_llm_tokenizer')
     if not model or not tokenizer:
+        logger.error("Main LLM not available for streaming chat request.")
         raise HTTPException(status_code=503, detail="Main LLM not initialized")
 
-    return stream_base_model(tokenizer, request, model, )
+    return stream_base_model(tokenizer, request, model)
 
 
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
-    """Agent chat endpoint supporting chained tool calls."""
+    logger.info("Received request on /v1/agent/chat")
+    logger.info(f"Request contains {len(request.tools) if request.tools else 0} tools.")
+    logger.debug(f"Request details: {request.model_dump_json(indent=2)}")
+
     model = models.get('main_llm_model')
     tokenizer = models.get('main_llm_tokenizer')
+
+    if not model or not tokenizer:
+        logger.error("Main LLM not available for agent chat request.")
+        raise HTTPException(status_code=503, detail="Main LLM not initialized")
+
     return StreamingResponse(
-        execute_agent(request, logger, model, tokenizer),
-        media_type="text/plain"  # Or "text/event-stream" for server-sent events
+        run_agent_loop(request, logger, model, tokenizer),
+        media_type="text/plain"  # or "text/event-stream"
     )
 
 
+@app.post("/v1/memory/evaluate_and_store")
+async def evaluate_and_store_turn(request: StoreTurnRequest):
+    logger.info("Received request on /v1/memory/evaluate_and_store")
+    model = models.get('main_llm_model')
+    tokenizer = models.get('main_llm_tokenizer')
+    if not model or not tokenizer:
+        logger.error("Main LLM not available for memory evaluation.")
+        raise HTTPException(status_code=503, detail="Main LLM not initialized")
+
+    logger.info("Evaluating conversation turn for memorability...")
+    evaluation = await evaluate_turn_for_memorability(
+        request.user_prompt,
+        request.assistant_response,
+        model,
+        tokenizer
+    )
+    logger.info(f"Memorability evaluation result: {evaluation}")
+
+    if evaluation and evaluation.get("is_memorable"):
+        memory_content = evaluation.get("memory_content")
+        if memory_content:
+            logger.info("Turn deemed memorable. Storing content in vector memory.")
+            logger.debug(f"Content to be stored: '{memory_content}'")
+            memory_manager.store_memory(memory_text=memory_content)
+            return {"status": "stored", "detail": memory_content}
+        else:
+            logger.warning("Turn was marked memorable but no content was extracted.")
+            return {"status": "not_stored", "detail": "Marked memorable, but content was empty."}
+    else:
+        logger.info("Turn not deemed significant enough for long-term memory.")
+        return {"status": "not_stored", "detail": "Turn was not deemed significant enough for long-term memory."}
+
+
 if __name__ == "__main__":
+    logger.info(f"Starting Uvicorn server on {SERVER_HOST}:{SERVER_PORT}")
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)
