@@ -1,9 +1,8 @@
-# app.py
-import asyncio
 from typing import List, Dict
 
 import chainlit as cl
-from anton import Anton  # <-- Import the new Anton class
+
+from client.anton_client import AntonClient
 
 
 # NOTE: Your server with `execute_agent` must be running separately
@@ -13,7 +12,7 @@ from anton import Anton  # <-- Import the new Anton class
 @cl.on_chat_start
 async def on_chat_start():
     """Initializes the assistant and its memory when a new chat session starts."""
-    cl.user_session.set("anton", Anton())  # <-- Initialize our new class
+    cl.user_session.set("anton", AntonClient())  # <-- Initialize our new class
     cl.user_session.set("chat_history", [])
 
 
@@ -23,7 +22,7 @@ async def on_message(message: cl.Message):
     Handles incoming messages, streams thoughts and the final response,
     and learns from the exchange.
     """
-    anton: Anton = cl.user_session.get("anton")
+    anton: AntonClient = cl.user_session.get("anton")
     chat_history: List[Dict] = cl.user_session.get("chat_history")
 
     # Initialize the UI elements for thoughts and the final answer

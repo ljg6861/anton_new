@@ -60,5 +60,4 @@ def get_relevant_memories(user_prompt: str, memory_manager, top_k: int = 3) -> s
 
         return context_str
     except Exception as e:
-        logger.error(f"Failed to retrieve memories: {e}")
         return "Could not retrieve memories."

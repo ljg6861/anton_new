@@ -7,10 +7,16 @@ Contains the custom TextStreamer and the asynchronous generator for streaming mo
 import asyncio
 from queue import Queue
 from threading import Thread
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Union
 
 import torch
-from transformers import TextStreamer, PreTrainedModel, PreTrainedTokenizer
+from transformers import (
+    TextStreamer,
+    PreTrainedModel,
+    PreTrainedTokenizer,
+    AutoTokenizer,
+    AutoModelForSeq2SeqLM, # Use this for summarization models
+)
 
 class QueueTextStreamer(TextStreamer):
     """A custom TextStreamer that puts generated tokens into a thread-safe queue."""
@@ -26,24 +32,33 @@ class QueueTextStreamer(TextStreamer):
             self.token_queue.put(None)
 
 
-async def stream_model_response(
+async def stream_response(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizer,
-    messages: list[dict],
-        gen_kwargs: dict,
-    think: bool = True,
+    prompt: Union[str, list[dict]],
+    gen_kwargs: dict,
+        think: bool = True
 ) -> AsyncGenerator[str, None]:
     """
     An async generator that streams model outputs token-by-token.
-
-    It runs the synchronous `model.generate` in a separate thread to avoid
-    blocking the asyncio event loop and yields tokens as they become available.
+    It can handle both plain string prompts (for summarization) and chat message lists.
     """
-    streamer = QueueTextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+    streamer = QueueTextStreamer(
+        tokenizer,
+        skip_prompt=True,
+        skip_special_tokens=True
+    )
 
-    input_ids = tokenizer.apply_chat_template(
-        messages, add_generation_prompt=True, return_tensors="pt", enable_thinking=think
-    ).to(model.device)
+    # Prepare inputs for either a plain string or a chat template
+    if isinstance(prompt, str):
+        # Handle summarization prompt
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(model.device)
+    else:
+        # Handle chat prompt
+        input_ids = tokenizer.apply_chat_template(
+            prompt, add_generation_prompt=True, return_tensors="pt", enable_thinking = think
+        ).to(model.device)
+
 
     generation_args = {
         "input_ids": input_ids,
@@ -51,7 +66,7 @@ async def stream_model_response(
         **gen_kwargs,
     }
 
-    # Run generation in a separate thread
+    # Run generation in a separate thread to avoid blocking the event loop
     thread = Thread(target=model.generate, kwargs=generation_args)
     thread.start()
 

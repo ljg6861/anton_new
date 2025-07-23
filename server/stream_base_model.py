@@ -9,7 +9,7 @@ def stream_base_model(tokenizer, request, model):
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
     messages_dict = [msg.model_dump() for msg in request.messages]
     prompt = tokenizer.apply_chat_template(
-        messages_dict, tokenize=False, add_generation_prompt=True, enable_thinking=request.think,
+        messages_dict, tokenize=False, add_generation_prompt=True
     )
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     generation_kwargs = dict(

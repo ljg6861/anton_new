@@ -1,10 +1,6 @@
-import asyncio
 import logging
 import os
-from queue import Queue
 from typing import List, Optional, Dict, Any
-import json # Added for pretty printing debug logs
-
 import torch
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -14,12 +10,15 @@ from starlette.responses import StreamingResponse
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    BitsAndBytesConfig,
+    BitsAndBytesConfig, AutoModelForSeq2SeqLM,
 )
 
 from server.agent.agent_loop import run_agent_loop
 from server.helpers import evaluate_turn_for_memorability
+from server.intent_router import classify_intent
 from server.stream_base_model import stream_base_model
+from tools.tool_defs import STATIC_TOOLS
+from tools.tool_manager import tool_manager
 from utils.memory_manager import MemoryManager
 
 # --- Configuration ---
@@ -27,7 +26,8 @@ os.environ["HF_HOME"] = "./hf_cache"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MAIN_LLM_MODEL_ID = 'Qwen/Qwen3-8B'
+MAIN_LLM_MODEL_ID = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'
+SUMMARY_MODEL_ID = 'Qwen/Qwen3-0.6B'
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000
 
@@ -80,6 +80,11 @@ def load_main_llm():
         logger.error("❌ No CUDA devices found. This model requires a GPU.")
         raise RuntimeError("CUDA is not available, but is required for this model.")
     logger.info(f"✅ Found {torch.cuda.device_count()} CUDA device(s).")
+
+    print("--- Registering Static Tools ---")
+    for tool in STATIC_TOOLS:
+        tool_manager.register(tool)
+    print("--- Static Tool Registration Complete ---")
 
     quantization_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -163,21 +168,42 @@ async def chat_completions_stream(request: OpenAIChatCompletionRequest):
 
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
-    logger.info("Received request on /v1/agent/chat")
-    logger.info(f"Request contains {len(request.tools) if request.tools else 0} tools.")
-    logger.debug(f"Request details: {request.model_dump_json(indent=2)}")
+    last_user_message = request.messages[-1].content
 
-    model = models.get('main_llm_model')
-    tokenizer = models.get('main_llm_tokenizer')
+    intent = await classify_intent(last_user_message, request.model, request.tokenizer)
 
-    if not model or not tokenizer:
-        logger.error("Main LLM not available for agent chat request.")
-        raise HTTPException(status_code=503, detail="Main LLM not initialized")
+    if intent == 'simple_chat':
+        logger.info("Handling as simple_chat. Bypassing agent loop.")
+        # For a simple chat, we don't need a complex system prompt or tools
+        chat_messages = [
+            {"role": "system", "content": "You are a friendly and helpful conversational assistant."},
+            {"role": "user", "content": last_user_message}
+        ]
 
-    return StreamingResponse(
-        run_agent_loop(request, logger, model, tokenizer),
-        media_type="text/plain"  # or "text/event-stream"
-    )
+        async def simple_stream():
+            from server.agent.streaming import stream_response  # Assuming you have this
+            gen_kwargs = {"max_new_tokens": 1024, "temperature": 0.7, "pad_token_id": request.tokenizer.eos_token_id}
+            async for token in stream_response(request.model, request.tokenizer, chat_messages, gen_kwargs):
+                yield token
+
+        return StreamingResponse(simple_stream(), media_type="text/plain")
+
+    else:  # intent == 'task_execution'
+        logger.info("Handling as task_execution. Initiating agent loop.")
+
+        system_prompt = await build_system_prompt(last_user_message, memory_manager)
+        tool_schemas = tool_manager.get_tool_schemas()
+
+        # Inject the heavy context into the request messages
+        full_user_prompt = system_prompt + last_user_message
+        request.messages[-1].content = full_user_prompt
+        request.tools = tool_schemas  # Add tools to the request for the agent loop
+
+        # Run the original agent loop
+        return StreamingResponse(
+            run_agent_loop(request, logger, request.model, request.tokenizer),
+            media_type="text/plain"
+        )
 
 
 @app.post("/v1/memory/evaluate_and_store")

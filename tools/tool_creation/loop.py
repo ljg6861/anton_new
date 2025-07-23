@@ -2,7 +2,7 @@ import json
 
 import requests
 
-from tools.tool_creation.tool_creator import ToolCreator, ToolRegistry
+from tools.tool_creation.tool_creator import ToolCreator
 
 
 # --- Placeholder LLM Simulation Functions ---

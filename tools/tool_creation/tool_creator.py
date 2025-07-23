@@ -1,42 +1,31 @@
+# tools/tool_creation/tool_creator.py
+
 import os
-import importlib.util
 import re
-
-# The ToolRegistry class is correct as-is.
-class ToolRegistry:
-    """Manages the registration and retrieval of available tools."""
-
-    def __init__(self):
-        self.tools = {}
-
-    def register(self, tool_instance):
-        function_name = tool_instance.function["function"]["name"]
-        self.tools[function_name] = tool_instance
-        print(f"🔧 Tool '{function_name}' registered.")
-
-    def get_tool_schemas(self):
-        return [tool.function for tool in self.tools.values()]
+import importlib.util
+import inspect
+from tools.tool_manager import tool_manager  # <-- IMPORT THE MANAGER
 
 
 class ToolCreator:
     """
-    A tool for creating new, usable tools for the LLM.
-    It writes Python code to a file and dynamically loads it.
+    A tool for creating new, usable tools. It writes the code to a file
+    and registers the new tool with the central ToolManager.
     """
     function = {
         "type": "function",
         "function": {
             "name": "create_new_tool",
             "description": (
-                "Writes the Python code for a new tool to a file in the 'tools' directory "
-                "and makes it available for use in subsequent steps."
+                "Writes the Python code for a new tool to a file and makes it "
+                "immediately available for use in subsequent steps."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "tool_name": {
                         "type": "string",
-                        "description": "The snake_case name for the new tool (e.g., 'file_writer')."
+                        "description": "The snake_case name for the new tool's file (e.g., 'file_writer')."
                     },
                     "tool_code": {
                         "type": "string",
@@ -49,10 +38,7 @@ class ToolCreator:
     }
 
     def run(self, arguments: dict) -> str:
-        """
-        Executes tool logic: saves code, dynamically loads the new tool,
-        and registers it to the client's live tool lists.
-        """
+        """Saves code, dynamically loads the new tool, and registers it."""
         tool_name = arguments.get('tool_name')
         tool_code = arguments.get('tool_code')
 
@@ -61,17 +47,33 @@ class ToolCreator:
 
         try:
             sanitized_name = re.sub(r'[^a-zA-Z0-9_]', '', tool_name)
-            tools_dir = "tools"
+            # We'll create a dedicated directory for custom tools
+            tools_dir = "custom_tools"
             os.makedirs(tools_dir, exist_ok=True)
+
+            # Add an __init__.py to make it a package
+            init_path = os.path.join(tools_dir, "__init__.py")
+            if not os.path.exists(init_path):
+                open(init_path, 'a').close()
+
             file_path = os.path.join(tools_dir, f"{sanitized_name}.py")
 
             with open(file_path, "w", encoding='utf-8') as f:
                 f.write(tool_code)
 
-            spec = importlib.util.spec_from_file_location(sanitized_name, file_path)
+            # Dynamically load the new module
+            module_name = f"{tools_dir}.{sanitized_name}"
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
-            return f"✅ Success: Tool '{sanitized_name}' created and loaded. It is now available for the next turn."
+            # Find the class inside the loaded module and register it
+            for name, obj in inspect.getmembers(module, inspect.isclass):
+                if obj.__module__ == module_name:
+                    new_tool_instance = obj()
+                    tool_manager.register(new_tool_instance)  # <-- THE FIX
+                    return f"✅ Success: Tool '{sanitized_name}' created and loaded. It is now available."
+
+            return "❌ Error: Could not find a class to load in the provided tool code."
         except Exception as e:
             return f"❌ An unexpected error occurred: {str(e)}"
