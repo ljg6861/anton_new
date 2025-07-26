@@ -10,15 +10,15 @@ from starlette.responses import StreamingResponse
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    BitsAndBytesConfig, AutoModelForSeq2SeqLM,
-)
+    BitsAndBytesConfig, )
 
+from client.context_builder import ContextBuilder
 from server.agent.agent_loop import run_agent_loop
 from server.helpers import evaluate_turn_for_memorability
 from server.intent_router import classify_intent
 from server.stream_base_model import stream_base_model
-from tools.tool_defs import STATIC_TOOLS
-from tools.tool_manager import tool_manager
+from server.tools.tool_defs import STATIC_TOOLS
+from server.tools.tool_manager import tool_manager
 from utils.memory_manager import MemoryManager
 
 # --- Configuration ---
@@ -26,7 +26,7 @@ os.environ["HF_HOME"] = "./hf_cache"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MAIN_LLM_MODEL_ID = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B'
+MAIN_LLM_MODEL_ID = 'unsloth/DeepSeek-R1-Distill-Qwen-14B-unsloth-bnb-4bit'
 SUMMARY_MODEL_ID = 'Qwen/Qwen3-0.6B'
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000
@@ -105,6 +105,11 @@ def load_main_llm():
         model = AutoModelForCausalLM.from_pretrained(
             MAIN_LLM_MODEL_ID,
             quantization_config=quantization_config,
+            max_memory={
+                0 : "12GB",
+                1 : "11GB",
+                "cpu" : "28GB"
+            },
             device_map="auto",
             torch_dtype=torch.bfloat16,
         )
@@ -168,42 +173,24 @@ async def chat_completions_stream(request: OpenAIChatCompletionRequest):
 
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
+    model = models.get('main_llm_model')
+    tokenizer = models.get('main_llm_tokenizer')
     last_user_message = request.messages[-1].content
 
-    intent = await classify_intent(last_user_message, request.model, request.tokenizer)
+    logger.info("Handling as task_execution. Initiating agent loop.")
 
-    if intent == 'simple_chat':
-        logger.info("Handling as simple_chat. Bypassing agent loop.")
-        # For a simple chat, we don't need a complex system prompt or tools
-        chat_messages = [
-            {"role": "system", "content": "You are a friendly and helpful conversational assistant."},
-            {"role": "user", "content": last_user_message}
-        ]
+    system_prompt = await ContextBuilder().build_system_prompt(last_user_message)
+    tool_schemas = tool_manager.get_tool_schemas()
 
-        async def simple_stream():
-            from server.agent.streaming import stream_response  # Assuming you have this
-            gen_kwargs = {"max_new_tokens": 1024, "temperature": 0.7, "pad_token_id": request.tokenizer.eos_token_id}
-            async for token in stream_response(request.model, request.tokenizer, chat_messages, gen_kwargs):
-                yield token
+    full_user_prompt = system_prompt + last_user_message
+    request.messages[-1].content = full_user_prompt
+    request.tools = tool_schemas
 
-        return StreamingResponse(simple_stream(), media_type="text/plain")
-
-    else:  # intent == 'task_execution'
-        logger.info("Handling as task_execution. Initiating agent loop.")
-
-        system_prompt = await build_system_prompt(last_user_message, memory_manager)
-        tool_schemas = tool_manager.get_tool_schemas()
-
-        # Inject the heavy context into the request messages
-        full_user_prompt = system_prompt + last_user_message
-        request.messages[-1].content = full_user_prompt
-        request.tools = tool_schemas  # Add tools to the request for the agent loop
-
-        # Run the original agent loop
-        return StreamingResponse(
-            run_agent_loop(request, logger, request.model, request.tokenizer),
-            media_type="text/plain"
-        )
+    # Run the original agent loop
+    return StreamingResponse(
+        run_agent_loop(request, logger, model, tokenizer),
+        media_type="text/plain"
+    )
 
 
 @app.post("/v1/memory/evaluate_and_store")

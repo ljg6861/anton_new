@@ -31,8 +31,6 @@ class AntonClient:
         """
         assistant_response_for_memory = ""
         try:
-            # --- 1. Simplified Request ---
-            # The client no longer builds a complex system prompt. It just sends the raw data.
             yield {"type": "info", "content": "Sending request to agent..."}
             logger.info("Phase 1: Sending raw prompt to server for routing.")
 

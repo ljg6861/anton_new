@@ -10,13 +10,31 @@ logger = logging.getLogger(__name__)
 
 # The prompt for the classification model. It's a simple, zero-shot prompt.
 ROUTER_PROMPT = """
-You are an expert intent classifier. Your job is to determine the user's intent based on their message.
+You are an expert intent classifier. Your job is to determine the user's intent based on their message by following the examples provided.
 Classify the user's intent into one of the following categories:
 - 'simple_chat': For greetings, simple questions, chitchat, or any request that does not require external tools or knowledge of the file system.
 - 'task_execution': For complex requests that require executing code, accessing files, using git, searching the web, or any other tool-based action.
 
-User prompt: "{user_prompt}"
+--- EXAMPLES ---
 
+User prompt: "hello there"
+Intent: simple_chat
+
+User prompt: "read the file context_builder.py and tell me what it does"
+Intent: task_execution
+
+User prompt: "what do you think of Python?"
+Intent: simple_chat
+
+User prompt: "can you see your own source code?"
+Intent: task_execution
+
+User prompt: "list the files in the current directory"
+Intent: task_execution
+
+--- END EXAMPLES ---
+
+User prompt: "{user_prompt}"
 Based on the prompt, the user's intent is:
 """
 
@@ -36,7 +54,7 @@ async def classify_intent(
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
     # Use a very restrictive generation to get just the classification
-    outputs = await model.generate(
+    outputs = model.generate(
         **inputs,
         max_new_tokens=5,  # We only need a few tokens
         temperature=0.01,

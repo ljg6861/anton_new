@@ -119,7 +119,7 @@ class ListDirectoryTool:
     def run(self, arguments: dict) -> str:
         """Executes the tool's logic."""
         try:
-            path = arguments.get('path', '.')
+            path = arguments.get('path', '../../tools')
             recursive = arguments.get('recursive', True)
 
             if not os.path.isdir(path):
