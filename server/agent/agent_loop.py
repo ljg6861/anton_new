@@ -2,13 +2,14 @@
 from typing import AsyncGenerator, Any
 
 import httpx
+from torch import cuda
 
 from client.context_builder import ContextBuilder
 from server.agent.knowledge_handler import process_learning_request, LEARN_TAG_REGEX
 from server.agent.message_handler import prepare_initial_messages, handle_loop_detection
 from server.agent import config
 from server.agent.prompts import get_thinking_prompt
-from server.agent.tool_executor import process_tool_call
+from server.agent.tool_executor import process_tool_calls
 from server.model_server import AgentChatRequest
 
 
@@ -66,7 +67,7 @@ async def run_agent_loop(request: AgentChatRequest, logger: Any, api_base_url: s
             content = response_buffer
         messages.append({"role": "assistant", "content": content})
 
-        was_called = await process_tool_call(content, config.TOOL_CALL_REGEX, messages, logger)
+        was_called = await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger)
         was_knowledge_added = await process_learning_request(
             response_buffer=content,
             logger=logger
@@ -76,6 +77,7 @@ async def run_agent_loop(request: AgentChatRequest, logger: Any, api_base_url: s
             print("✅ Agent has learned something new.")
         if not was_called:
             logger.info("No tool call detected. Ending conversation.")
+            cuda.empty_cache()
             return
 
     logger.warning("Agent reached maximum turn limit.")

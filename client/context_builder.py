@@ -11,8 +11,7 @@ from typing import List, Dict
 
 from server.agent.prompts import get_thinking_prompt
 from server.agent.rag_manager import rag_manager
-from server.tools.tool_manager import tool_manager
-from utils.context_gatherer import get_git_diff
+from server.agent.tools.tool_manager import tool_manager
 
 # Set up a dedicated logger for this module
 logger = logging.getLogger(__name__)

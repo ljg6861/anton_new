@@ -4,7 +4,7 @@
 Handles the execution of tools from the tool registry.
 """
 
-from server.tools.tool_manager import tool_manager
+from server.agent.tools.tool_manager import tool_manager
 
 # agent/tool_handler.py
 
@@ -12,41 +12,56 @@ from server.tools.tool_manager import tool_manager
 Handles parsing and execution of tool calls from the model's output.
 """
 import json
-from typing import Tuple, Any
+from typing import Any
 
-async def process_tool_call(
+
+async def process_tool_calls(
         response_buffer: str,
         tool_call_regex: Any,
         messages: list[dict],
         logger: Any
 ) -> bool:
     """
-    Parses and executes a tool call from the model's response buffer.
+    Parses and executes all tool calls from the model's response buffer.
 
     Returns:
-        A tuple containing (yield_message, was_tool_called).
+        True if at least one tool was called, False otherwise.
     """
-    tool_match = tool_call_regex.search(response_buffer)
-    if not tool_match:
-        return False
+    tool_calls_made = False
+    matches = tool_call_regex.finditer(response_buffer)
 
-    tool_call_content = tool_match.group(1).strip()
-    try:
-        tool_data = json.loads(tool_call_content)
-        tool_name = tool_data["name"]
-        logger.info(f"Processing tool call: {tool_name}")
-        tool_args = tool_data.get("arguments", {})
+    # Loop through all found tool calls
+    for match in matches:
+        tool_calls_made = True
+        tool_call_content = match.group(1).strip()
 
-        tool_result = execute_tool(tool_name, tool_args, logger)
-        tool_result_str = json.dumps({"result": tool_result})
-        messages.append({"role": "tool", "content": tool_result_str})
+        try:
+            tool_data = json.loads(tool_call_content)
+            tool_name = tool_data.get("name")
+            if not tool_name:
+                raise KeyError("'name' not found in tool data.")
 
-    except (json.JSONDecodeError, KeyError) as e:
-        error_msg = f"Error: Invalid tool call format. Reason: {e}"
-        logger.error(f"{error_msg}\nContent: {tool_call_content}")
-        messages.append({"role": "tool", "content": json.dumps({"error": error_msg})})
+            logger.info(f"Processing tool call: {tool_name}")
+            tool_args = tool_data.get("arguments", {})
 
-    return True
+            # Execute the tool and get the result
+            tool_result = execute_tool(tool_name, tool_args, logger)
+
+            # Append the structured tool result to messages
+            messages.append({
+                "role": "tool",
+                "content": json.dumps({
+                    "tool_name": tool_name,
+                    "result": tool_result
+                })
+            })
+
+        except (json.JSONDecodeError, KeyError) as e:
+            error_msg = f"Error: Invalid tool call format. Reason: {e}"
+            logger.error(f"{error_msg}\nContent: {tool_call_content}")
+            messages.append({"role": "tool", "content": json.dumps({"error": error_msg})})
+
+    return tool_calls_made
 
 
 def execute_tool(tool_name: str, tool_args: dict, logger) -> str:

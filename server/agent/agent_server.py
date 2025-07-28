@@ -6,8 +6,8 @@ from typing import List, Optional, Dict, Any
 from starlette.responses import StreamingResponse
 
 from server.agent.agent_loop import run_agent_loop # Import your loop
-from server.tools.tool_defs import STATIC_TOOLS
-from server.tools.tool_manager import tool_manager
+from server.agent.tools.tool_defs import STATIC_TOOLS
+from server.agent.tools.tool_manager import tool_manager
 
 # --- Configuration ---
 AGENT_SERVER_HOST = "0.0.0.0"

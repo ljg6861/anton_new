@@ -3,6 +3,7 @@ import os
 
 
 os.environ["HF_HOME"] = "D:/huggingface"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 from typing import List, Optional, Dict, Any
 import torch
 import uvicorn
@@ -19,7 +20,7 @@ from utils.memory_manager import MemoryManager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MAIN_LLM_MODEL_ID = 'unsloth/Qwen3-14B-unsloth-bnb-4bit'
+MAIN_LLM_MODEL_ID = 'unsloth/Qwen3-8B-unsloth-bnb-4bit'
 SUMMARY_MODEL_ID = 'Qwen/Qwen3-0.6B'
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000

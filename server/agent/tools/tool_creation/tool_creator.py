@@ -4,7 +4,7 @@ import os
 import re
 import importlib.util
 import inspect
-from server.tools.tool_manager import tool_manager  # <-- IMPORT THE MANAGER
+from server.agent.tools.tool_manager import tool_manager  # <-- IMPORT THE MANAGER
 
 
 class ToolCreator:
