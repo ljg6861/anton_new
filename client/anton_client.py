@@ -54,12 +54,6 @@ class AntonClient:
             logger.error(f"API call failed during stream: {e}", exc_info=True)
             yield {"type": "error", "content": error_message}
             return
-        finally:
-            # --- 3. Finalization (remains the same) ---
-            logger.info("Agent stream finished. Storing conversation history.")
-            # Note: The server could also handle this, but leaving it here is fine.
-            await self.api_client.store_conversation(user_prompt, assistant_response_for_memory)
-            yield {"type": "info", "content": "Done."}
 
     async def close(self):
         """Closes the underlying API client session."""

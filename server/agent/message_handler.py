@@ -5,8 +5,10 @@ Handles conversation history management and reasoning loop detection.
 """
 from typing import Any, List, Dict
 
+from server.model_server import OpenAIChatMessage
 
-def prepare_initial_messages(request_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+def prepare_initial_messages(request_messages: List[OpenAIChatMessage]) -> List[Dict[str, Any]]:
     """Prepares the initial list of messages for the agent from the request."""
     # This is a good place to inject a system prompt if needed.
     return [msg.model_dump() for msg in request_messages]

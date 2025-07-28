@@ -4,11 +4,6 @@ import chainlit as cl
 
 from client.anton_client import AntonClient
 
-
-# NOTE: Your server with `execute_agent` must be running separately
-# You can run it with: uvicorn your_server_file:app --host 0.0.0.0 --port 8000
-
-
 @cl.on_chat_start
 async def on_chat_start():
     """Initializes the assistant and its memory when a new chat session starts."""
@@ -37,8 +32,6 @@ async def on_message(message: cl.Message):
                 user_prompt=message.content, chat_history=chat_history
         ):
             if chunk["type"] == "thought":
-                # Stream thoughts to the "Thinking" message box
-                # The "•" creates a nice bulleted list of thoughts
                 await thought_msg.stream_token(f"• {chunk['content']}\n")
 
             elif chunk["type"] == "tool_result":

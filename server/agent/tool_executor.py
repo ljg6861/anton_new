@@ -19,7 +19,7 @@ async def process_tool_call(
         tool_call_regex: Any,
         messages: list[dict],
         logger: Any
-) -> Tuple[str, bool]:
+) -> bool:
     """
     Parses and executes a tool call from the model's response buffer.
 
@@ -28,16 +28,15 @@ async def process_tool_call(
     """
     tool_match = tool_call_regex.search(response_buffer)
     if not tool_match:
-        return "", False
+        return False
 
     tool_call_content = tool_match.group(1).strip()
-    yield_message = ""
     try:
         tool_data = json.loads(tool_call_content)
         tool_name = tool_data["name"]
+        logger.info(f"Processing tool call: {tool_name}")
         tool_args = tool_data.get("arguments", {})
 
-        yield_message = f"\n[INFO: Calling tool `{tool_name}`...]\n"
         tool_result = execute_tool(tool_name, tool_args, logger)
         tool_result_str = json.dumps({"result": tool_result})
         messages.append({"role": "tool", "content": tool_result_str})
@@ -46,9 +45,8 @@ async def process_tool_call(
         error_msg = f"Error: Invalid tool call format. Reason: {e}"
         logger.error(f"{error_msg}\nContent: {tool_call_content}")
         messages.append({"role": "tool", "content": json.dumps({"error": error_msg})})
-        yield_message = f"\n[{error_msg}]\n"
 
-    return yield_message, True
+    return True
 
 
 def execute_tool(tool_name: str, tool_args: dict, logger) -> str:

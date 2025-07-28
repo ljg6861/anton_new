@@ -68,3 +68,4 @@ venv.bak/
 
 # Custom - For your project
 hf_cache/
+.chainlit/

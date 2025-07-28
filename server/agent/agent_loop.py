@@ -1,70 +1,74 @@
 # agent/agent_loop.py
-
-"""
-The core orchestrator for the multi-turn, streaming agent.
-"""
-import asyncio
 from typing import AsyncGenerator, Any
 
-# Local, refactored module imports
+import httpx
+
+from client.context_builder import ContextBuilder
 from server.agent.message_handler import prepare_initial_messages, handle_loop_detection
 from server.agent import config
-from server.agent.rag_handler import RAGHandler
+from server.agent.prompts import get_thinking_prompt
 from server.agent.tool_executor import process_tool_call
-
-# External dependency for streaming
-from server.agent.streaming import stream_response
+from server.model_server import AgentChatRequest
 
 
-async def run_agent_loop(request: Any, logger: Any, model: Any, tokenizer: Any) -> AsyncGenerator[str, None]:
+async def _stream_model_response(api_base_url: str, messages: list[dict], logger: Any, tools) -> AsyncGenerator[str, None]:
     """
-    Manages the agentic loop, orchestrating message handling, streaming,
-    loop detection, and tool execution.
+    Calls the server's streaming chat endpoint and yields the response tokens.
+    """
+    request_payload = {
+        "messages": messages,
+        "temperature": 0.6,
+        'tools' : tools,
+    }
+
+    async with httpx.AsyncClient(timeout=None) as client:
+        print("Calling endpoint: " + api_base_url + '/v1/chat/stream')
+        try:
+            async with client.stream("POST", f"{api_base_url}/v1/chat/stream", json=request_payload) as response:
+                response.raise_for_status()
+                async for chunk in response.aiter_text():
+                    yield chunk
+        except httpx.RequestError as e:
+            logger.error(f"API request to model server failed: {e}")
+            yield f"\n[ERROR: Could not connect to the model server: {e}]\n"
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during model streaming: {e}", exc_info=True)
+            yield f"\n[ERROR: An unexpected error occurred: {e}]\n"
+
+
+async def run_agent_loop(request: AgentChatRequest, logger: Any, api_base_url: str) -> AsyncGenerator[str, None]:
+    """
+    Manages the agentic loop by making API calls to the model server.
+    This function is now decoupled from the model and tokenizer objects.
     """
     messages = prepare_initial_messages(request.messages)
-    gen_kwargs = config.get_generation_kwargs(tokenizer)
-    recent_thoughts: list[str] = []
-
-    # ✨ NEW: Instantiate the handler to be used for post-response learning.
-    rag_handler = RAGHandler(model, tokenizer, logger)
+    messages.insert(0, {'role' : 'system', 'content' : await ContextBuilder().build_system_prompt()})
 
     for turn in range(config.MAX_TURNS):
         logger.info(f"--- Agent Turn {turn + 1}/{config.MAX_TURNS} ---")
 
         response_buffer = ""
+        thinking = True
 
-        stream_generator = stream_response(model, tokenizer, messages, gen_kwargs)
+        stream_generator = _stream_model_response(api_base_url, messages, logger, request.tools)
+
         async for token in stream_generator:
-            yield token
+            if thinking:
+                if "</think>" in response_buffer:
+                    thinking = False
             response_buffer += token
+            yield token
 
-        thought_match = config.THOUGHT_SUMMARY_REGEX.search(response_buffer)
-        current_thought = thought_match.group(1).strip() if thought_match else ""
-
-        if current_thought:
-            if handle_loop_detection(recent_thoughts, current_thought, messages, logger,
-                                     config.LOOP_DETECTION_THRESHOLD):
-                yield "\n[INFO: Agent stuck in a loop. Forcing a new approach...]\n"
-                continue
-            yield f"🤔 {current_thought}\n"
+        if len(response_buffer.split("</think>")) > 1 :
+            content = response_buffer.split("</think>")[1]
         else:
-            recent_thoughts.clear()
+            content = response_buffer
+        messages.append({"role": "assistant", "content": content})
 
-        content_to_append = config.THOUGHT_SUMMARY_REGEX.sub("", response_buffer).lstrip()
-        messages.append({"role": "assistant", "content": content_to_append})
-
-        tool_message, was_called = await process_tool_call(response_buffer, config.TOOL_CALL_REGEX, messages, logger)
-        if tool_message:
-            yield tool_message
+        was_called = await process_tool_call(content, config.TOOL_CALL_REGEX, messages, logger)
 
         if not was_called:
-            final_answer = content_to_append.strip()
-            yield final_answer
             logger.info("No tool call detected. Ending conversation.")
-
-            asyncio.create_task(rag_handler.review_and_learn(
-                conversation_history=list(messages)  # Pass a copy
-            ))
             return
 
     logger.warning("Agent reached maximum turn limit.")

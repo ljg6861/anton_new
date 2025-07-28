@@ -6,6 +6,7 @@ for the agent's prompt.
 """
 
 import logging
+import subprocess
 from typing import List, Dict
 
 from server.agent.prompts import get_thinking_prompt
@@ -19,29 +20,49 @@ logger = logging.getLogger(__name__)
 class ContextBuilder:
     """Gathers and formats context for the agent."""
 
-    def __init__(self):
-        """
-        Initializes the ContextBuilder.
-
-        Args:
-            api_client: An instance of ApiClient to fetch remote context (e.g., memories).
-        """
-
     def get_tool_context(self) -> List[Dict]:
         """Gets the schemas of the available tools."""
         tool_schemas = tool_manager.get_tool_schemas()
         logger.info(f"Making {len(tool_schemas)} tools available for this request.")
         return tool_schemas
 
-    async def build_system_prompt(self, user_prompt: str) -> str:
-        logger.info("Building system prompt with git and memory context.")
-        git_context = get_git_diff()
+    def get_project_structure(self) -> str:
+        try:
+            # 1) find the absolute path to the Git repo root
+            toplevel = subprocess.run(
+                ['git', 'rev-parse', '--show-toplevel'],
+                capture_output=True,
+                text=True,
+                check=True
+            ).stdout.strip()
 
+            # 2) list all tracked files from that root
+            result = subprocess.run(
+                ['git', 'ls-files'],
+                cwd=toplevel,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            logger.info("Successfully retrieved project structure via 'git ls-files'.")
+            return result.stdout.strip()
+
+        except FileNotFoundError:
+            msg = "Error: Git command not found. Is Git installed and in your PATH?"
+            logger.error(msg)
+            return msg
+
+        except subprocess.CalledProcessError as e:
+            # could fail either on rev-parse (not a repo) or ls-files
+            stderr = e.stderr.strip() or e.stdout.strip()
+            msg = f"Error retrieving project structure. Are you in a Git repo?\nDetails: {stderr}"
+            logger.error(msg)
+            return msg
+
+    async def build_system_prompt(self) -> str:
         system_prompt = (
             "--- AUTOMATIC CONTEXT ---\n"
-            f"## Git Status:\n{git_context}\n"
+            f'## Your source code files:\n {self.get_project_structure()}\n'
             "\n--- END CONTEXT ---\n\n"
-            + get_thinking_prompt() +
-            "Based on the context above, please begin the following:\n"
-        )
+            + get_thinking_prompt().replace('{tools}', str(self.get_tool_context())))
         return system_prompt
