@@ -27,7 +27,7 @@ def stream_base_model(tokenizer, request, model):
     generation_kwargs = dict(
         **inputs,
         streamer=streamer,
-        max_new_tokens=2048,
+        max_new_tokens=1024,
         temperature=request.temperature or 0.6,
         do_sample=(request.temperature or 0.6) > 0,
     )

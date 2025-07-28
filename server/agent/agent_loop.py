@@ -4,6 +4,7 @@ from typing import AsyncGenerator, Any
 import httpx
 
 from client.context_builder import ContextBuilder
+from server.agent.knowledge_handler import process_learning_request, LEARN_TAG_REGEX
 from server.agent.message_handler import prepare_initial_messages, handle_loop_detection
 from server.agent import config
 from server.agent.prompts import get_thinking_prompt
@@ -42,7 +43,7 @@ async def run_agent_loop(request: AgentChatRequest, logger: Any, api_base_url: s
     This function is now decoupled from the model and tokenizer objects.
     """
     messages = prepare_initial_messages(request.messages)
-    messages.insert(0, {'role' : 'system', 'content' : await ContextBuilder().build_system_prompt()})
+    messages.insert(0, {'role' : 'system', 'content' : await ContextBuilder().build_system_prompt(request.messages[-1].content)})
 
     for turn in range(config.MAX_TURNS):
         logger.info(f"--- Agent Turn {turn + 1}/{config.MAX_TURNS} ---")
@@ -66,7 +67,13 @@ async def run_agent_loop(request: AgentChatRequest, logger: Any, api_base_url: s
         messages.append({"role": "assistant", "content": content})
 
         was_called = await process_tool_call(content, config.TOOL_CALL_REGEX, messages, logger)
+        was_knowledge_added = await process_learning_request(
+            response_buffer=content,
+            logger=logger
+        )
 
+        if was_knowledge_added:
+            print("✅ Agent has learned something new.")
         if not was_called:
             logger.info("No tool call detected. Ending conversation.")
             return

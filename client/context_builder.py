@@ -10,6 +10,7 @@ import subprocess
 from typing import List, Dict
 
 from server.agent.prompts import get_thinking_prompt
+from server.agent.rag_manager import rag_manager
 from server.tools.tool_manager import tool_manager
 from utils.context_gatherer import get_git_diff
 
@@ -59,10 +60,20 @@ class ContextBuilder:
             logger.error(msg)
             return msg
 
-    async def build_system_prompt(self) -> str:
+    async def build_system_prompt(self, query: str) -> str:
         system_prompt = (
             "--- AUTOMATIC CONTEXT ---\n"
             f'## Your source code files:\n {self.get_project_structure()}\n'
+            f'## Things that might help:\n {self.find_relevant_context(query)}'
             "\n--- END CONTEXT ---\n\n"
             + get_thinking_prompt().replace('{tools}', str(self.get_tool_context())))
         return system_prompt
+
+    def find_relevant_context(self, query: str):
+        print(f"\n🔍 Searching for context related to: '{query}'")
+        relevant_docs = rag_manager.retrieve_knowledge(query=query, top_k=2)
+        if relevant_docs:
+            for doc in relevant_docs:
+                print(f"  - Source: {doc['source']}\n    Knowledge: {doc['text']}")
+        else:
+            print("  - No relevant knowledge found.")
