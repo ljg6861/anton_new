@@ -1,6 +1,8 @@
 import os
 import json
 
+import pathspec
+
 # --- START: Added for Project Root ---
 # Get the absolute path of the directory containing this script (server/tools)
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -135,23 +137,24 @@ class ReadFileTool:
 
 class ListDirectoryTool:
     """
-    A tool for listing the contents of a directory within the project.
+    A tool for listing the contents of a directory, ignoring files and folders
+    specified in the project's .gitignore file.
     """
     function = {
         "type": "function",
         "function": {
             "name": "list_directory",
-            "description": "Lists all files and subdirectories within a given path, relative to the project root.",
+            "description": "Lists files and subdirectories within a given path, ignoring anything in .gitignore.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "The path to the directory to inspect, relative to the project root. Defaults to '.' (the project root)."
+                        "description": "The path to the directory, relative to the project root. Defaults to '.' (the project root)."
                     },
                     "recursive": {
                         "type": "boolean",
-                        "description": "Whether to list directories and files recursively. Defaults to True."
+                        "description": "Whether to list contents recursively. Defaults to True."
                     }
                 }
             }
@@ -159,43 +162,82 @@ class ListDirectoryTool:
     }
 
     def run(self, arguments: dict) -> str:
-        """Executes the tool's logic."""
+        """Executes the tool's logic, filtering results based on .gitignore."""
         try:
-            # Default path is now '.', representing the project root itself
-            path_arg = arguments.get('path', '')
+            path_arg = arguments.get('path', '.')
             recursive = arguments.get('recursive', True)
 
-            # Use the helper to get a safe, absolute path
+            # These are assumed to be defined elsewhere in your project
+            project_root = PROJECT_ROOT
             safe_path = _resolve_path(path_arg)
 
             if not os.path.isdir(safe_path):
                 return f"❌ Error: The path '{path_arg}' is not a valid directory."
 
-            display_path = path_arg if path_arg != '.' else 'project root'
+            # Load .gitignore rules from the project root
+            spec = None
+            gitignore_path = os.path.join(project_root, '.gitignore')
+            if os.path.exists(gitignore_path):
+                with open(gitignore_path, 'r') as f:
+                    spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
 
+            display_path = path_arg if path_arg != '.' else 'project root'
+            output_message = f"✅ Contents of '{display_path}' (respecting .gitignore):\n"
+
+            # --- Non-Recursive Listing ---
             if not recursive:
                 entries = os.listdir(safe_path)
-                return f"✅ Contents of '{display_path}':\n" + "\n".join(entries)
+                if spec:
+                    relative_path = os.path.relpath(safe_path, project_root)
+                    if relative_path == '.': relative_path = ''
+                    entries = [
+                        e for e in entries
+                        if not spec.match_file(os.path.join(relative_path, e))
+                    ]
+                return output_message + "\n".join(sorted(entries))
 
-            output = f"✅ Recursive listing for '{display_path}':\n"
-            for root, dirs, files in os.walk(safe_path):
-                # Sort for consistent output
+            # --- Recursive Listing ---
+            output_lines = []
+            has_content = False
+            for root, dirs, files in os.walk(safe_path, topdown=True):
+                # Filter directories and files using .gitignore spec
+                if spec:
+                    relative_root = os.path.relpath(root, project_root)
+                    if relative_root == '.': relative_root = ''
+
+                    # Filter dirs IN-PLACE so os.walk doesn't traverse them
+                    dirs[:] = [d for d in dirs if not spec.match_file(os.path.join(relative_root, d))]
+                    files = [f for f in files if not spec.match_file(os.path.join(relative_root, f))]
+
+                # Don't bother printing empty directories
+                if not files and not dirs:
+                    continue
+
+                has_content = True
                 dirs.sort()
                 files.sort()
 
-                # Calculate indentation level relative to the starting safe_path
-                level = root.replace(safe_path, '').count(os.sep)
+                level = root.replace(safe_path, '', 1).count(os.sep)
                 indent = ' ' * 4 * level
 
-                if level == 0:
-                    output += f"{indent}{os.path.basename(root) or '.'}/\n"
-                else:
-                    output += f"{indent}📁 {os.path.basename(root)}/\n"
+                dir_name = os.path.basename(root)
+                if root == safe_path:
+                    dir_name = display_path
+
+                output_lines.append(f"{indent}📁 {dir_name}/")
 
                 sub_indent = ' ' * 4 * (level + 1)
                 for f in files:
-                    output += f"{sub_indent}📄 {f}\n"
-            return output.strip()
+                    output_lines.append(f"{sub_indent}📄 {f}")
+
+            if not has_content and os.listdir(safe_path):
+                return f"✅ All contents of '{display_path}' are ignored by .gitignore."
+
+            if not has_content:
+                return f"✅ The directory '{display_path}' is empty."
+
+            return output_message + "\n".join(output_lines)
+
         except ValueError as e:
             return f"❌ Security Error: {str(e)}"
         except Exception as e:

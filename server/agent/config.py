@@ -9,6 +9,10 @@ from typing import Any
 # --- Agent Behavior ---
 MAX_TURNS = 10
 LOOP_DETECTION_THRESHOLD = 2
+# --- Roles ---
+USER_ROLE = "user"
+ASSISTANT_ROLE = "assistant"
+SYSTEM_ROLE = "system"
 
 # --- Regex Patterns ---
 TOOL_CALL_REGEX = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)

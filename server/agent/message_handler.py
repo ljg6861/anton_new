@@ -5,8 +5,7 @@ Handles conversation history management and reasoning loop detection.
 """
 from typing import Any, List, Dict
 
-from server.model_server import OpenAIChatMessage
-
+from server.helpers import OpenAIChatMessage
 
 def prepare_initial_messages(request_messages: List[OpenAIChatMessage]) -> List[Dict[str, Any]]:
     """Prepares the initial list of messages for the agent from the request."""

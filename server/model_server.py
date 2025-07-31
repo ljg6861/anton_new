@@ -1,138 +1,183 @@
 import logging
 import os
-
-
-os.environ["HF_HOME"] = "D:/huggingface"
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-from typing import List, Optional, Dict, Any
-import torch
+import time
+import psutil
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
-from pydantic import BaseModel
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer, BitsAndBytesConfig, LlamaForCausalLM, )
-from server.stream_base_model import stream_base_model
-from utils.memory_manager import MemoryManager
+from typing import AsyncGenerator
+import ollama # Import the ollama client library
 
-# --- Configuration ---
+from metrics import MetricsTracker
+from server.helpers import AgentChatRequest
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MAIN_LLM_MODEL_ID = 'unsloth/Qwen3-8B-unsloth-bnb-4bit'
-SUMMARY_MODEL_ID = 'Qwen/Qwen3-0.6B'
+OLLAMA_MODEL_ID = 'qwen3:30b-a3b-thinking-2507-q4_K_M'
+SMALL_MODEL_ID = 'mistral:7b-instruct-v0.3-q4_K_M'
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# ----------------------------
+
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8000
+MAX_SEQ_LENGTH = 8192 # This is less critical here as Ollama manages context internally
 
-# --- Global State ---
-models = {}
-memory_manager = None
+def get_all_resource_usage(logger_instance) -> dict:
+    """
+    Captures a snapshot of current CPU, RAM usage.
+    GPU monitoring via pynvml is removed as Ollama abstracts this.
+    If you need GPU stats, consider `nvidia-smi` via subprocess.
+    """
+    usage = {
+        "cpu_percent": psutil.cpu_percent(),
+        "ram_percent": psutil.virtual_memory().percent,
+        "gpus": [] # Placeholder, as we don't have direct pynvml access here
+    }
+    # You could add subprocess calls to `nvidia-smi` here if detailed GPU stats are critical,
+    # but be aware of the performance overhead for frequent calls.
+    return usage
 
-
-# --- Pydantic Models ---
-class OpenAIChatMessage(BaseModel):
-    role: str
-    content: str
-
-class StoreTurnRequest(BaseModel):
-    user_prompt: str
-    assistant_response: str
-
-class MemoryQueryRequest(BaseModel):
-    query: str
-    k: int = 3
-
-class FunctionDefinition(BaseModel):
-    name: str
-    description: str
-    parameters: Dict[str, Any]
-
-class ToolDefinition(BaseModel):
-    type: str = "function"
-    function: FunctionDefinition
-
-class AgentChatRequest(BaseModel):
-    messages: List[OpenAIChatMessage]
-    tools: Optional[List[ToolDefinition]] = None
-    temperature: Optional[float] = 0.6
-    think: Optional[bool] = True
-
-class OpenAIChatCompletionRequest(BaseModel):
-    messages: List[OpenAIChatMessage]
-    max_tokens: Optional[int] = 1024
-    temperature: Optional[float] = 0.3
-    stream: Optional[bool] = False
-    think: Optional[bool] = False
-
-
-# --- Model Loading ---
-def load_main_llm():
-    global memory_manager
-    logger.info(f"Attempting to load main LLM: {MAIN_LLM_MODEL_ID}")
-    if not torch.cuda.is_available():
-        logger.error("❌ No CUDA devices found. This model requires a GPU.")
-        raise RuntimeError("CUDA is not available, but is required for this model.")
-    logger.info(f"✅ Found {torch.cuda.device_count()} CUDA device(s).")
-    logger.info("Using 4-bit quantization with BitsAndBytes.")
-
-    try:
-        logger.info("Loading tokenizer...")
-        tokenizer = AutoTokenizer.from_pretrained(MAIN_LLM_MODEL_ID)
-        models['main_llm_tokenizer'] = tokenizer
-        logger.info("✅ Tokenizer loaded.")
-        logger.info("Loading model... (This may take a moment)")
-        model = AutoModelForCausalLM.from_pretrained(
-            MAIN_LLM_MODEL_ID,
-            max_memory={
-                0 : "13GB",
-                1 : "11GB",
-                "cpu" : "28GB"
-            },
-            device_map="auto",
-            trust_remote_code=True,
-            attn_implementation="sdpa",
-            torch_dtype=torch.bfloat16,
-        )
-        models['main_llm_model'] = model
-        logger.info(f"✅ Model loaded and mapped to device(s): {model.device}")
-
-        logger.info("Initializing MemoryManager...")
-        memory_manager = MemoryManager()
-        logger.info("✅ MemoryManager initialized successfully.")
-    except Exception as e:
-        logger.error(f"❌ Failed to load main LLM: {e}", exc_info=True)
-        raise
-
-
-# --- FastAPI Lifespan ---
+# --- FastAPI Lifespan (Startup/Shutdown Events) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Server starting up...")
-    load_main_llm()
+
+    logger.info("--- OLLAMA MODEL CHECK METRICS ---")
+
+    pre_load_usage = get_all_resource_usage(logger)
+
+    startup_start_time = time.monotonic()
+    startup_duration = time.monotonic() - startup_start_time
+
+    post_load_usage = get_all_resource_usage(logger)
+
+    # Simplified resource logging as GPU details are not directly accessible via pynvml
+    logger.info(
+        f"[Resources] Pre-Load  - CPU: {pre_load_usage['cpu_percent']:.1f}%, RAM: {pre_load_usage['ram_percent']:.1f}%"
+    )
+    logger.info(
+        f"[Resources] Post-Load - CPU: {post_load_usage['cpu_percent']:.1f}%, RAM: {post_load_usage['ram_percent']:.1f}%"
+    )
+
+    cpu_diff = post_load_usage['cpu_percent'] - pre_load_usage['cpu_percent']
+    ram_diff = post_load_usage['ram_percent'] - pre_load_usage['ram_percent']
+
+    logger.info(
+        f"[Resources] Difference- CPU: {cpu_diff:+.1f}%, RAM: {ram_diff:+.1f}%"
+    )
+
+    logger.info(f"[Latency] Ollama model check complete in {startup_duration:.2f} seconds.")
+    logger.info("-----------------------------")
+
     logger.info("✅ Server is fully initialized and ready to accept requests.")
     yield
     logger.info("🌙 Server shutting down.")
-    models.clear()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
     logger.info("Server shutdown complete.")
 
 
-# --- FastAPI App Initialization ---
-app = FastAPI(title="Anton Agent Server", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Ollama API Server", version="1.0.0", lifespan=lifespan)
+
+
+async def metrics_collecting_stream_generator(
+        ollama_stream: AsyncGenerator[dict, None], # Ollama streams dictionaries
+        metrics: MetricsTracker
+) -> AsyncGenerator[str, None]:
+    chunk_count = 0
+    metrics.get_resource_usage = lambda: get_all_resource_usage(logger)
+    metrics.resource_snapshots['request_start'] = metrics.get_resource_usage()
+    try:
+        async for chunk in ollama_stream:
+            # Ollama's chat API yields dicts with a 'content' field in 'message'
+            if 'message' in chunk and 'content' in chunk['message']:
+                yield chunk['message']['content']
+                chunk_count += 1
+            elif 'done' in chunk and chunk['done']:
+                # The 'done' chunk signifies the end and contains final metrics
+                pass # We'll process final metrics in finally block
+    finally:
+        metrics.end_time = time.monotonic()
+        metrics.step_token_counts['generation'] = chunk_count
+        e2e_latency = metrics.end_time - metrics.start_time
+        throughput = chunk_count / e2e_latency if e2e_latency > 0 else 0
+        metrics.resource_snapshots['request_end'] = metrics.get_resource_usage()
+        logger.info("--- REQUEST METRICS ---")
+        logger.info(f"[Latency] End-to-End: {e2e_latency:.2f} seconds")
+        logger.info(f"[Throughput] Chunks per Second: {throughput:.2f}")
+        logger.info(f"[Throughput] Total Chunks: {chunk_count}")
+        start_usage = metrics.resource_snapshots['request_start']
+        end_usage = metrics.resource_snapshots['request_end']
+        logger.info(
+            f"[Resources] Start - CPU: {start_usage['cpu_percent']:.1f}%, "
+            f"RAM: {start_usage['ram_percent']:.1f}%"
+        )
+        logger.info(
+            f"[Resources] End   - CPU: {end_usage['cpu_percent']:.1f}%, "
+            f"RAM: {end_usage['ram_percent']:.1f}%"
+        )
+        logger.info("-----------------------")
+
 
 @app.post("/v1/chat/stream")
 async def chat_completions_stream(request: AgentChatRequest):
     logger.info("Received request on /v1/chat/stream")
-    logger.debug(f"Request details: {request.model_dump_json(indent=2)}")
-    model = models.get('main_llm_model')
-    tokenizer = models.get('main_llm_tokenizer')
-    if not model or not tokenizer:
-        logger.error("Main LLM not available for streaming chat request.")
-        raise HTTPException(status_code=503, detail="Main LLM not initialized")
+    metrics = MetricsTracker(logger)
+    client = ollama.AsyncClient(host=OLLAMA_HOST)
 
-    return stream_base_model(tokenizer, request, model)
+    # Step 1: Query the small model to decide
+    router_prompt = (
+        "Analyze the following user query and determine if it requires advanced logical reasoning, "
+        "complex problem-solving, deep technical knowledge (e.g., coding, scientific formulas), "
+        "or extensive creative generation. Respond with 'COMPLEX' if it does, otherwise respond with 'SIMPLE'. "
+        "Your response should be only 'SIMPLE' or 'COMPLEX'.\n\n"
+        "User Query: " + request.messages[-1].content # Assuming last message is the query
+    )
+
+    try:
+        router_response = ""
+        # Using a non-streaming call for the router for quick decision
+        router_result = await client.generate(
+            model=SMALL_MODEL_ID,
+            prompt=router_prompt,
+            stream=False,
+            think = False,
+            options={"temperature": 0.0, "top_p": 0.1, "num_predict": 10} # Be very deterministic
+        )
+        router_response = router_result['response'].strip().upper()
+
+        logger.info(f"Router Model ({SMALL_MODEL_ID}) decision: {router_response}")
+
+        model_to_use = SMALL_MODEL_ID
+        ollama_options = {
+            "temperature": 0.7,
+            "num_predict": 2048,
+        }
+
+        if "COMPLEX" in router_response:
+            model_to_use = OLLAMA_MODEL_ID
+            logger.info("Switching to large model for complex query.")
+        else:
+            logger.info("Using small model for simple query.")
+
+        # Step 2: Use the determined model for the actual chat
+        actual_ollama_stream_generator = await client.chat(
+            model=model_to_use,
+            messages=request.messages,
+            stream=True,
+            options=ollama_options
+        )
+
+    except ollama.ResponseError as e:
+        logger.error(f"Error from Ollama during routing or chat request: {e}")
+        raise HTTPException(status_code=500, detail=f"Ollama inference error: {e.error}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during routing or Ollama call setup: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error during Ollama call setup.")
+
+    metrics_generator = metrics_collecting_stream_generator(actual_ollama_stream_generator, metrics)
+
+    return StreamingResponse(metrics_generator, media_type="text/event-stream")
 
 
 if __name__ == "__main__":
