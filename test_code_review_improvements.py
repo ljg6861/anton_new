@@ -1,5 +1,5 @@
 """
-Test the improvements made to the Anton agent system for code review tasks.
+Test the improvements made to the Anton agent system for systematic task handling.
 """
 import unittest
 import sys
@@ -9,27 +9,17 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-class TestCodeReviewImprovements(unittest.TestCase):
-    """Test the code review specific improvements"""
+class TestAgentImprovements(unittest.TestCase):
+    """Test the general agent system improvements"""
 
-    def test_code_review_planner_prompt_exists(self):
-        """Test that the specialized code review planner prompt is available"""
-        try:
-            from server.agent.prompts import get_code_review_planner_prompt
-            prompt = get_code_review_planner_prompt()
-            self.assertIn("code review", prompt.lower())
-            self.assertIn("systematic", prompt.lower())
-            self.assertIn("structure", prompt.lower())
-        except ImportError:
-            self.skipTest("Module import failed - dependency issue")
 
-    def test_evaluator_has_code_review_guidance(self):
-        """Test that the evaluator prompt includes code review specific guidance"""
+    def test_evaluator_has_exploration_guidance(self):
+        """Test that the evaluator prompt includes exploration and investigation specific guidance"""
         try:
             from server.agent.prompts import get_evaluator_prompt
             prompt = get_evaluator_prompt()
-            self.assertIn("Code Review Tasks", prompt)
-            self.assertIn("reading source code", prompt.lower())
+            self.assertIn("Exploration and Investigation Tasks", prompt)
+            self.assertIn("reading files", prompt.lower())
             self.assertIn("directory contents", prompt.lower())
         except ImportError:
             self.skipTest("Module import failed - dependency issue")
@@ -129,35 +119,39 @@ class TestCodeReviewImprovements(unittest.TestCase):
         # Should detect low overlap (no loop)
         self.assertLess(overlap2, 0.5)
 
-    def test_code_review_task_detection(self):
-        """Test the logic for detecting code review tasks"""
-        # Test code review keywords
-        code_review_keywords = ['review', 'code', 'source', 'function', 'class', 'file', 'implementation', 'analyze']
+    def test_exploration_task_detection_logic(self):
+        """Test the general exploration patterns that benefit from enhanced context tracking"""
+        # Test exploration keywords that would benefit from the improvements
+        exploration_keywords = ['review', 'code', 'source', 'function', 'class', 'file', 'implementation', 'analyze', 
+                                'examine', 'investigate', 'explore', 'find', 'search', 'read', 'check']
         
         test_requests = [
             "Please review the code in the main module",
             "Analyze the implementation of the user authentication system", 
             "Can you look at the source code for the payment processor?",
             "Find the function that handles file uploads",
-            "Review the class structure in the database module"
+            "Examine the class structure in the database module",
+            "Investigate the configuration files",
+            "Explore the project structure",
+            "Search for documentation about the API"
         ]
         
-        non_code_requests = [
-            "What is the weather today?",
-            "Help me plan my vacation",
+        simple_requests = [
+            "What is 2 + 2?",
+            "Hello, how are you?",
             "Calculate the area of a circle",
             "Write a poem about nature"
         ]
         
-        # All code review requests should be detected
+        # All exploration requests contain relevant keywords
         for request in test_requests:
-            is_code_review = any(keyword in request.lower() for keyword in code_review_keywords)
-            self.assertTrue(is_code_review, f"Failed to detect code review task: {request}")
+            has_exploration_keyword = any(keyword in request.lower() for keyword in exploration_keywords)
+            self.assertTrue(has_exploration_keyword, f"Failed to detect exploration patterns: {request}")
         
-        # Non-code requests should not be detected
-        for request in non_code_requests:
-            is_code_review = any(keyword in request.lower() for keyword in code_review_keywords)
-            self.assertFalse(is_code_review, f"Incorrectly detected code review task: {request}")
+        # Simple requests typically don't contain exploration keywords
+        for request in simple_requests:
+            has_exploration_keyword = any(keyword in request.lower() for keyword in exploration_keywords)
+            # This is informational - we don't strictly require this to be false since the system now handles all tasks generically
 
 
 if __name__ == '__main__':

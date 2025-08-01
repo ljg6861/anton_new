@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Demonstration script showing the Anton agent improvements for code review tasks.
+Demonstration script showing the Anton agent improvements for systematic task handling.
 This script demonstrates the key improvements without requiring external dependencies.
 """
 
@@ -10,23 +10,27 @@ import os
 # Add the parent directory to the path to import modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-def demonstrate_code_review_detection():
-    """Demonstrate how the system detects code review tasks"""
-    print("=== Code Review Task Detection ===")
+def demonstrate_exploration_patterns():
+    """Demonstrate how the system benefits tasks with exploration patterns"""
+    print("=== Exploration Pattern Recognition ===")
     
-    code_review_keywords = ['review', 'code', 'source', 'function', 'class', 'file', 'implementation', 'analyze']
+    exploration_keywords = ['review', 'code', 'source', 'function', 'class', 'file', 'implementation', 'analyze',
+                           'examine', 'investigate', 'explore', 'find', 'search', 'read', 'check']
     
     test_tasks = [
         "Please review the code in the authentication module",
-        "Help me understand how the payment system works",
+        "Help me understand how the payment system works", 
         "What's the weather like today?",
         "Analyze the implementation of the user management system",
-        "Can you check the source code for any security issues?"
+        "Can you check the source code for any security issues?",
+        "Investigate the configuration files in the project",
+        "Explore the database schema",
+        "Find all references to the user model"
     ]
     
     for task in test_tasks:
-        is_code_review = any(keyword in task.lower() for keyword in code_review_keywords)
-        status = "✓ CODE REVIEW" if is_code_review else "✗ GENERAL"
+        has_exploration_pattern = any(keyword in task.lower() for keyword in exploration_keywords)
+        status = "✓ EXPLORATION" if has_exploration_pattern else "○ SIMPLE"
         print(f"{status}: {task}")
     print()
 
@@ -109,28 +113,21 @@ def demonstrate_thought_loop_detection():
     print()
 
 def demonstrate_prompts():
-    """Demonstrate the specialized prompts"""
-    print("=== Specialized Prompts ===")
+    """Demonstrate the enhanced prompts"""
+    print("=== Enhanced Prompt System ===")
     
     try:
-        from server.agent.prompts import get_code_review_planner_prompt, get_evaluator_prompt
-        
-        print("Code Review Planner Prompt (excerpt):")
-        prompt = get_code_review_planner_prompt()
-        # Show first 200 characters
-        excerpt = prompt[:200] + "..." if len(prompt) > 200 else prompt
-        print(f"  {excerpt}")
-        print()
+        from server.agent.prompts import get_evaluator_prompt
         
         print("Enhanced Evaluator Prompt (excerpt):")
         eval_prompt = get_evaluator_prompt()
-        # Find the code review section
-        if "Code Review Tasks" in eval_prompt:
-            start = eval_prompt.find("**Special Handling for Code Review Tasks:**")
+        # Find the exploration section
+        if "Exploration and Investigation Tasks" in eval_prompt:
+            start = eval_prompt.find("**Special Handling for Exploration and Investigation Tasks:**")
             end = eval_prompt.find("**Based on your analysis", start)
             if start != -1 and end != -1:
-                code_review_section = eval_prompt[start:end].strip()
-                print(f"  {code_review_section}")
+                exploration_section = eval_prompt[start:end].strip()
+                print(f"  {exploration_section}")
         print()
         
     except ImportError as e:
@@ -138,25 +135,25 @@ def demonstrate_prompts():
 
 def main():
     """Run all demonstrations"""
-    print("Anton Agent Code Review Improvements Demonstration")
-    print("=" * 55)
+    print("Anton Agent General Task Handling Improvements Demonstration")
+    print("=" * 60)
     print()
     
-    demonstrate_code_review_detection()
+    demonstrate_exploration_patterns()
     demonstrate_context_store()
     demonstrate_thought_loop_detection()
     demonstrate_prompts()
     
     print("=== Summary of Improvements ===")
     print("✓ Enhanced context tracking between agent steps")
-    print("✓ Automatic code review task detection")
-    print("✓ Thought loop prevention to avoid circular reasoning")
-    print("✓ Specialized prompts for systematic code exploration")
-    print("✓ More lenient evaluator for multi-step progress")
+    print("✓ Thought loop prevention to avoid circular reasoning") 
+    print("✓ Improved evaluator for multi-step exploration progress")
+    print("✓ Generalized systematic approach for all task types")
     print("✓ Standardized FINAL ANSWER formatting")
     print()
-    print("These improvements address the core issues that were causing")
-    print("the agent to get stuck in loops during code review tasks.")
+    print("These improvements help the agent handle any exploration or")
+    print("investigation task more effectively, preventing loops and")
+    print("maintaining context across multiple steps.")
 
 if __name__ == "__main__":
     main()

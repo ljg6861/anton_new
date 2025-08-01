@@ -154,16 +154,7 @@ async def run_organizer_loop(
         "task_progress": []
     }
 
-    # Check if this is a code review task to use specialized prompts
-    is_code_review_task = any(keyword in original_task.lower() for keyword in 
-                             ['review', 'code', 'source', 'function', 'class', 'file', 'implementation', 'analyze'])
-
-    if is_code_review_task:
-        # Use specialized code review prompt
-        from server.agent.prompts import get_code_review_planner_prompt
-        system_prompt = get_code_review_planner_prompt().replace('{tools}', str(await ContextBuilder().get_tool_context())).replace('{memory_context}', '')
-    else:
-        system_prompt = await ContextBuilder().build_system_prompt_planner()
+    system_prompt = await ContextBuilder().build_system_prompt_planner()
     
     organizer_messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
 
