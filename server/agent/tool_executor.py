@@ -73,6 +73,19 @@ async def process_tool_calls(
 
 def _update_context_store(context_store: dict, tool_name: str, tool_args: dict, result: str):
     """Updates the context store with information from tool calls"""
+    # Track all tool outputs for learning analysis
+    if "tool_outputs" not in context_store:
+        context_store["tool_outputs"] = []
+    
+    # Store tool output with metadata (limit to last 20 outputs to prevent memory issues)
+    tool_output_entry = f"Tool: {tool_name} | Args: {tool_args} | Result: {result[:500]}{'...' if len(result) > 500 else ''}"
+    context_store["tool_outputs"].append(tool_output_entry)
+    
+    # Keep only the most recent outputs
+    if len(context_store["tool_outputs"]) > 20:
+        context_store["tool_outputs"] = context_store["tool_outputs"][-20:]
+    
+    # Existing context tracking
     if tool_name == "read_file":
         file_path = tool_args.get("file_path")
         if file_path:

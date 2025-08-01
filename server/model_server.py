@@ -15,8 +15,8 @@ from server.helpers import AgentChatRequest
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+SMALL_MODEL_ID = 'qwen3:30b-a3b-instruct-2507-q4_K_M'
 OLLAMA_MODEL_ID = 'qwen3:30b-a3b-thinking-2507-q4_K_M'
-SMALL_MODEL_ID = 'mistral:7b-instruct-v0.3-q4_K_M'
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 # ----------------------------
 
@@ -131,6 +131,8 @@ async def chat_completions_stream(request: AgentChatRequest):
             "num_predict": 2048,
         }
 
+        print('Options:\n' + str(ollama_options))
+
         if request.complex:
             model_to_use = OLLAMA_MODEL_ID
             logger.info("Switching to large model for complex query.")
@@ -143,7 +145,8 @@ async def chat_completions_stream(request: AgentChatRequest):
             model=model_to_use,
             messages=request.messages,
             stream=True,
-            options=ollama_options
+            options=ollama_options,
+            think = request.complex
         )
 
     except ollama.ResponseError as e:

@@ -1,0 +1,189 @@
+{
+  "timestamp": 1754080083.678934,
+  "duration": 0.03663182258605957,
+  "success_rate": 71.42857142857143,
+  "results": {
+    "intelligent_context_management": {
+      "status": "success",
+      "items_added": 6,
+      "context_retrieved": true,
+      "stats": {
+        "context_window": {
+          "max_tokens": 4000,
+          "current_tokens": 44,
+          "utilization_percent": 1.0999999999999999,
+          "items_count": 6
+        },
+        "total_items": 6,
+        "items_by_type": {
+          "system_prompt": 1,
+          "task_description": 1,
+          "tool_output": 1,
+          "memory": 1,
+          "progress_update": 1,
+          "error_info": 1
+        },
+        "items_by_priority": {
+          "CRITICAL": 1,
+          "HIGH": 3,
+          "MEDIUM": 1,
+          "LOW": 1
+        },
+        "average_importance": 0.8780555555362392,
+        "pruning_operations": 0,
+        "top_keywords": [
+          [
+            "analysis",
+            2
+          ],
+          [
+            "file",
+            2
+          ],
+          [
+            "found",
+            2
+          ],
+          [
+            "initialization",
+            1
+          ],
+          [
+            "completed",
+            1
+          ],
+          [
+            "system",
+            1
+          ],
+          [
+            "requested",
+            1
+          ],
+          [
+            "user",
+            1
+          ],
+          [
+            "project",
+            1
+          ],
+          [
+            "python",
+            1
+          ]
+        ],
+        "summaries_created": 0
+      }
+    },
+    "enhanced_tool_management": {
+      "status": "success",
+      "recommendations_count": 0,
+      "performance_report": {
+        "total_tools": 0,
+        "total_executions": 5,
+        "overall_success_rate": 100.0,
+        "tool_performance": {
+          "demo_tool": {
+            "executions": 5,
+            "success_rate": 100.0,
+            "avg_execution_time": 0.5,
+            "reliability_score": 0.89,
+            "category": "file_operations"
+          }
+        },
+        "category_performance": {
+          "file_operations": [
+            [
+              "demo_tool",
+              0.89
+            ]
+          ]
+        },
+        "top_performers": [],
+        "problematic_tools": []
+      },
+      "categories_available": 7
+    },
+    "resilient_parsing": {
+      "status": "error",
+      "error": "name 'time' is not defined"
+    },
+    "comprehensive_state_tracking": {
+      "status": "success",
+      "task_completed": true,
+      "recommendations_count": 3,
+      "analytics": {
+        "time_period_days": 1,
+        "task_statistics": {
+          "total_tasks": 2,
+          "completed_tasks": 0,
+          "failed_tasks": 0,
+          "success_rate": 0.0,
+          "average_duration": 0,
+          "task_types": {
+            "demonstration": 2
+          }
+        },
+        "tool_performance": {
+          "tool_4": {
+            "usage_count": 2,
+            "success_rate": 100.0,
+            "average_execution_time": 1.3
+          },
+          "tool_3": {
+            "usage_count": 2,
+            "success_rate": 0.0,
+            "average_execution_time": 1.1
+          },
+          "tool_2": {
+            "usage_count": 2,
+            "success_rate": 100.0,
+            "average_execution_time": 0.9
+          },
+          "tool_1": {
+            "usage_count": 2,
+            "success_rate": 100.0,
+            "average_execution_time": 0.7
+          },
+          "tool_0": {
+            "usage_count": 2,
+            "success_rate": 100.0,
+            "average_execution_time": 0.5
+          }
+        },
+        "performance_trends": {},
+        "success_patterns": {
+          "demonstration": {
+            "pattern_count": 1,
+            "most_successful_tools": [
+              "tool_0",
+              "tool_1",
+              "tool_2",
+              "tool_3",
+              "tool_4"
+            ]
+          }
+        },
+        "improvement_opportunities": []
+      }
+    },
+    "workflow_orchestration": {
+      "status": "success",
+      "complexity_levels": 4,
+      "error_strategies": 5,
+      "adaptation_rules": 4
+    },
+    "migration_system": {
+      "status": "success",
+      "migration_ready": true,
+      "tests_passed": 7,
+      "total_tests": 8,
+      "features_enabled": 7
+    },
+    "integration_layer": {
+      "status": "error",
+      "error": "No module named 'psutil'"
+    }
+  }
+}
