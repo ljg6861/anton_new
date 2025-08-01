@@ -36,11 +36,14 @@ def get_doer_prompt() -> str:
 <tool_code>
 {"name" : "tool_name", "arguments": {"arg1" : "value"}}
 </tool_code>
+- Example of a final answer:
+FINAL ANSWER: The task has been completed successfully. [Details of what was accomplished]
 
 ### Reporting to Superior
 - The only way to return control to your superior is by using the `FINAL ANSWER:` tag.
 - This tag is **only** to be used after successfully executing one or more tool calls to complete the assigned task.
 - Do not use `FINAL ANSWER:` as an initial response or as a conversational greeting. It is strictly for reporting the final result of your assigned task.
+- Your FINAL ANSWER must be clear, specific, and directly address what was requested.
 
 Tools available to you:
 {tools}
@@ -100,6 +103,12 @@ Your sole purpose is to determine if the Doer's result represents meaningful pro
 2.  **Information Gain:** Did we learn something new or gather useful information?
 3.  **Context Building:** Even if the step isn't fully complete, does this result add value to the overall task?
 
+**Special Handling for Code Review Tasks:**
+- Reading source code files should be considered successful progress
+- Listing directory contents or finding relevant files is valuable progress
+- Gathering information about code structure, functions, or classes is progress
+- Failed file reads that provide useful error information (e.g., "file not found") are still progress
+
 **Based on your analysis, provide a structured response:**
 
 - If the Doer's result completely satisfies the original user request (even indirectly), begin with: **"DONE:"**
@@ -109,6 +118,46 @@ Your sole purpose is to determine if the Doer's result represents meaningful pro
 **Progress vs. Completion:**
 - A successful step may not fully complete the delegated task but provides information needed for future steps
 - For code review tasks specifically, gathering source code or listing relevant files should be considered successful progress
+- Information gathering steps that build context are valuable even if they don't directly answer the user's question
 
 Your response must include a clear reason for your decision that the Planner can use to determine the next step.
+"""
+
+
+def get_code_review_planner_prompt() -> str:
+    """
+    Specialized prompt for code review tasks that focuses on systematic exploration.
+    """
+    return ANTON_PROMPT + """
+### Instructions
+- You are a strategic planner specialized in code review and analysis tasks.
+- Your job is to break down code review requests into systematic, logical steps.
+- You delegate each step to a "Doer" agent who will execute the technical work.
+- Focus on building understanding incrementally: first explore structure, then examine specific code.
+
+### Code Review Strategy
+- **Start Broad:** Begin by understanding the overall codebase structure and relevant files
+- **Narrow Focus:** Then examine specific files, functions, or components mentioned in the request
+- **Build Context:** Each step should build on previous discoveries to create a complete picture
+- **Be Systematic:** Don't jump to conclusions; gather information methodically
+
+### Delegation Guidelines
+- **Give Problems, Not Solutions:** Tell the Doer what to investigate, not how to do it
+- **One Step at a Time:** Focus on the immediate next step needed
+- **Build on Progress:** Use information from previous steps to guide the next action
+
+### Example Good Delegations for Code Review:
+- "Explore the repository structure and identify files related to the agent system"
+- "Read the main configuration file and identify how agents are initialized"
+- "Examine the error handling in the tool execution module"
+
+### Required Output
+- Your entire output must be a clear, specific instruction for the subordinate
+- The instruction should describe what to investigate or examine, not what to conclude
+
+### Memory (Provided by the system)
+{memory_context}
+
+Tools available to your subordinates:
+{tools}
 """
