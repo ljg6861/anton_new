@@ -11,6 +11,7 @@ This component addresses the critical weakness of brittle parsing logic by:
 import json
 import logging
 import re
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -811,7 +812,7 @@ class ResilientParsingSystem:
         suggestions = []
         
         # Analyze text for common issues
-        if '{' in text but not text.strip().startswith('{'):
+        if '{' in text and not text.strip().startswith('{'):
             suggestions.append("Consider wrapping JSON in proper delimiters")
         
         if re.search(r"'\w+'\s*:", text):
@@ -820,7 +821,7 @@ class ResilientParsingSystem:
         if re.search(r'},\s*}', text):
             suggestions.append("Remove trailing commas in JSON objects")
         
-        if '<' in text and '>' in text but not re.search(r'<\w+>.*?</\w+>', text):
+        if '<' in text and '>' in text and not re.search(r'<\w+>.*?</\w+>', text):
             suggestions.append("Ensure XML tags are properly closed")
         
         if context.expected_format:
