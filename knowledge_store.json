@@ -84,13 +84,93 @@
       ],
       "timestamp": 1754077841.8173888,
       "entry_id": "ec9d4bc53ff83e1d4b6282562b0ca840"
+    },
+    "d4eeff5322d10a2f04c1e0142c22fbb4": {
+      "text": "Context: Explore the codebase to understand how the agent system works\nInsight: a planner-doer architecture where the planner breaks down tasks\nKeywords: architecture\nConfidence: 0.90",
+      "source": "architecture_analysis_structure",
+      "keywords": [
+        "context",
+        "explore",
+        "codebase",
+        "understand",
+        "how",
+        "agent",
+        "system",
+        "works",
+        "insight",
+        "planner",
+        "doer",
+        "architecture",
+        "where",
+        "breaks",
+        "down",
+        "tasks",
+        "keywords",
+        "confidence"
+      ],
+      "timestamp": 1754077944.615535,
+      "entry_id": "d4eeff5322d10a2f04c1e0142c22fbb4"
+    },
+    "e44d67482a31aff6711736e3800052c8": {
+      "text": "Context: Explore the codebase to understand how the agent system works\nInsight: organizer.py, doer.py, tool_executor.py, and other agent components\nKeywords: \nConfidence: 0.80",
+      "source": "architecture_analysis_discovery",
+      "keywords": [
+        "context",
+        "explore",
+        "codebase",
+        "understand",
+        "how",
+        "agent",
+        "system",
+        "works",
+        "insight",
+        "organizer",
+        "doer",
+        "tool_executor",
+        "other",
+        "components",
+        "keywords",
+        "confidence"
+      ],
+      "timestamp": 1754077944.6155765,
+      "entry_id": "e44d67482a31aff6711736e3800052c8"
+    },
+    "16020a9c5b1ff046a1136383f56f3199": {
+      "text": "Error Resolution Context: Fix the file reading issue in the tool executor\nSolution: improper error handling when files don't exist. I discovered that adding proper\nType: Error handling improvement",
+      "source": "error_resolution_learning",
+      "keywords": [
+        "error",
+        "resolution",
+        "context",
+        "fix",
+        "file",
+        "reading",
+        "issue",
+        "tool",
+        "executor",
+        "solution",
+        "improper",
+        "handling",
+        "when",
+        "files",
+        "don",
+        "exist",
+        "discovered",
+        "adding",
+        "proper",
+        "type"
+      ],
+      "timestamp": 1754077944.6166747,
+      "entry_id": "16020a9c5b1ff046a1136383f56f3199"
     }
   },
   "keyword_index": {
     "system": [
       "5397b6eeb9fb4073c371e976b3d7a782",
       "4738589818c0e5aeda87b0d2ecabef1b",
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "uses": [
       "5397b6eeb9fb4073c371e976b3d7a782",
@@ -121,19 +201,23 @@
       "5397b6eeb9fb4073c371e976b3d7a782"
     ],
     "error": [
-      "0bfc4f4cbce0c50aa0157c87d53c9f2a"
+      "0bfc4f4cbce0c50aa0157c87d53c9f2a",
+      "16020a9c5b1ff046a1136383f56f3199"
     ],
     "handling": [
-      "0bfc4f4cbce0c50aa0157c87d53c9f2a"
+      "0bfc4f4cbce0c50aa0157c87d53c9f2a",
+      "16020a9c5b1ff046a1136383f56f3199"
     ],
     "implemented": [
       "0bfc4f4cbce0c50aa0157c87d53c9f2a"
     ],
     "tool_executor": [
-      "0bfc4f4cbce0c50aa0157c87d53c9f2a"
+      "0bfc4f4cbce0c50aa0157c87d53c9f2a",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "file": [
-      "0bfc4f4cbce0c50aa0157c87d53c9f2a"
+      "0bfc4f4cbce0c50aa0157c87d53c9f2a",
+      "16020a9c5b1ff046a1136383f56f3199"
     ],
     "try": [
       "0bfc4f4cbce0c50aa0157c87d53c9f2a"
@@ -146,7 +230,10 @@
     ],
     "context": [
       "4738589818c0e5aeda87b0d2ecabef1b",
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8",
+      "16020a9c5b1ff046a1136383f56f3199"
     ],
     "analyze": [
       "4738589818c0e5aeda87b0d2ecabef1b",
@@ -162,28 +249,38 @@
     ],
     "understand": [
       "4738589818c0e5aeda87b0d2ecabef1b",
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "codebase": [
       "4738589818c0e5aeda87b0d2ecabef1b",
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "insight": [
       "4738589818c0e5aeda87b0d2ecabef1b",
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "several": [
       "4738589818c0e5aeda87b0d2ecabef1b"
     ],
     "files": [
-      "4738589818c0e5aeda87b0d2ecabef1b"
+      "4738589818c0e5aeda87b0d2ecabef1b",
+      "16020a9c5b1ff046a1136383f56f3199"
     ],
     "discovered": [
-      "4738589818c0e5aeda87b0d2ecabef1b"
+      "4738589818c0e5aeda87b0d2ecabef1b",
+      "16020a9c5b1ff046a1136383f56f3199"
     ],
     "keywords": [
       "4738589818c0e5aeda87b0d2ecabef1b",
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "related": [
       "4738589818c0e5aeda87b0d2ecabef1b",
@@ -191,10 +288,13 @@
     ],
     "architecture": [
       "4738589818c0e5aeda87b0d2ecabef1b",
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4"
     ],
     "agent": [
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "orchestration": [
       "ec9d4bc53ff83e1d4b6282562b0ca840"
@@ -203,20 +303,100 @@
       "ec9d4bc53ff83e1d4b6282562b0ca840"
     ],
     "doer": [
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "planner": [
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "d4eeff5322d10a2f04c1e0142c22fbb4"
     ],
     "components": [
-      "ec9d4bc53ff83e1d4b6282562b0ca840"
+      "ec9d4bc53ff83e1d4b6282562b0ca840",
+      "e44d67482a31aff6711736e3800052c8"
     ],
     "component": [
       "ec9d4bc53ff83e1d4b6282562b0ca840"
+    ],
+    "explore": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
+    ],
+    "how": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
+    ],
+    "works": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
+    ],
+    "where": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4"
+    ],
+    "breaks": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4"
+    ],
+    "down": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4"
+    ],
+    "tasks": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4"
+    ],
+    "confidence": [
+      "d4eeff5322d10a2f04c1e0142c22fbb4",
+      "e44d67482a31aff6711736e3800052c8"
+    ],
+    "organizer": [
+      "e44d67482a31aff6711736e3800052c8"
+    ],
+    "other": [
+      "e44d67482a31aff6711736e3800052c8"
+    ],
+    "resolution": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "fix": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "reading": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "issue": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "tool": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "executor": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "solution": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "improper": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "when": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "don": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "exist": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "adding": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "proper": [
+      "16020a9c5b1ff046a1136383f56f3199"
+    ],
+    "type": [
+      "16020a9c5b1ff046a1136383f56f3199"
     ]
   },
   "metadata": {
     "version": "1.0",
-    "entry_count": 4
+    "entry_count": 7
   }
 }
