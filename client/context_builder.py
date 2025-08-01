@@ -59,15 +59,49 @@ class ContextBuilder:
             logger.error(msg)
             return msg
 
-    async def build_system_prompt_planner(self) -> str:
+    async def build_system_prompt_planner(self, task_description: str = "") -> str:
+        """Build system prompt for planner with memory context injection."""
+        # Get relevant memories for the current task
+        memory_context = self._get_memory_context(task_description)
+        
         system_prompt = (
-            get_planner_prompt().replace('{tools}', str(self.get_tool_context())))
+            get_planner_prompt()
+            .replace('{tools}', str(self.get_tool_context()))
+            .replace('{memory_context}', memory_context)
+        )
         return system_prompt
 
     async def build_system_prompt_doer(self) -> str:
         system_prompt = (
             get_doer_prompt().replace('{tools}', str(self.get_tool_context())))
         return system_prompt
+
+    def _get_memory_context(self, task_description: str) -> str:
+        """Retrieve relevant memories for the current task."""
+        if not task_description.strip():
+            return "No relevant memories found for this task."
+        
+        logger.info(f"Retrieving memories for task: {task_description[:100]}...")
+        relevant_docs = rag_manager.retrieve_knowledge(query=task_description, top_k=3)
+        
+        if not relevant_docs:
+            return "No relevant memories found for this task."
+        
+        memory_sections = []
+        for i, doc in enumerate(relevant_docs, 1):
+            source = doc.get('source', 'Unknown source')
+            text = doc.get('text', 'No content available')
+            
+            # Truncate very long memories to keep prompt manageable
+            if len(text) > 300:
+                text = text[:300] + "..."
+            
+            memory_sections.append(f"{i}. From {source}:\n   {text}")
+        
+        memory_context = "\n\n".join(memory_sections)
+        logger.info(f"Retrieved {len(relevant_docs)} relevant memories for task context")
+        
+        return memory_context
 
     def find_relevant_context(self, query: str):
         print(f"\n🔍 Searching for context related to: '{query}'")

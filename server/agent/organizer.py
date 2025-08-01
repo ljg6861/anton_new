@@ -16,8 +16,10 @@ from server.agent import config
 from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
 from server.agent.doer import execute_turn, run_doer_loop
 from server.agent.knowledge_handler import save_reflection
+from server.agent.learning_identifier import learning_identifier
 from server.agent.message_handler import prepare_initial_messages
 from server.agent.prompts import get_evaluator_prompt
+from server.agent.rag_manager import rag_manager
 from server.model_server import AgentChatRequest, OLLAMA_HOST, SMALL_MODEL_ID
 
 
@@ -87,6 +89,72 @@ async def _call_manager_model(
 
 
 # --- Reflection & Learning Loop ---
+async def _analyze_and_store_learning(
+    task_description: str,
+    doer_response: str,
+    context_store: dict,
+    original_task: str,
+    logger: Any
+) -> None:
+    """
+    Analyze the agent interaction to identify and store learning insights.
+    """
+    try:
+        # Extract tool outputs from context store
+        tool_outputs = []
+        if "tool_outputs" in context_store:
+            tool_outputs = context_store["tool_outputs"]
+        
+        # Analyze the interaction for learning insights
+        insights = learning_identifier.analyze_interaction(
+            task_description=task_description,
+            doer_response=doer_response,
+            tool_outputs=tool_outputs,
+            context={"original_task": original_task}
+        )
+        
+        if not insights:
+            logger.debug("No learning insights identified from this interaction")
+            return
+        
+        # Determine if we should trigger learning storage
+        task_success = "FINAL ANSWER:" in doer_response
+        novel_info_discovered = bool(context_store.get("explored_files")) or bool(context_store.get("code_content"))
+        
+        should_learn = learning_identifier.should_trigger_learning(
+            insights=insights,
+            task_success=task_success,
+            novel_information_discovered=novel_info_discovered
+        )
+        
+        if should_learn:
+            logger.info(f"Learning triggered: Found {len(insights)} valuable insights")
+            
+            # Store the most valuable insights in the RAG system
+            for insight in insights[:2]:  # Store top 2 insights to avoid noise
+                knowledge_text = (
+                    f"Context: {task_description}\n"
+                    f"Insight: {insight.insight_text}\n"
+                    f"Keywords: {', '.join(insight.keywords)}\n"
+                    f"Related to: {original_task}"
+                )
+                
+                rag_manager.add_knowledge(
+                    text=knowledge_text,
+                    source=f"learning_{insight.source}_{int(time.time())}"
+                )
+                logger.info(f"Stored learning insight: {insight.insight_text[:100]}...")
+            
+            # Save to disk periodically
+            rag_manager.save()
+            
+        else:
+            logger.debug("Learning insights found but threshold not met for storage")
+            
+    except Exception as e:
+        logger.error(f"Error in learning analysis: {e}", exc_info=True)
+
+
 def _get_reflector_prompt(original_task: str, final_conversation: str) -> str:
     """Builds the system prompt for the Reflector AI model."""
     return f"""
@@ -154,7 +222,7 @@ async def run_organizer_loop(
         "task_progress": []
     }
 
-    system_prompt = await ContextBuilder().build_system_prompt_planner()
+    system_prompt = await ContextBuilder().build_system_prompt_planner(original_task)
     
     organizer_messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
 
@@ -227,6 +295,16 @@ async def run_organizer_loop(
                 yield token
 
             doer_result = doer_messages[-1]["content"]
+
+            # --- LEARNING ANALYSIS ---
+            await _analyze_and_store_learning(
+                task_description=content,  # content is the delegated step from planner
+                doer_response=doer_result,
+                context_store=context_store,
+                original_task=original_task,
+                logger=logger
+            )
+            # --- END LEARNING ANALYSIS ---
 
             # --- METRICS: Log Doer Step Latency, Throughput and Resources ---
             metrics.step_latencies[doer_step_name] = time.monotonic() - doer_start_time
