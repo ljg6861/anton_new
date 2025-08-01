@@ -15,13 +15,13 @@ async def execute_turn(
     logger: Any,
     tools,
     temperature,
-    complex: bool,
+    is_complex: bool,
 ) -> AsyncGenerator[str, None]:
     request_payload = {
         "messages": messages,
         "temperature": temperature,
         'tools': tools,
-        'complex': complex,
+        'complex': is_complex,
     }
 
     async with httpx.AsyncClient(timeout=None) as client:
@@ -43,7 +43,7 @@ async def run_doer_loop(
         tools: List,
         logger: Any,
         api_base_url: str,
-        complex: bool,
+        is_complex: bool,
         context_store: dict = None,
 ) -> AsyncGenerator[str, None]:
     # Track recent responses to detect thought loops
@@ -55,7 +55,7 @@ async def run_doer_loop(
         llm_call_start_time = time.monotonic()
         response_buffer = ""
         chunk_count = 0
-        async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, complex):
+        async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, is_complex):
             response_buffer += token
             content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
             if content.startswith('FINAL ANSWER:'):
@@ -76,7 +76,7 @@ async def run_doer_loop(
             if len(content_words.intersection(prev_words)) / max(len(content_words), 1) > 0.8:
                 logger.warning("Potential thought loop detected. Adding guidance to break out.")
                 messages.append({
-                    "role": "system", 
+                    "role": "user",
                     "content": "You appear to be repeating similar responses. Try a different approach or provide a FINAL ANSWER if you've gathered enough information."
                 })
                 break

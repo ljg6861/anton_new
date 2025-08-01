@@ -145,7 +145,7 @@ async def run_organizer_loop(
     # Prepare initial messages
     organizer_messages = prepare_initial_messages(request.messages)
     original_task = organizer_messages[-1]["content"]
-    complex = True
+    is_complex = True
 
     # Create a context store to track accumulated information across steps
     context_store = {
@@ -180,7 +180,7 @@ async def run_organizer_loop(
 
             response_buffer = ""
             logger.info(f"Planner: Calling model server at {api_base_url}/v1/chat/stream")
-            async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6, complex):
+            async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6, False):
                 planner_token_count += 1
                 response_buffer += token
                 content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
@@ -222,7 +222,7 @@ async def run_organizer_loop(
 
             # Doer's turn
             response_buffer = ""
-            async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url, complex, context_store):
+            async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url, is_complex, context_store):
                 doer_token_count += 1  # METRICS: Count tokens
                 yield token
 
@@ -247,7 +247,7 @@ async def run_organizer_loop(
                 "content": f"The doer has completed the delegated task. Here is the result:\n\n{doer_result}"
             })
             evaluator_messages = [{"role": SYSTEM_ROLE, "content": evaluator_system_prompt}]
-            async for token in execute_turn(api_base_url, evaluator_messages, logger, request.tools, 0.1, complex):
+            async for token in execute_turn(api_base_url, evaluator_messages, logger, request.tools, 0.1, is_complex):
                 response_buffer += token
                 content = re.split(r"</think>", response_buffer, maxsplit=1)
                 if len(content) == 2:
@@ -272,7 +272,7 @@ async def run_organizer_loop(
                 system_prompt = await ContextBuilder().build_system_prompt_doer()
                 organizer_messages[0] = {"role": SYSTEM_ROLE, "content": system_prompt}
                 final_response_buffer = ""
-                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, complex):
+                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, is_complex):
                     final_response_buffer += token
                     yield token
                 return
