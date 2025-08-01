@@ -125,39 +125,17 @@ async def chat_completions_stream(request: AgentChatRequest):
     metrics = MetricsTracker(logger)
     client = ollama.AsyncClient(host=OLLAMA_HOST)
 
-    # Step 1: Query the small model to decide
-    router_prompt = (
-        "Analyze the following user query and determine if it requires advanced logical reasoning, "
-        "complex problem-solving, deep technical knowledge (e.g., coding, scientific formulas), "
-        "or extensive creative generation. Respond with 'COMPLEX' if it does, otherwise respond with 'SIMPLE'. "
-        "Your response should be only 'SIMPLE' or 'COMPLEX'.\n\n"
-        "User Query: " + request.messages[-1].content # Assuming last message is the query
-    )
-
     try:
-        router_response = ""
-        # Using a non-streaming call for the router for quick decision
-        router_result = await client.generate(
-            model=SMALL_MODEL_ID,
-            prompt=router_prompt,
-            stream=False,
-            think = False,
-            options={"temperature": 0.0, "top_p": 0.1, "num_predict": 10} # Be very deterministic
-        )
-        router_response = router_result['response'].strip().upper()
-
-        logger.info(f"Router Model ({SMALL_MODEL_ID}) decision: {router_response}")
-
-        model_to_use = SMALL_MODEL_ID
         ollama_options = {
-            "temperature": 0.7,
+            "temperature": request.temperature,
             "num_predict": 2048,
         }
 
-        if "COMPLEX" in router_response:
+        if request.complex:
             model_to_use = OLLAMA_MODEL_ID
             logger.info("Switching to large model for complex query.")
         else:
+            model_to_use = SMALL_MODEL_ID
             logger.info("Using small model for simple query.")
 
         # Step 2: Use the determined model for the actual chat

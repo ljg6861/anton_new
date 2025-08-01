@@ -128,7 +128,7 @@ class ReadFileTool:
 
             with open(safe_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            return content
+            return content.replace("tool_call", "tool call placeholder")
         except ValueError as e:
             return f"❌ Security Error: {str(e)}"
         except Exception as e:

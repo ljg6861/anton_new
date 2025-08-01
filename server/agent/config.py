@@ -15,7 +15,7 @@ ASSISTANT_ROLE = "assistant"
 SYSTEM_ROLE = "system"
 
 # --- Regex Patterns ---
-TOOL_CALL_REGEX = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
+TOOL_CALL_REGEX = re.compile(r"<tool_code>(.*?)</tool_code>", re.DOTALL)
 THOUGHT_SUMMARY_REGEX = re.compile(r"<thought_summary>(.*?)</thought_summary>", re.DOTALL)
 SENTENCE_END_REGEX = re.compile(r"[.?!](?:\s|$)")
 

@@ -1,6 +1,8 @@
 import json
 import re
 import time
+
+import ollama
 import psutil
 from typing import AsyncGenerator, Any, Tuple
 
@@ -15,7 +17,8 @@ from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
 from server.agent.doer import execute_turn, run_doer_loop
 from server.agent.knowledge_handler import save_reflection
 from server.agent.message_handler import prepare_initial_messages
-from server.model_server import AgentChatRequest
+from server.agent.prompts import get_evaluator_prompt
+from server.model_server import AgentChatRequest, OLLAMA_HOST, SMALL_MODEL_ID
 
 
 # --- END METRICS ---
@@ -142,15 +145,15 @@ async def run_organizer_loop(
     # Prepare initial messages
     organizer_messages = prepare_initial_messages(request.messages)
     original_task = organizer_messages[-1]["content"]
+    complex = True
 
-    # Build system prompt and insert
-    system_prompt = await ContextBuilder().build_system_prompt_planner(original_task)
+    system_prompt = await ContextBuilder().build_system_prompt_planner()
     organizer_messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
-    doer_messages = []
 
     try:  # --- METRICS: Use a try/finally block to ensure metrics are always logged ---
         logger.info("Starting organizer loop...")
         for turn in range(config.MAX_TURNS):
+            doer_messages = []
             metrics.agent_step_count = turn + 1  # METRICS: Update step count
             logger.info(f"Turn {turn + 1}/{config.MAX_TURNS}")
 
@@ -163,12 +166,10 @@ async def run_organizer_loop(
             # Planner's turn
             response_buffer = ""
             logger.info(f"Planner: Calling model server at {api_base_url}/v1/chat/stream")
-            async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools):
+            async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6,complex):
                 planner_token_count += 1  # METRICS: Count tokens
                 response_buffer += token
                 content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
-                if content.startswith('FINAL ANSWER:'):
-                    yield token
 
             # --- METRICS: Log Planner Step Latency, Throughput and Resources ---
             metrics.step_latencies[planner_step_name] = time.monotonic() - planner_start_time
@@ -180,16 +181,9 @@ async def run_organizer_loop(
             content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
             logger.info("Planner said:\n" + response_buffer)
             organizer_messages.append({"role": ASSISTANT_ROLE, "content": content})
-            if content.startswith('FINAL ANSWER:'):
-                cuda.empty_cache()
-                # --- METRICS: Mark task as completed ---
-                metrics.task_completed = True
-                metrics.task_completion_reason = "Agent returned 'FINAL ANSWER:'"
-                # --- END METRICS ---
-                return
 
             if len(doer_messages) == 0:
-                system_prompt = await ContextBuilder().build_system_prompt_planner(content)
+                system_prompt = await ContextBuilder().build_system_prompt_doer()
                 doer_messages.append({"role": SYSTEM_ROLE, "content": system_prompt})
             doer_messages.append({"role": USER_ROLE, "content": content})
 
@@ -201,16 +195,60 @@ async def run_organizer_loop(
 
             # Doer's turn
             response_buffer = ""
-            async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url):
+            async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url, complex):
                 doer_token_count += 1  # METRICS: Count tokens
-                response_buffer += token
                 yield token
+
+            doer_result = doer_messages[-1]["content"]
 
             # --- METRICS: Log Doer Step Latency, Throughput and Resources ---
             metrics.step_latencies[doer_step_name] = time.monotonic() - doer_start_time
             metrics.step_token_counts[doer_step_name] = doer_token_count
             metrics.resource_snapshots[doer_step_name] = metrics.get_resource_usage()
             # --- END METRICS ---
+
+            response_buffer = ""
+            delegated_step = organizer_messages[-1]["content"]  # Get the last message from the Planner
+            evaluator_system_prompt = get_evaluator_prompt() + (
+                f"\n\nHere is the information to evaluate:"
+                f"\nOriginal High-Level Task: {original_task}"
+                f"\nDelegated Step for the Doer: {delegated_step}"
+                f"\nDoer's Final Result: {doer_result}"
+            )
+            organizer_messages.append({
+                "role": USER_ROLE,
+                "content": f"The doer has completed the delegated task. Here is the result:\n\n{doer_result}"
+            })
+            evaluator_messages = [{"role": SYSTEM_ROLE, "content": evaluator_system_prompt}]
+            async for token in execute_turn(api_base_url, evaluator_messages, logger, request.tools, 0.1, complex):
+                response_buffer += token
+                content = re.split(r"</think>", response_buffer, maxsplit=1)
+                if len(content) == 2:
+                    yield token
+            logger.info("Evaluator response:\n" + response_buffer)
+            evaluator_response = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+            if evaluator_response.startswith('SUCCESS:'):
+                logger.info("Evaluator confirmed success. Planner proceeds.")
+                pass  # Continue the loop to the next Planner turn
+
+            elif evaluator_response.startswith('FAILURE:'):
+                logger.info("Evaluator reported failure. Planner must adjust.")
+                # This is where the Planner receives feedback
+                # The 'FAILURE:' message is appended to the organizer_messages
+                organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
+
+            elif evaluator_response.startswith('DONE:'):
+                organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
+
+                summary_prompt = f"The entire task has been successfully completed. Based on our conversation history, please summarize the steps taken and provide the final answer to the original high-level task: {original_task}"
+                organizer_messages.append({"role": USER_ROLE, "content": summary_prompt})
+                system_prompt = await ContextBuilder().build_system_prompt_doer()
+                organizer_messages[0] = {"role": SYSTEM_ROLE, "content": system_prompt}
+                final_response_buffer = ""
+                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, complex):
+                    final_response_buffer += token
+                    yield token
+                return
 
         # Max turns reached
         logger.warning("Max turns reached; ending.")

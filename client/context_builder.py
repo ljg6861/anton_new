@@ -59,18 +59,14 @@ class ContextBuilder:
             logger.error(msg)
             return msg
 
-    async def build_system_prompt_planner(self, query: str) -> str:
+    async def build_system_prompt_planner(self) -> str:
         system_prompt = (
             get_planner_prompt().replace('{tools}', str(self.get_tool_context())))
         return system_prompt
 
-    async def build_system_prompt_doer(self, query: str) -> str:
+    async def build_system_prompt_doer(self) -> str:
         system_prompt = (
-            "--- AUTOMATIC CONTEXT ---\n"
-            f'## Your source code files:\n {self.get_project_structure()}\n'
-            f'## Things that might help:\n {self.find_relevant_context(query)}'
-            "\n--- END CONTEXT ---\n\n"
-            + get_doer_prompt().replace('{tools}', str(self.get_tool_context())))
+            get_doer_prompt().replace('{tools}', str(self.get_tool_context())))
         return system_prompt
 
     def find_relevant_context(self, query: str):

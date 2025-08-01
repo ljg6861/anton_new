@@ -46,6 +46,7 @@ async def process_tool_calls(
 
             # Execute the tool and get the result
             tool_result = execute_tool(tool_name, tool_args, logger)
+            logger.info(f"tool result: {tool_result}")
 
             # Append the structured tool result to messages
             messages.append({

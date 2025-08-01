@@ -39,5 +39,5 @@ class ToolDefinition(BaseModel):
 class AgentChatRequest(BaseModel):
     messages: list[OpenAIChatMessage]
     tools: list[ToolDefinition] | None = None
-    temperature: float = 0.5
-    think: bool = True
+    temperature: float = 0.6
+    complex: bool = False

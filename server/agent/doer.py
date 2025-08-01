@@ -13,12 +13,15 @@ async def execute_turn(
     api_base_url: str,
     messages: list[dict],
     logger: Any,
-    tools
+    tools,
+    temperature,
+    complex: bool,
 ) -> AsyncGenerator[str, None]:
     request_payload = {
         "messages": messages,
-        "temperature": 0.6,
+        "temperature": temperature,
         'tools': tools,
+        'complex': complex,
     }
 
     async with httpx.AsyncClient(timeout=None) as client:
@@ -39,7 +42,8 @@ async def run_doer_loop(
         messages: List[dict],
         tools: List,
         logger: Any,
-        api_base_url: str
+        api_base_url: str,
+        complex: bool,
 ) -> AsyncGenerator[str, None]:
     for turn in range(config.MAX_TURNS):
         logger.info(f"Doer Turn {turn + 1}/{config.MAX_TURNS}")
@@ -47,10 +51,11 @@ async def run_doer_loop(
         llm_call_start_time = time.monotonic()
         response_buffer = ""
         chunk_count = 0
-        async for token in execute_turn(api_base_url, messages, logger, tools):
+        async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, complex):
             response_buffer += token
-            chunk_count += 1
-            yield token
+            content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+            if content.startswith('FINAL ANSWER:'):
+                yield token
 
         llm_call_latency = time.monotonic() - llm_call_start_time
         throughput = chunk_count / llm_call_latency if llm_call_latency > 0 else 0
@@ -68,5 +73,3 @@ async def run_doer_loop(
         if "FINAL ANSWER:" in content:
             logger.info("Doer received 'FINAL ANSWER:', breaking loop.")
             break
-
-    yield "\n\n[Doer loop finished.]"

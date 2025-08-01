@@ -48,7 +48,7 @@ class ToolCreator:
         try:
             sanitized_name = re.sub(r'[^a-zA-Z0-9_]', '', tool_name)
             # We'll create a dedicated directory for custom tools
-            tools_dir = "custom_tools"
+            tools_dir = "tools"
             os.makedirs(tools_dir, exist_ok=True)
 
             # Add an __init__.py to make it a package
