@@ -147,44 +147,70 @@ async def run_organizer_loop(
     original_task = organizer_messages[-1]["content"]
     complex = True
 
+    # Create a context store to track accumulated information across steps
+    context_store = {
+        "explored_files": set(),
+        "code_content": {},
+        "task_progress": []
+    }
+
     system_prompt = await ContextBuilder().build_system_prompt_planner()
     organizer_messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
 
-    try:  # --- METRICS: Use a try/finally block to ensure metrics are always logged ---
+    try:
         logger.info("Starting organizer loop...")
         for turn in range(config.MAX_TURNS):
             doer_messages = []
-            metrics.agent_step_count = turn + 1  # METRICS: Update step count
+            metrics.agent_step_count = turn + 1
             logger.info(f"Turn {turn + 1}/{config.MAX_TURNS}")
 
-            # --- METRICS: Planner Turn Timing & Token Count ---
+            # --- Planner Turn ---
             planner_step_name = f"Planner-Turn-{turn + 1}"
             planner_start_time = time.monotonic()
             planner_token_count = 0
-            # --- END METRICS ---
 
-            # Planner's turn
+            # Add context from previous steps to the planner's input
+            context_summary = _build_context_summary(context_store)
+            if turn > 0:
+                organizer_messages.append({
+                    "role": SYSTEM_ROLE,
+                    "content": f"Previous step progress:\n{context_summary}"
+                })
+
             response_buffer = ""
             logger.info(f"Planner: Calling model server at {api_base_url}/v1/chat/stream")
-            async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6,complex):
-                planner_token_count += 1  # METRICS: Count tokens
+            async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6, complex):
+                planner_token_count += 1
                 response_buffer += token
                 content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
 
-            # --- METRICS: Log Planner Step Latency, Throughput and Resources ---
+            # --- METRICS: Log Planner Step ---
             metrics.step_latencies[planner_step_name] = time.monotonic() - planner_start_time
             metrics.step_token_counts[planner_step_name] = planner_token_count
             metrics.resource_snapshots[planner_step_name] = metrics.get_resource_usage()
-            # --- END METRICS ---
 
             # Extract content after any thinking markers
             content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
             logger.info("Planner said:\n" + response_buffer)
             organizer_messages.append({"role": ASSISTANT_ROLE, "content": content})
 
+            # --- Prepare Doer with Enhanced Context ---
             if len(doer_messages) == 0:
                 system_prompt = await ContextBuilder().build_system_prompt_doer()
                 doer_messages.append({"role": SYSTEM_ROLE, "content": system_prompt})
+
+            # Add context about already explored files to the Doer
+            if context_store["explored_files"]:
+                explored_files_msg = "Previously explored files: " + ", ".join(context_store["explored_files"])
+                doer_messages.append({"role": SYSTEM_ROLE, "content": explored_files_msg})
+
+            # Add any previously retrieved file content as context
+            for filename, content in context_store["code_content"].items():
+                doer_messages.append({
+                    "role": SYSTEM_ROLE,
+                    "content": f"Content of file {filename}:\n```\n{content}\n```"
+                })
+
             doer_messages.append({"role": USER_ROLE, "content": content})
 
             # --- METRICS: Doer Turn Timing & Token Count ---
@@ -265,3 +291,23 @@ async def run_organizer_loop(
                 nvmlShutdown()
             except NVMLError:
                 pass  # Already logged warnings if shutdown fails
+
+
+def _build_context_summary(context_store):
+    """Build a summary of the context for the planner"""
+    summary_parts = []
+
+    if context_store["explored_files"]:
+        summary_parts.append("Explored files: " + ", ".join(context_store["explored_files"]))
+
+    if context_store["code_content"]:
+        summary_parts.append("Retrieved file contents:")
+        for filename in context_store["code_content"].keys():
+            summary_parts.append(f"- {filename}")
+
+    if context_store["task_progress"]:
+        summary_parts.append("Progress so far:")
+        for step in context_store["task_progress"]:
+            summary_parts.append(f"- {step}")
+
+    return "\n".join(summary_parts)
