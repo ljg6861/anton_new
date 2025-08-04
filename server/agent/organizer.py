@@ -16,16 +16,42 @@ from server.agent import config
 from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
 from server.agent.doer import execute_turn, run_doer_loop
 from server.agent.knowledge_handler import save_reflection
-from server.agent.learning_identifier import learning_identifier
 from server.agent.message_handler import prepare_initial_messages
 from server.agent.prompts import get_evaluator_prompt
-from server.agent.rag_manager import rag_manager
 from server.model_server import AgentChatRequest, OLLAMA_HOST, SMALL_MODEL_ID
+
+# Optional learning components (may not be available in all environments)
+try:
+    from server.agent.learning_identifier import learning_identifier
+    from server.agent.rag_manager import rag_manager
+    LEARNING_AVAILABLE = True
+except ImportError:
+    LEARNING_AVAILABLE = False
+    learning_identifier = None
+    rag_manager = None
 
 
 # --- END METRICS ---
 
 # --- Helper Functions ---
+def _calculate_similarity(text1: str, text2: str) -> float:
+    """Calculate simple similarity between two instruction texts."""
+    if not text1 or not text2:
+        return 0.0
+    
+    # Simple word-based similarity
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+    
+    if not words1 or not words2:
+        return 0.0
+    
+    intersection = words1.intersection(words2)
+    union = words1.union(words2)
+    
+    return len(intersection) / len(union) if union else 0.0
+
+
 def _get_manager_prompt(original_task: str, conversation_history: str) -> str:
     """Builds the system prompt for the Manager AI model."""
     return f"""
@@ -89,72 +115,6 @@ async def _call_manager_model(
 
 
 # --- Reflection & Learning Loop ---
-async def _analyze_and_store_learning(
-    task_description: str,
-    doer_response: str,
-    context_store: dict,
-    original_task: str,
-    logger: Any
-) -> None:
-    """
-    Analyze the agent interaction to identify and store learning insights.
-    """
-    try:
-        # Extract tool outputs from context store
-        tool_outputs = []
-        if "tool_outputs" in context_store:
-            tool_outputs = context_store["tool_outputs"]
-        
-        # Analyze the interaction for learning insights
-        insights = learning_identifier.analyze_interaction(
-            task_description=task_description,
-            doer_response=doer_response,
-            tool_outputs=tool_outputs,
-            context={"original_task": original_task}
-        )
-        
-        if not insights:
-            logger.debug("No learning insights identified from this interaction")
-            return
-        
-        # Determine if we should trigger learning storage
-        task_success = "FINAL ANSWER:" in doer_response
-        novel_info_discovered = bool(context_store.get("explored_files")) or bool(context_store.get("code_content"))
-        
-        should_learn = learning_identifier.should_trigger_learning(
-            insights=insights,
-            task_success=task_success,
-            novel_information_discovered=novel_info_discovered
-        )
-        
-        if should_learn:
-            logger.info(f"Learning triggered: Found {len(insights)} valuable insights")
-            
-            # Store the most valuable insights in the RAG system
-            for insight in insights[:2]:  # Store top 2 insights to avoid noise
-                knowledge_text = (
-                    f"Context: {task_description}\n"
-                    f"Insight: {insight.insight_text}\n"
-                    f"Keywords: {', '.join(insight.keywords)}\n"
-                    f"Related to: {original_task}"
-                )
-                
-                rag_manager.add_knowledge(
-                    text=knowledge_text,
-                    source=f"learning_{insight.source}_{int(time.time())}"
-                )
-                logger.info(f"Stored learning insight: {insight.insight_text[:100]}...")
-            
-            # Save to disk periodically
-            rag_manager.save()
-            
-        else:
-            logger.debug("Learning insights found but threshold not met for storage")
-            
-    except Exception as e:
-        logger.error(f"Error in learning analysis: {e}", exc_info=True)
-
-
 def _get_reflector_prompt(original_task: str, final_conversation: str) -> str:
     """Builds the system prompt for the Reflector AI model."""
     return f"""
@@ -213,25 +173,38 @@ async def run_organizer_loop(
     # Prepare initial messages
     organizer_messages = prepare_initial_messages(request.messages)
     original_task = organizer_messages[-1]["content"]
-    is_complex = True
+    complex = True
+
+    # Workflow optimization: Add loop detection and iteration limits
+    max_iterations = 10
+    current_iteration = 0
+    recent_instructions = []
+    similarity_threshold = 0.85
 
     # Create a context store to track accumulated information across steps
     context_store = {
         "explored_files": set(),
         "code_content": {},
-        "task_progress": []
+        "task_progress": [],
+        "tool_outputs": []
     }
 
-    system_prompt = await ContextBuilder().build_system_prompt_planner(original_task)
-    
+    system_prompt = await ContextBuilder().build_system_prompt_planner()
     organizer_messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
 
     try:
-        logger.info("Starting organizer loop...")
-        for turn in range(config.MAX_TURNS):
+        logger.info("Starting enhanced organizer loop...")
+        for turn in range(min(config.MAX_TURNS, max_iterations)):
             doer_messages = []
             metrics.agent_step_count = turn + 1
-            logger.info(f"Turn {turn + 1}/{config.MAX_TURNS}")
+            current_iteration = turn + 1
+            logger.info(f"Turn {current_iteration}/{max_iterations}")
+
+            # Check iteration limit
+            if current_iteration > max_iterations:
+                logger.warning(f"Maximum iterations ({max_iterations}) reached, stopping")
+                yield f"\n[Maximum iterations reached. Task may need manual intervention.]\n"
+                break
 
             # --- Planner Turn ---
             planner_step_name = f"Planner-Turn-{turn + 1}"
@@ -248,10 +221,17 @@ async def run_organizer_loop(
 
             response_buffer = ""
             logger.info(f"Planner: Calling model server at {api_base_url}/v1/chat/stream")
-            async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6, False):
-                planner_token_count += 1
-                response_buffer += token
-                content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+            
+            # Enhanced execution with timeout protection
+            try:
+                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6, complex):
+                    planner_token_count += 1
+                    response_buffer += token
+                    content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+            except Exception as e:
+                logger.error(f"Planner execution failed: {e}")
+                yield f"\n[Planner error: {str(e)}]\n"
+                continue
 
             # --- METRICS: Log Planner Step ---
             metrics.step_latencies[planner_step_name] = time.monotonic() - planner_start_time
@@ -261,6 +241,39 @@ async def run_organizer_loop(
             # Extract content after any thinking markers
             content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
             logger.info("Planner said:\n" + response_buffer)
+            
+            # Loop detection: Check if this instruction is too similar to recent ones
+            instruction_normalized = content.lower().strip()
+            
+            # Check for loops
+            loop_detected = False
+            if len(recent_instructions) >= 2:
+                for recent_instruction in recent_instructions[-2:]:
+                    similarity = _calculate_similarity(instruction_normalized, recent_instruction)
+                    if similarity >= similarity_threshold:
+                        loop_detected = True
+                        logger.warning(f"Loop detected! Similarity: {similarity:.2f}")
+                        break
+            
+            if loop_detected:
+                # Inject pattern-breaking instruction
+                pattern_break_msg = (
+                    "PATTERN DETECTED: You are repeating similar instructions. "
+                    "Try a completely different approach, use different tools, "
+                    "or break down the problem differently."
+                )
+                organizer_messages.append({"role": USER_ROLE, "content": pattern_break_msg})
+                yield f"\n[LOOP DETECTED - Trying different approach]\n"
+                
+                # Clear recent instructions and continue
+                recent_instructions.clear()
+                continue
+            
+            # Store this instruction for loop detection
+            recent_instructions.append(instruction_normalized)
+            if len(recent_instructions) > 3:
+                recent_instructions.pop(0)
+            
             organizer_messages.append({"role": ASSISTANT_ROLE, "content": content})
 
             # --- Prepare Doer with Enhanced Context ---
@@ -288,23 +301,27 @@ async def run_organizer_loop(
             doer_token_count = 0
             # --- END METRICS ---
 
-            # Doer's turn
+            # Doer's turn with enhanced error handling and timeout
             response_buffer = ""
-            async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url, is_complex, context_store):
-                doer_token_count += 1  # METRICS: Count tokens
-                yield token
+            doer_success = False
+            
+            try:
+                logger.info(f"Doer: Starting execution with timeout protection")
+                async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url, complex):
+                    doer_token_count += 1  # METRICS: Count tokens
+                    yield token
+                doer_success = True
+                
+            except Exception as e:
+                logger.error(f"Doer execution failed: {e}")
+                yield f"\n[Doer execution error: {str(e)}. Trying different approach...]\n"
+                doer_success = False
+
+            if not doer_success:
+                # Skip to next iteration if doer failed
+                continue
 
             doer_result = doer_messages[-1]["content"]
-
-            # --- LEARNING ANALYSIS ---
-            await _analyze_and_store_learning(
-                task_description=content,  # content is the delegated step from planner
-                doer_response=doer_result,
-                context_store=context_store,
-                original_task=original_task,
-                logger=logger
-            )
-            # --- END LEARNING ANALYSIS ---
 
             # --- METRICS: Log Doer Step Latency, Throughput and Resources ---
             metrics.step_latencies[doer_step_name] = time.monotonic() - doer_start_time
@@ -312,37 +329,73 @@ async def run_organizer_loop(
             metrics.resource_snapshots[doer_step_name] = metrics.get_resource_usage()
             # --- END METRICS ---
 
+            # Enhanced evaluation with three-level assessment
             response_buffer = ""
             delegated_step = organizer_messages[-1]["content"]  # Get the last message from the Planner
+            
+            # Enhanced evaluator prompt with three-level assessment
             evaluator_system_prompt = get_evaluator_prompt() + (
                 f"\n\nHere is the information to evaluate:"
                 f"\nOriginal High-Level Task: {original_task}"
                 f"\nDelegated Step for the Doer: {delegated_step}"
                 f"\nDoer's Final Result: {doer_result}"
+                f"\n\nProvide one of these verdicts:"
+                f"\n- SUCCESS: The step was completed successfully and advances toward the goal"
+                f"\n- PARTIAL: Some progress was made but the step is incomplete"
+                f"\n- FAILURE: The step failed or made no progress"
+                f"\n- DONE: The entire original task is now complete"
             )
+            
             organizer_messages.append({
                 "role": USER_ROLE,
                 "content": f"The doer has completed the delegated task. Here is the result:\n\n{doer_result}"
             })
+            
             evaluator_messages = [{"role": SYSTEM_ROLE, "content": evaluator_system_prompt}]
-            async for token in execute_turn(api_base_url, evaluator_messages, logger, request.tools, 0.1, is_complex):
-                response_buffer += token
-                content = re.split(r"</think>", response_buffer, maxsplit=1)
-                if len(content) == 2:
-                    yield token
+            
+            try:
+                async for token in execute_turn(api_base_url, evaluator_messages, logger, request.tools, 0.1, complex):
+                    response_buffer += token
+                    content = re.split(r"</think>", response_buffer, maxsplit=1)
+                    if len(content) == 2:
+                        yield token
+            except Exception as e:
+                logger.error(f"Evaluator execution failed: {e}")
+                response_buffer = "PARTIAL: Evaluator failed, continuing with caution."
+                
             logger.info("Evaluator response:\n" + response_buffer)
             evaluator_response = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+            
+            # Store tool outputs for learning
+            if "tool_outputs" in context_store:
+                context_store["tool_outputs"].append({
+                    "instruction": delegated_step,
+                    "result": doer_result,
+                    "evaluation": evaluator_response
+                })
+
+            # Enhanced three-level evaluation processing
             if evaluator_response.startswith('SUCCESS:'):
-                logger.info("Evaluator confirmed success. Planner proceeds.")
-                pass  # Continue the loop to the next Planner turn
+                logger.info("Evaluator reported success. Continuing to next step.")
+                organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
+                # Continue the loop
+                
+            elif evaluator_response.startswith('PARTIAL:'):
+                logger.info("Evaluator reported partial success. Providing feedback and continuing.")
+                organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
+                # Continue the loop with feedback
 
             elif evaluator_response.startswith('FAILURE:'):
-                logger.info("Evaluator reported failure. Planner must adjust.")
-                # This is where the Planner receives feedback
-                # The 'FAILURE:' message is appended to the organizer_messages
+                logger.info("Evaluator reported failure. Planner must adjust approach.")
                 organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
+                # Add suggestion for different approach
+                organizer_messages.append({
+                    "role": USER_ROLE, 
+                    "content": "The previous approach failed. Please try a different strategy or tool."
+                })
 
             elif evaluator_response.startswith('DONE:'):
+                logger.info("Evaluator reported task completion!")
                 organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
 
                 summary_prompt = f"The entire task has been successfully completed. Based on our conversation history, please summarize the steps taken and provide the final answer to the original high-level task: {original_task}"
@@ -350,10 +403,41 @@ async def run_organizer_loop(
                 system_prompt = await ContextBuilder().build_system_prompt_doer()
                 organizer_messages[0] = {"role": SYSTEM_ROLE, "content": system_prompt}
                 final_response_buffer = ""
-                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, is_complex):
+                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, complex):
                     final_response_buffer += token
                     yield token
+                    
+                # Task completed successfully
+                logger.info("Task completed successfully")
                 return
+                
+            else:
+                # Default handling for unclear evaluation
+                logger.warning(f"Unclear evaluator response: {evaluator_response}")
+                organizer_messages.append({
+                    "role": USER_ROLE, 
+                    "content": f"Evaluation unclear: {evaluator_response}. Please continue or clarify."
+                })
+
+            # Learning analysis: Capture insights from this turn
+            try:
+                if LEARNING_AVAILABLE and learning_identifier and hasattr(learning_identifier, 'analyze_interaction'):
+                    doer_output = doer_result if 'doer_result' in locals() else ""
+                    learning_result = learning_identifier.analyze_interaction(
+                        instruction=delegated_step,
+                        output=doer_output,
+                        context=str(context_store)
+                    )
+                    
+                    if learning_result.get("has_learning", False):
+                        learning_text = learning_result.get("insight", "")
+                        if rag_manager and hasattr(rag_manager, 'store_insight'):
+                            rag_manager.store_insight(learning_text)
+                            logger.info(f"Learning captured: {learning_text[:100]}...")
+                        
+            except Exception as e:
+                logger.debug(f"Learning processing failed: {e}")
+                # Don't fail the main loop for learning issues
 
         # Max turns reached
         logger.warning("Max turns reached; ending.")
