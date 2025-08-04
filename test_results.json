@@ -1,0 +1,71 @@
+{
+  "timestamp": 1754080349.4097066,
+  "duration": 0.10766792297363281,
+  "results": {
+    "component_results": {
+      "context_management": {
+        "tests_run": 4,
+        "failures": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "status": "passed"
+      },
+      "tool_management": {
+        "tests_run": 4,
+        "failures": 0,
+        "errors": 4,
+        "success_rate": 0.0,
+        "status": "failed"
+      },
+      "resilient_parsing": {
+        "tests_run": 5,
+        "failures": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "status": "passed"
+      },
+      "state_tracking": {
+        "tests_run": 4,
+        "failures": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "status": "passed"
+      },
+      "workflow_orchestration": {
+        "tests_run": 3,
+        "failures": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "status": "passed"
+      },
+      "actionable_metrics": {
+        "tests_run": 4,
+        "failures": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "status": "passed"
+      },
+      "migration_system": {
+        "tests_run": 3,
+        "failures": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "status": "passed"
+      },
+      "integration_layer": {
+        "tests_run": 3,
+        "failures": 0,
+        "errors": 3,
+        "success_rate": 0.0,
+        "status": "failed"
+      }
+    },
+    "overall": {
+      "total_tests": 30,
+      "total_failures": 0,
+      "total_errors": 7,
+      "success_rate": 76.66666666666667,
+      "status": "failed"
+    }
+  }
+}

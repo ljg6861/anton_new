@@ -24,6 +24,45 @@ from server.model_server import AgentChatRequest, OLLAMA_HOST, SMALL_MODEL_ID
 # --- END METRICS ---
 
 # --- Helper Functions ---
+
+def needs_clarification(message: str) -> bool:
+    """Check if message needs user clarification rather than agent action."""
+    clarification_keywords = [
+        "what do you mean", "can you clarify", "not sure", "unclear",
+        "which one", "help me understand", "what would you like",
+        "could you specify", "what exactly", "confused"
+    ]
+    return any(keyword in message.lower() for keyword in clarification_keywords)
+
+
+def is_simple_request(message: str) -> bool:
+    """Check if this is a simple request that can bypass multi-stage architecture."""
+    message_lower = message.lower().strip()
+    simple_patterns = [
+        "hello", "hi", "thanks", "thank you", "what can you do",
+        "how are you", "good morning", "good afternoon"
+    ]
+    # Check if message starts with simple greeting or is just "help"
+    return (any(message_lower.startswith(pattern) for pattern in simple_patterns) or 
+            message_lower == "help")
+
+
+def calculate_similarity(text1: str, text2: str) -> float:
+    """Calculate similarity between two texts using word overlap."""
+    if not text1 or not text2:
+        return 0.0
+    
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+    
+    if not words1 or not words2:
+        return 0.0
+    
+    intersection = words1.intersection(words2)
+    union = words1.union(words2)
+    return len(intersection) / len(union) if union else 0.0
+
+
 def _get_manager_prompt(original_task: str, conversation_history: str) -> str:
     """Builds the system prompt for the Manager AI model."""
     return f"""
@@ -86,49 +125,19 @@ async def _call_manager_model(
     return result.get("is_finished", False), result.get("reason", "No reason provided.")
 
 
-# --- Reflection & Learning Loop ---
-def _get_reflector_prompt(original_task: str, final_conversation: str) -> str:
-    """Builds the system prompt for the Reflector AI model."""
-    return f"""
-You are a Reflector AI. Analyze a completed user-agent conversation to extract key insights.
-
-**ORIGINAL REQUEST:**
----
-{original_task}
----
-
-**CONVERSATION:**
----
-{final_conversation}
----
-
-Generate JSON: {{
-  "summary": "<1-2 sentences>",
-  "key_takeaway": "<single lesson>",
-  "strategy": "<high-level strategy>",
-  "keywords": ["<keyword1>", ...]
-}}
-"""
-
-
-async def _run_reflection_and_learning_loop(
-        original_task: str,
-        messages: list,
+async def handle_simple_request(
+        request: AgentChatRequest,
         logger: Any,
         api_base_url: str
-) -> None:
-    logger.info("Starting reflection loop...")
-    final_convo = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
-    prompt = _get_reflector_prompt(original_task, final_convo)
-
-    for attempt in range(3):
-        logger.info(f"Reflection attempt {attempt + 1}")
-        result = await _call_llm_for_json(prompt, SYSTEM_ROLE, logger, api_base_url)
-        if all(k in result for k in ("summary", "key_takeaway", "strategy", "keywords")):
-            await save_reflection(original_task, result, logger)
-            logger.info("Reflection saved.")
-            return
-    logger.error("Failed to generate valid reflection after retries.")
+) -> AsyncGenerator[str, None]:
+    """Handle simple requests with direct response, bypassing multi-stage architecture."""
+    messages = prepare_initial_messages(request.messages)
+    system_prompt = await ContextBuilder().build_system_prompt_doer()
+    messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
+    
+    logger.info("Handling simple request directly")
+    async for token in execute_turn(api_base_url, messages, logger, request.tools, 0.7, False):
+        yield token
 
 
 # --- Main Orchestrator ---
@@ -137,15 +146,29 @@ async def run_organizer_loop(
         logger: Any,
         api_base_url: str
 ) -> AsyncGenerator[str, None]:
+    # Prepare initial messages and check conversation state
+    organizer_messages = prepare_initial_messages(request.messages)
+    original_task = organizer_messages[-1]["content"]
+    
+    # Conversation state management
+    if needs_clarification(original_task):
+        logger.info("Message needs clarification - pausing agent loop")
+        yield "I need clarification to help you better. Could you provide more specific details about what you'd like me to do?"
+        return
+    
+    if is_simple_request(original_task):
+        logger.info("Simple request detected - using direct response path")
+        async for token in handle_simple_request(request, logger, api_base_url):
+            yield token
+        return
+    
     # --- METRICS: Initialization ---
     initialize_nvml(logger)
     metrics = MetricsTracker(logger)
     # --- END METRICS ---
 
-    # Prepare initial messages
-    organizer_messages = prepare_initial_messages(request.messages)
-    original_task = organizer_messages[-1]["content"]
     complex = True
+    instruction_history = []  # Track instructions for loop detection
 
     # Create a context store to track accumulated information across steps
     context_store = {
@@ -192,6 +215,29 @@ async def run_organizer_loop(
             # Extract content after any thinking markers
             content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
             logger.info("Planner said:\n" + response_buffer)
+            
+            # Loop detection and prevention
+            instruction_history.append(content)
+            if len(instruction_history) >= 2:
+                last_instruction = instruction_history[-1]
+                previous_instruction = instruction_history[-2]
+                similarity = calculate_similarity(last_instruction, previous_instruction)
+                
+                if similarity > 0.85:
+                    logger.warning(f"Loop detected! Similarity: {similarity:.2f}")
+                    fallback_response = f"I notice I'm repeating similar instructions. Let me provide a direct response to your original request: {original_task}"
+                    
+                    # Direct fallback response
+                    system_prompt = await ContextBuilder().build_system_prompt_doer()
+                    fallback_messages = [
+                        {"role": SYSTEM_ROLE, "content": system_prompt},
+                        {"role": USER_ROLE, "content": fallback_response}
+                    ]
+                    
+                    async for token in execute_turn(api_base_url, fallback_messages, logger, request.tools, 0.7, False):
+                        yield token
+                    return
+            
             organizer_messages.append({"role": ASSISTANT_ROLE, "content": content})
 
             # --- Prepare Doer with Enhanced Context ---
@@ -253,26 +299,31 @@ async def run_organizer_loop(
                     yield token
             logger.info("Evaluator response:\n" + response_buffer)
             evaluator_response = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+            
             if evaluator_response.startswith('SUCCESS:'):
-                logger.info("Evaluator confirmed success. Planner proceeds.")
-                pass  # Continue the loop to the next Planner turn
+                logger.info("Evaluator confirmed success. Task completed.")
+                # Generate final summary and end loop
+                summary_prompt = f"The task has been successfully completed. Based on our conversation, please provide a final summary for the original request: {original_task}"
+                organizer_messages.append({"role": USER_ROLE, "content": summary_prompt})
+                system_prompt = await ContextBuilder().build_system_prompt_doer()
+                organizer_messages[0] = {"role": SYSTEM_ROLE, "content": system_prompt}
+                
+                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.7, False):
+                    yield token
+                return
 
             elif evaluator_response.startswith('FAILURE:'):
                 logger.info("Evaluator reported failure. Planner must adjust.")
-                # This is where the Planner receives feedback
-                # The 'FAILURE:' message is appended to the organizer_messages
                 organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
 
             elif evaluator_response.startswith('DONE:'):
                 organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
-
                 summary_prompt = f"The entire task has been successfully completed. Based on our conversation history, please summarize the steps taken and provide the final answer to the original high-level task: {original_task}"
                 organizer_messages.append({"role": USER_ROLE, "content": summary_prompt})
                 system_prompt = await ContextBuilder().build_system_prompt_doer()
                 organizer_messages[0] = {"role": SYSTEM_ROLE, "content": system_prompt}
-                final_response_buffer = ""
-                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, complex):
-                    final_response_buffer += token
+                
+                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.7, False):
                     yield token
                 return
 
