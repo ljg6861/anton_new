@@ -23,7 +23,7 @@ except ImportError:
 
 from metrics import MetricsTracker
 from server.agent.organizer import run_organizer_loop
-from server.agent.tools.tool_defs import STATIC_TOOLS
+from server.agent.tools.tool_defs import get_all_tools
 from server.agent.tools.tool_manager import tool_manager
 from server.helpers import AgentChatRequest
 
@@ -35,10 +35,10 @@ MODEL_SERVER_URL = "http://localhost:8000"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-print("--- Registering Static Tools ---")
-for tool in STATIC_TOOLS:
-    tool_manager.register(tool)
-print("--- Static Tool Registration Complete ---")
+print("--- Discovering and Registering Tools ---")
+# The enhanced tool manager now automatically discovers and registers tools
+# No need for manual registration loop
+print(f"--- Tool Registration Complete: {tool_manager.get_tool_count()} tools registered ---")
 
 
 def get_all_resource_usage(logger_instance) -> dict:
