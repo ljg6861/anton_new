@@ -128,7 +128,7 @@ async def chat_completions_stream(request: AgentChatRequest):
     try:
         ollama_options = {
             "temperature": request.temperature,
-            "num_predict": 2048,
+            "num_predict": 4096,
         }
 
         if request.complex:
@@ -143,7 +143,7 @@ async def chat_completions_stream(request: AgentChatRequest):
             model=model_to_use,
             messages=request.messages,
             stream=True,
-            options=ollama_options
+            options=ollama_options,
         )
 
     except ollama.ResponseError as e:
