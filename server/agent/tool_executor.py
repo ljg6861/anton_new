@@ -58,7 +58,7 @@ async def process_tool_calls(
             messages.append({
                 "role": "tool",
                 "content": json.dumps({
-                    "tool_name": tool_name,
+                    "name": tool_name,
                     "result": tool_result
                 })
             })
