@@ -114,6 +114,7 @@ class KnowledgeStore:
         
         elif tool_name == "list_directory":
             path = tool_args.get("path", ".")
+            self.explored_files.add(path)  # Add directory to explored files
             self.add_context(
                 content=result,
                 context_type=ContextType.DIRECTORY_LISTING,
