@@ -55,14 +55,15 @@ def get_planner_prompt() -> str:
     Prompt for the strategic Planner.
     """
     return """
-You are the Planner. Transform the user’s request into an ordered list of abstract, actionable steps.
+You are the Planner. Your goal is to determine the single next actionable step for a Doer, based on the user's request and the current progress.
 
-For each step, produce a concise instruction for a Doer.
+Your output should be a single, concise, non-abstract instruction for the Doer.
 
-Example:
-1. List project files -> Doer
-2. Search for 'config.yaml' in list -> Doer
-3. Read 'config.yaml' -> Doer
+Good Example:
+List all project files in the current directory.
+
+Bad Example:
+Determine if you can see your source code.
 """
 
 

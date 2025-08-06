@@ -45,7 +45,7 @@ async def run_doer_loop(
         api_base_url: str,
         complex: bool,
         knowledge_store = None  # New parameter for knowledge tracking
-) -> AsyncGenerator[str, None]:
+) -> None:
     for turn in range(config.MAX_TURNS):
         logger.info(f"Doer Turn {turn + 1}/{config.MAX_TURNS}")
 
@@ -54,9 +54,6 @@ async def run_doer_loop(
         chunk_count = 0
         async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, complex):
             response_buffer += token
-            content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
-            if content.startswith('FINAL ANSWER:'):
-                yield token
 
         llm_call_latency = time.monotonic() - llm_call_start_time
         throughput = chunk_count / llm_call_latency if llm_call_latency > 0 else 0
