@@ -248,9 +248,7 @@ async def run_organizer_loop(
             evaluator_messages = [{"role": SYSTEM_ROLE, "content": evaluator_system_prompt}]
             async for token in execute_turn(api_base_url, evaluator_messages, logger, request.tools, 0.1, complex):
                 response_buffer += token
-                content = re.split(r"</think>", response_buffer, maxsplit=1)
-                if len(content) == 2:
-                    yield token
+
             logger.info("Evaluator response:\n" + response_buffer)
             evaluator_response = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
             if evaluator_response.startswith('SUCCESS:'):
@@ -271,7 +269,7 @@ async def run_organizer_loop(
                 system_prompt = await ContextBuilder().build_system_prompt_doer()
                 organizer_messages[0] = {"role": SYSTEM_ROLE, "content": system_prompt}
                 final_response_buffer = ""
-                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, complex):
+                async for token in execute_turn(api_base_url, organizer_messages, logger, request.tools, 0.6, complex):
                     final_response_buffer += token
                     yield token
                 return
