@@ -52,8 +52,25 @@ class TestKnowledgeStore(unittest.TestCase):
         self.assertIn(file_path, self.knowledge_store.explored_files)
         self.assertEqual(self.knowledge_store.code_content[file_path], content)
     
-    def test_tool_execution_update(self):
-        """Test updating from tool execution"""
+    def test_tool_execution_update_file(self):
+        """Test updating from file reading tool execution"""
+        """Test updating from directory listing tool execution"""
+        tool_args = {"path": "/test/dir"}
+        result = "file1.py\nfile2.py\nsubdir/"
+        
+        self.knowledge_store.update_from_tool_execution("list_directory", tool_args, result)
+        
+        # Should create a context item
+        self.assertEqual(len(self.knowledge_store.context_items), 1)
+        item = self.knowledge_store.context_items[0]
+        self.assertEqual(item.context_type, ContextType.DIRECTORY_LISTING)
+        self.assertEqual(item.content, result)
+        
+        # Should add directory to explored files
+        self.assertIn("/test/dir", self.knowledge_store.explored_files)
+    
+    def test_tool_execution_update_file(self):
+        """Test updating from file reading tool execution"""
         tool_args = {"file_path": "/test/file.py"}
         result = "print('hello world')"
         
