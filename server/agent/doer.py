@@ -44,6 +44,7 @@ async def run_doer_loop(
         logger: Any,
         api_base_url: str,
         complex: bool,
+        knowledge_store = None  # New parameter for knowledge tracking
 ) -> AsyncGenerator[str, None]:
     for turn in range(config.MAX_TURNS):
         logger.info(f"Doer Turn {turn + 1}/{config.MAX_TURNS}")
@@ -66,7 +67,7 @@ async def run_doer_loop(
         messages.append({"role": ASSISTANT_ROLE, "content": content})
 
         tool_call_start_time = time.monotonic()
-        await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger)
+        await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger, knowledge_store)
         tool_call_latency = time.monotonic() - tool_call_start_time
         logger.info(f"[Metrics] Doer Tool Processing (Turn {turn+1}): Latency={tool_call_latency:.2f}s")
 

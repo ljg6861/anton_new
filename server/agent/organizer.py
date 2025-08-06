@@ -16,6 +16,7 @@ from server.agent import config
 from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
 from server.agent.doer import execute_turn, run_doer_loop
 from server.agent.knowledge_handler import save_reflection
+from server.agent.knowledge_store import KnowledgeStore, ImportanceLevel
 from server.agent.message_handler import prepare_initial_messages
 from server.agent.prompts import get_evaluator_prompt
 from server.model_server import AgentChatRequest, OLLAMA_HOST, SMALL_MODEL_ID
@@ -147,12 +148,8 @@ async def run_organizer_loop(
     original_task = organizer_messages[-1]["content"]
     complex = True
 
-    # Create a context store to track accumulated information across steps
-    context_store = {
-        "explored_files": set(),
-        "code_content": {},
-        "task_progress": []
-    }
+    # Create a centralized knowledge store to track and persist context across all components
+    knowledge_store = KnowledgeStore()
 
     system_prompt = await ContextBuilder().build_system_prompt_planner()
     organizer_messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
@@ -170,12 +167,22 @@ async def run_organizer_loop(
             planner_token_count = 0
 
             # Add context from previous steps to the planner's input
-            context_summary = _build_context_summary(context_store)
+            context_summary = knowledge_store.build_context_summary()
             if turn > 0:
                 organizer_messages.append({
                     "role": SYSTEM_ROLE,
                     "content": f"Previous step progress:\n{context_summary}"
                 })
+            
+            # Query relevant knowledge from past tasks
+            if turn > 0:
+                relevant_knowledge = knowledge_store.query_relevant_knowledge(original_task)
+                if relevant_knowledge:
+                    knowledge_context = "Relevant knowledge from past tasks:\n" + "\n".join(f"- {k[:200]}..." for k in relevant_knowledge[:3])
+                    organizer_messages.append({
+                        "role": SYSTEM_ROLE,
+                        "content": knowledge_context
+                    })
 
             response_buffer = ""
             logger.info(f"Planner: Calling model server at {api_base_url}/v1/chat/stream")
@@ -193,6 +200,10 @@ async def run_organizer_loop(
             content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
             logger.info("Planner said:\n" + response_buffer)
             organizer_messages.append({"role": ASSISTANT_ROLE, "content": content})
+            
+            # Capture planner insights
+            if content and not content.startswith("I need to"):  # Avoid capturing simple delegation
+                knowledge_store.add_planner_insight(content[:500], ImportanceLevel.MEDIUM)
 
             # --- Prepare Doer with Enhanced Context ---
             if len(doer_messages) == 0:
@@ -200,15 +211,15 @@ async def run_organizer_loop(
                 doer_messages.append({"role": SYSTEM_ROLE, "content": system_prompt})
 
             # Add context about already explored files to the Doer
-            if context_store["explored_files"]:
-                explored_files_msg = "Previously explored files: " + ", ".join(context_store["explored_files"])
+            if knowledge_store.explored_files:
+                explored_files_msg = "Previously explored files: " + ", ".join(list(knowledge_store.explored_files)[:10])
                 doer_messages.append({"role": SYSTEM_ROLE, "content": explored_files_msg})
 
             # Add any previously retrieved file content as context
-            for filename, content in context_store["code_content"].items():
+            for filename, content in list(knowledge_store.code_content.items())[:5]:  # Limit to avoid token overflow
                 doer_messages.append({
                     "role": SYSTEM_ROLE,
-                    "content": f"Content of file {filename}:\n```\n{content}\n```"
+                    "content": f"Content of file {filename}:\n```\n{content[:2000]}\n```"  # Truncate long files
                 })
 
             doer_messages.append({"role": USER_ROLE, "content": content})
@@ -219,9 +230,9 @@ async def run_organizer_loop(
             doer_token_count = 0
             # --- END METRICS ---
 
-            # Doer's turn
+            # Doer's turn - pass knowledge store for context tracking
             response_buffer = ""
-            async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url, complex):
+            async for token in run_doer_loop(doer_messages, request.tools, logger, api_base_url, complex, knowledge_store):
                 doer_token_count += 1  # METRICS: Count tokens
                 yield token
 
@@ -253,6 +264,16 @@ async def run_organizer_loop(
                     yield token
             logger.info("Evaluator response:\n" + response_buffer)
             evaluator_response = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+            
+            # Store evaluator feedback in knowledge store
+            if evaluator_response:
+                if evaluator_response.startswith('FAILURE:'):
+                    knowledge_store.add_evaluator_feedback(evaluator_response, ImportanceLevel.HIGH)
+                elif evaluator_response.startswith('SUCCESS:'):
+                    knowledge_store.add_evaluator_feedback(evaluator_response, ImportanceLevel.MEDIUM)
+                elif evaluator_response.startswith('DONE:'):
+                    knowledge_store.add_evaluator_feedback(evaluator_response, ImportanceLevel.CRITICAL)
+            
             if evaluator_response.startswith('SUCCESS:'):
                 logger.info("Evaluator confirmed success. Planner proceeds.")
                 pass  # Continue the loop to the next Planner turn
@@ -292,22 +313,3 @@ async def run_organizer_loop(
             except NVMLError:
                 pass  # Already logged warnings if shutdown fails
 
-
-def _build_context_summary(context_store):
-    """Build a summary of the context for the planner"""
-    summary_parts = []
-
-    if context_store["explored_files"]:
-        summary_parts.append("Explored files: " + ", ".join(context_store["explored_files"]))
-
-    if context_store["code_content"]:
-        summary_parts.append("Retrieved file contents:")
-        for filename in context_store["code_content"].keys():
-            summary_parts.append(f"- {filename}")
-
-    if context_store["task_progress"]:
-        summary_parts.append("Progress so far:")
-        for step in context_store["task_progress"]:
-            summary_parts.append(f"- {step}")
-
-    return "\n".join(summary_parts)
