@@ -20,11 +20,11 @@ async def process_tool_calls(
         tool_call_regex: Any,
         messages: list[dict],
         logger: Any,
-        context_store: dict = None  # New parameter to store context
+        knowledge_store = None  # Updated parameter to use KnowledgeStore
 ) -> bool:
     """
     Parses and executes all tool calls from the model's response buffer.
-    Now updates a context store with information about accessed files.
+    Now updates a knowledge store with information about accessed files and tool results.
 
     Returns:
         True if at least one tool was called, False otherwise.
@@ -50,15 +50,15 @@ async def process_tool_calls(
             tool_result = execute_tool(tool_name, tool_args, logger)
             logger.info(f"tool result: {tool_result}")
 
-            # Update context store for file operations
-            if context_store is not None:
-                _update_context_store(context_store, tool_name, tool_args, tool_result)
+            # Update knowledge store for file operations
+            if knowledge_store is not None:
+                knowledge_store.update_from_tool_execution(tool_name, tool_args, tool_result)
 
             # Append the structured tool result to messages
             messages.append({
                 "role": "tool",
                 "content": json.dumps({
-                    "tool_name": tool_name,
+                    "name": tool_name,
                     "result": tool_result
                 })
             })
@@ -71,22 +71,6 @@ async def process_tool_calls(
     return tool_calls_made
 
 
-def _update_context_store(context_store: dict, tool_name: str, tool_args: dict, result: str):
-    """Updates the context store with information from tool calls"""
-    if tool_name == "read_file":
-        file_path = tool_args.get("file_path")
-        if file_path:
-            context_store["explored_files"].add(file_path)
-            # Store truncated content if result is very long
-            if len(result) > 10000:
-                context_store["code_content"][file_path] = result[:10000] + "... [truncated]"
-            else:
-                context_store["code_content"][file_path] = result
-
-    elif tool_name == "list_directory":
-        path = tool_args.get("path", ".")
-        context_store["explored_files"].add(path)
-        context_store["task_progress"].append(f"Listed directory {path}")
 
 
 def execute_tool(tool_name: str, tool_args: dict, logger) -> str:

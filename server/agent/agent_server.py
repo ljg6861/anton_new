@@ -1,4 +1,7 @@
+import json
 import logging
+from copy import deepcopy
+
 import uvicorn
 import time
 import psutil
@@ -10,6 +13,10 @@ from typing import AsyncGenerator
 from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
     nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
 
+from server.agent.doer import execute_turn
+from server.agent.prompts import get_intent_router_prompt
+from server.agent.rag_manager import rag_manager
+
 try:
     from pynvml import *
 except ImportError:
@@ -17,7 +24,7 @@ except ImportError:
 
 from metrics import MetricsTracker
 from server.agent.organizer import run_organizer_loop
-from server.agent.tools.tool_defs import STATIC_TOOLS
+from server.agent.tools.tool_defs import get_all_tools
 from server.agent.tools.tool_manager import tool_manager
 from server.helpers import AgentChatRequest
 
@@ -29,10 +36,10 @@ MODEL_SERVER_URL = "http://localhost:8000"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-print("--- Registering Static Tools ---")
-for tool in STATIC_TOOLS:
-    tool_manager.register(tool)
-print("--- Static Tool Registration Complete ---")
+print("--- Discovering and Registering Tools ---")
+# The enhanced tool manager now automatically discovers and registers tools
+# No need for manual registration loop
+print(f"--- Tool Registration Complete: {tool_manager.get_tool_count()} tools registered ---")
 
 
 def get_all_resource_usage(logger_instance) -> dict:
@@ -67,6 +74,22 @@ def get_all_resource_usage(logger_instance) -> dict:
 async def lifespan(app: FastAPI):
     """Handles application startup and shutdown events."""
     logger.info("🚀 Agent Server starting up...")
+
+    from server.agent.code_indexer import code_indexer
+
+    # Run in a background thread to not block startup
+    import threading
+    def index_code():
+        logger.info("Starting code indexing...")
+        files_indexed = code_indexer.index_directory()
+        logger.info(f"✅ Code indexing complete. {files_indexed} files indexed.")
+        # Save the RAG index to persist embeddings
+        rag_manager.save()
+
+    indexing_thread = threading.Thread(target=index_code)
+    indexing_thread.daemon = True
+    indexing_thread.start()
+
     # Initialize NVML to check for GPUs
     try:
         nvmlInit()
@@ -153,16 +176,133 @@ async def metrics_collecting_stream_generator(
 
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
-    logger.info("Agent Server received request.")
-    metrics = MetricsTracker(logger)
-    raw_stream_generator = run_organizer_loop(request, logger, MODEL_SERVER_URL)
+    """
+    Handles incoming chat requests by first classifying the user's intent
+    and then routing to the appropriate workflow (Agent, RAG, or Chat).
+    """
+    logger.info("Agent Server received request. Routing intent...")
 
-    metrics_generator = metrics_collecting_stream_generator(raw_stream_generator, metrics)
+    async def router_and_stream_generator():
+        """
+        This generator first determines the user's intent and then yields
+        the appropriate response stream.
+        """
+        # === STEP 1: Get Intent Classification from the Router ===
+        # We need the full response from the router, so we don't stream this part.
+        # The router's only job is to return a JSON object, not chat.
+
+        # Prepare messages for the router prompt
+        router_messages = [{'role': 'system', 'content': get_intent_router_prompt()}] + [
+            msg.model_dump() for msg in request.messages
+        ]
+
+        # Execute the router call to get the JSON classification
+        router_gen = execute_turn(
+            api_base_url=MODEL_SERVER_URL,
+            messages=router_messages,
+            logger=logger,
+            tools=[],
+            temperature=0.0,  # Use 0 temp for deterministic JSON output
+            complex=False
+        )
+
+        # Collect the full JSON response from the generator
+        router_response_str = "".join([token async for token in router_gen])
+        logger.info(f"Router full response: {router_response_str}")
+
+        # === STEP 2: Parse the Intent and Route to the Correct Workflow ===
+        try:
+            # Clean up potential markdown code fences sometimes added by models
+            if router_response_str.strip().startswith("```json"):
+                router_response_str = router_response_str.strip()[7:-3].strip()
+
+            parsed_intent = json.loads(router_response_str)
+            intent = parsed_intent.get("intent")
+            query = parsed_intent.get("query")
+
+            logger.info(f"Successfully parsed intent: '{intent}' for query: '{query}'")
+
+        except (json.JSONDecodeError, AttributeError) as e:
+            logger.error(f"Failed to parse JSON from router: {e}. Defaulting to agent workflow.")
+            # Failsafe: If the router fails, assume it's a complex task.
+            intent = "EXECUTE_TOOL"
+            query = request.messages[-1].content  # Use the last message as the query
+
+        # === STEP 3: Execute the Chosen Workflow and Stream the Result ===
+
+        # --- PATH A: Agentic Workflows (Learning & Tool Use) ---
+        if intent in ["COMPLEX_CHAT"]:
+            logger.info(f"Routing to main agent for intent: '{intent}'")
+
+            # Create a deepcopy of the request to avoid side effects
+            agent_request = deepcopy(request)
+
+            # CRITICAL: We replace the user's original message with the
+            # clean query identified by the router. This focuses the agent.
+            agent_request.messages[-1].content = query
+
+            metrics = MetricsTracker(logger)
+            raw_stream_generator = run_organizer_loop(agent_request, logger, MODEL_SERVER_URL)
+            metrics_generator = metrics_collecting_stream_generator(raw_stream_generator, metrics)
+            async for agent_token in metrics_generator:
+                yield agent_token
+
+        # --- PATH B: Knowledge Retrieval Workflow (Future RAG implementation) ---
+        elif intent == "QUERY_KNOWLEDGE":
+            logger.info("Routing to RAG workflow for intent: 'QUERY_KNOWLEDGE'")
+            f"""
+            You are Anton, an AI assistant. Using the knowledge you have, answer the user's question.
+            User's question: {query}
+            Answer:
+            """
+            chat_messages = [{'role': 'system', 'content': 'You are Anton, a helpful AI.'},
+                             {'role': 'user', 'content': query}]
+            simple_chat_gen = execute_turn(api_base_url=MODEL_SERVER_URL, messages=chat_messages, logger=logger,
+                                           complex=False)
+            async for chat_token in simple_chat_gen:
+                yield chat_token
+
+        # --- PATH C: Simple Conversational Chat ---
+        elif intent == "GENERAL_CHAT":
+            logger.info("Routing to simple chat for intent: 'GENERAL_CHAT'")
+            # This is a simple chat. We generate a new response.
+            # We use the original messages so the AI has conversation history.
+            chat_messages = [{'role': 'system', 'content': 'You are Anton, a friendly and helpful AI assistant.'}] + [
+                msg.model_dump() for msg in request.messages
+            ]
+
+            simple_chat_gen = execute_turn(
+                api_base_url=MODEL_SERVER_URL,
+                messages=chat_messages,
+                logger=logger,
+                tools=[],
+                temperature=0.7,  # Allow more creativity in chat
+                complex=False
+            )
+            async for chat_token in simple_chat_gen:
+                yield chat_token
+
+        else:
+            # Fallback for unknown intents
+            logger.warning(f"Unknown intent '{intent}'. Yielding fallback response.")
+            fallback_response = "I'm not sure how to handle that request. Could you please rephrase?"
+            for char in fallback_response:
+                yield char
 
     return StreamingResponse(
-        metrics_generator,
+        router_and_stream_generator(),
         media_type="text/plain"
     )
+
+from server.agent.code_index_refresher import code_refresher
+
+@app.on_event("startup")
+def start_code_refresher():
+    code_refresher.start()
+
+@app.on_event("shutdown")
+def stop_code_refresher():
+    code_refresher.stop()
 
 
 if __name__ == "__main__":

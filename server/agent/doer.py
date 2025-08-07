@@ -44,32 +44,19 @@ async def run_doer_loop(
         logger: Any,
         api_base_url: str,
         complex: bool,
-) -> AsyncGenerator[str, None]:
-    for turn in range(config.MAX_TURNS):
-        logger.info(f"Doer Turn {turn + 1}/{config.MAX_TURNS}")
+        knowledge_store = None  # New parameter for knowledge tracking
+) -> None:
 
-        llm_call_start_time = time.monotonic()
+    for i in range(config.MAX_TURNS):
         response_buffer = ""
-        chunk_count = 0
         async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, complex):
             response_buffer += token
-            content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
-            if content.startswith('FINAL ANSWER:'):
-                yield token
-
-        llm_call_latency = time.monotonic() - llm_call_start_time
-        throughput = chunk_count / llm_call_latency if llm_call_latency > 0 else 0
-        logger.info(f"[Metrics] Doer LLM Call (Turn {turn+1}): Latency={llm_call_latency:.2f}s, Throughput={throughput:.2f} chunks/sec")
 
         logger.info("Doer said:\n" + response_buffer)
         content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
         messages.append({"role": ASSISTANT_ROLE, "content": content})
 
-        tool_call_start_time = time.monotonic()
-        await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger)
-        tool_call_latency = time.monotonic() - tool_call_start_time
-        logger.info(f"[Metrics] Doer Tool Processing (Turn {turn+1}): Latency={tool_call_latency:.2f}s")
+        made_tool_calls = await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger, knowledge_store)
 
-        if "FINAL ANSWER:" in content:
-            logger.info("Doer received 'FINAL ANSWER:', breaking loop.")
-            break
+        if not made_tool_calls:
+            return

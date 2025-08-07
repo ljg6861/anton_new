@@ -145,7 +145,7 @@ async def chat_completions_stream(request: AgentChatRequest):
             messages=request.messages,
             stream=True,
             options=ollama_options,
-            think=request.complex
+            think=request.complex,
         )
 
     except ollama.ResponseError as e:
