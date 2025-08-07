@@ -3,7 +3,7 @@ Handles parsing and processing of <learn> tags from the model's output.
 """
 import json
 import re
-from typing import Any
+from typing import Any, Dict
 
 from server.agent.rag_manager import rag_manager
 
@@ -40,6 +40,52 @@ async def process_learning_request(
         logger.error(f"{error_msg}\nContent: {learn_content}")
 
     return True
+
+
+async def process_code_question(
+        question: str,
+        logger: Any
+) -> Dict:
+    """
+    Process a question about the agent's code by finding relevant code snippets.
+
+    Args:
+        question: The question about the code
+        logger: Logger instance
+
+    Returns:
+        Dictionary with relevant code snippets
+    """
+    from server.agent.rag_manager import rag_manager
+
+    logger.info(f"Processing code-related question: {question}")
+
+    try:
+        # Get relevant code snippets
+        relevant_snippets = rag_manager.retrieve_knowledge(query=question, top_k=5)
+
+        # Format snippets for readability
+        formatted_snippets = []
+        for snippet in relevant_snippets:
+            source = snippet.get("source", "Unknown source")
+            text = snippet.get("text", "").strip()
+            formatted_snippets.append({
+                "source": source,
+                "text": text[:1000] + ("..." if len(text) > 1000 else "")
+            })
+
+        return {
+            "question": question,
+            "snippets": formatted_snippets
+        }
+
+    except Exception as e:
+        logger.error(f"Error processing code question: {e}", exc_info=True)
+        return {
+            "question": question,
+            "error": str(e),
+            "snippets": []
+        }
 
 
 async def save_reflection(original_task: str, reflection_data: dict, logger: Any) -> None:

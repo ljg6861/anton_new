@@ -7,6 +7,7 @@ from typing import Dict, Set, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 
+from server.agent.learning_loop import learning_loop
 from server.agent.rag_manager import rag_manager
 
 
@@ -264,3 +265,19 @@ class KnowledgeStore:
             return rag_texts + relevant_current
         except Exception as e:
             return []
+
+    def start_learning_task(self, user_prompt: str):
+        """Start tracking a task in the learning loop."""
+        learning_loop.start_task(user_prompt)
+
+    def add_learning_action(self, action_type: str, details: dict):
+        """Record an action in the current learning task."""
+        learning_loop.record_action(action_type, details)
+
+    def complete_learning_task(self, success: bool, feedback: str):
+        """Complete the current learning task."""
+        return learning_loop.complete_task(success, feedback)
+
+    def get_relevant_past_experiences(self, prompt: str):
+        """Get relevant past learnings for the current task."""
+        return learning_loop.get_relevant_learnings(prompt)

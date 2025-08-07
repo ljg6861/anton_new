@@ -47,12 +47,16 @@ async def run_doer_loop(
         knowledge_store = None  # New parameter for knowledge tracking
 ) -> None:
 
-    response_buffer = ""
-    async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, complex):
-        response_buffer += token
+    for i in range(config.MAX_TURNS):
+        response_buffer = ""
+        async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, complex):
+            response_buffer += token
 
-    logger.info("Doer said:\n" + response_buffer)
-    content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
-    messages.append({"role": ASSISTANT_ROLE, "content": content})
+        logger.info("Doer said:\n" + response_buffer)
+        content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
+        messages.append({"role": ASSISTANT_ROLE, "content": content})
 
-    await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger, knowledge_store)
+        made_tool_calls = await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger, knowledge_store)
+
+        if not made_tool_calls:
+            return

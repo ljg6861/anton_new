@@ -32,9 +32,20 @@ async def run_organizer_loop(
 
     # Create a centralized knowledge store to track and persist context across all components
     knowledge_store = KnowledgeStore()
+    knowledge_store.start_learning_task(original_task)
+
 
     system_prompt = await ContextBuilder().build_system_prompt_planner()
     organizer_messages.insert(0, {"role": SYSTEM_ROLE, "content": system_prompt})
+
+    past_learnings = knowledge_store.get_relevant_past_experiences(original_task)
+    if past_learnings:
+        learnings_prompt = "Based on my past experiences, these approaches might be helpful:\n" + "\n".join(f"- {learning}" for learning in past_learnings)
+        logger.info('Learnings prompt: \n' + learnings_prompt)
+        organizer_messages.append({
+            "role": SYSTEM_ROLE,
+            "content": learnings_prompt
+        })
 
     try:
         logger.info("Starting organizer loop...")
@@ -131,22 +142,31 @@ async def run_organizer_loop(
             if evaluator_response.strip().startswith("```json"):
                 evaluator_response = evaluator_response.strip()[7:-3].strip()
 
-            parsed_intent = json.loads(evaluator_response)
-            result = parsed_intent.get("result")
-            explanation = parsed_intent.get("explanation")
+            try:
+                parsed_intent = json.loads(evaluator_response)
+                result = parsed_intent.get("result")
+                explanation = parsed_intent.get("explanation")
+            except:
+                result = 'FAILURE'
+                explanation = 'Failed to parse the response'
             
             # Store evaluator feedback in knowledge store
             if evaluator_response:
                 if result == 'FAILURE':
                     knowledge_store.add_evaluator_feedback(explanation, ImportanceLevel.HIGH)
                     logger.info("Evaluator reported failure. Planner must adjust.")
-                    organizer_messages.append({"role": USER_ROLE, "content": evaluator_response})
+                    organizer_messages.append({"role": USER_ROLE, "content": explanation})
                 elif result == 'SUCCESS':
                     knowledge_store.add_evaluator_feedback(explanation, ImportanceLevel.MEDIUM)
                     logger.info("Evaluator confirmed success. Planner proceeds.")
+                    organizer_messages.append({"role": USER_ROLE, "content": explanation})
                     pass  # Continue the loop to the next Planner turn
                 elif result == 'DONE':
                     knowledge_store.add_evaluator_feedback(explanation, ImportanceLevel.CRITICAL)
+                    knowledge_store.complete_learning_task(
+                        success=True,
+                        feedback=explanation
+                    )
                     organizer_messages.append({"role": USER_ROLE, "content": explanation})
 
                     #Done with task, begin creating summary for the user
@@ -160,7 +180,6 @@ async def run_organizer_loop(
                         final_response_buffer += token
                         yield token
                     return
-
         # Max turns reached
         logger.warning("Max turns reached; ending.")
         cuda.empty_cache()
@@ -171,6 +190,11 @@ async def run_organizer_loop(
         yield "\n\n[Reached maximum turns; stopping organizer.]"
     finally:
         metrics.log_final_metrics()
+        if knowledge_store:
+            knowledge_store.complete_learning_task(
+                success=False,
+                feedback="Task interrupted or max turns reached"
+            )
         if NVML_INITIALIZED:
             try:
                 nvmlShutdown()

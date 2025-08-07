@@ -11,13 +11,12 @@ Rules:
 - Do not add commentary, greetings, or apologies.
 
 Output:
-- If in-progress, output exactly one tool call:
+- To use a tool, output exactly one tool call:
   <tool_code>
-  {"name" : "tool name", "arguments" : {"arg1" : "arg1"}}
+  {"name": "tool_name", "arguments": {"arg1": "value1"}}
   </tool_code>
-- Upon completion, output:
-  FINAL ANSWER: <result>
-  
+- If the task is complete, provide the final response to the user. If you do not output a tool call, the system will assume you are finished, and pass this output to the user.
+
 Tools available to you:
 {tools}
 """

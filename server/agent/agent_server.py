@@ -15,6 +15,7 @@ from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetH
 
 from server.agent.doer import execute_turn
 from server.agent.prompts import get_intent_router_prompt
+from server.agent.rag_manager import rag_manager
 
 try:
     from pynvml import *
@@ -73,6 +74,22 @@ def get_all_resource_usage(logger_instance) -> dict:
 async def lifespan(app: FastAPI):
     """Handles application startup and shutdown events."""
     logger.info("🚀 Agent Server starting up...")
+
+    from server.agent.code_indexer import code_indexer
+
+    # Run in a background thread to not block startup
+    import threading
+    def index_code():
+        logger.info("Starting code indexing...")
+        files_indexed = code_indexer.index_directory()
+        logger.info(f"✅ Code indexing complete. {files_indexed} files indexed.")
+        # Save the RAG index to persist embeddings
+        rag_manager.save()
+
+    indexing_thread = threading.Thread(target=index_code)
+    indexing_thread.daemon = True
+    indexing_thread.start()
+
     # Initialize NVML to check for GPUs
     try:
         nvmlInit()
@@ -276,6 +293,16 @@ async def agent_chat(request: AgentChatRequest):
         router_and_stream_generator(),
         media_type="text/plain"
     )
+
+from server.agent.code_index_refresher import code_refresher
+
+@app.on_event("startup")
+def start_code_refresher():
+    code_refresher.start()
+
+@app.on_event("shutdown")
+def stop_code_refresher():
+    code_refresher.stop()
 
 
 if __name__ == "__main__":
