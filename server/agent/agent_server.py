@@ -225,7 +225,7 @@ async def agent_chat(request: AgentChatRequest):
         except (json.JSONDecodeError, AttributeError) as e:
             logger.error(f"Failed to parse JSON from router: {e}. Defaulting to agent workflow.")
             # Failsafe: If the router fails, assume it's a complex task.
-            intent = "EXECUTE_TOOL"
+            intent = "COMPLEX_CHAT"
             query = request.messages[-1].content  # Use the last message as the query
 
         # === STEP 3: Execute the Chosen Workflow and Stream the Result ===
@@ -236,10 +236,6 @@ async def agent_chat(request: AgentChatRequest):
 
             # Create a deepcopy of the request to avoid side effects
             agent_request = deepcopy(request)
-
-            # CRITICAL: We replace the user's original message with the
-            # clean query identified by the router. This focuses the agent.
-            agent_request.messages[-1].content = query
 
             metrics = MetricsTracker(logger)
             raw_stream_generator = run_organizer_loop(agent_request, logger, MODEL_SERVER_URL)
