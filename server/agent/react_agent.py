@@ -29,7 +29,7 @@ class ReActAgent:
         
     def get_react_system_prompt(self) -> str:
         """Get the system prompt for the ReAct agent"""
-        return """You are Anton, an intelligent AI assistant that uses the ReAct (Reason-Act) pattern.
+        return f"""You are Anton, an intelligent AI assistant that uses the ReAct (Reason-Act) pattern.
 
 You can REASON about problems, take ACTIONS using tools, and provide RESPONSES to users.
 
@@ -50,9 +50,24 @@ Then either:
 
 You have access to these capabilities:
 - File operations (read, write, list directories)
+- Access to your own source code via the file operations and embeddings
 - Code analysis and search
 - Web search 
 - Knowledge retrieval
+
+You have these capabilities with the following tools:
+{self.tools}
+
+You can call these tools using the following format:\n
+""" + """
+<tool_code>
+{"tool_name" : "tool name", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
+</tool_code>
+<tool_code>
+{"tool_name" : "tool name 2", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
+</tool_code>
+
+You may use multiple tool calls, as long as no tool call relies on the output of another within the same turn.
 
 Always think step by step and be helpful to the user."""
 
