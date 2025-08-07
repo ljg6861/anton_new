@@ -12,7 +12,6 @@ from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetH
     nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
 
 from server.agent.doer import execute_turn
-from server.agent.prompts import get_intent_router_prompt
 from server.agent.rag_manager import rag_manager
 
 try:
@@ -179,153 +178,34 @@ async def agent_chat(request: AgentChatRequest):
     """
     logger.info("Agent Server received request. Routing intent...")
 
-    async def router_and_stream_generator():
-        """
-        This generator first determines the user's intent and then yields
-        the appropriate response stream.
-        """
-        # === STEP 1: Get Intent Classification from the Router ===
-        # We need the full response from the router, so we don't stream this part.
-        # The router's only job is to return a JSON object, not chat.
-
-        # Prepare messages for the router prompt
-        router_messages = [{'role': 'system', 'content': get_intent_router_prompt()}] + [
-            msg.model_dump() for msg in request.messages
-        ]
-
-        # Execute the router call to get the JSON classification
-        router_gen = execute_turn(
-            api_base_url=MODEL_SERVER_URL,
-            messages=router_messages,
-            logger=logger,
-            tools=[],
-            temperature=0.0,  # Use 0 temp for deterministic JSON output
-            complex=False
-        )
-
-        # Collect the full JSON response from the generator
-        router_response_str = "".join([token async for token in router_gen])
-        logger.info(f"Router full response: {router_response_str}")
-
-        # === STEP 2: Parse the Intent and Route to the Correct Workflow ===
-        try:
-            # Clean up potential markdown code fences sometimes added by models
-            if router_response_str.strip().startswith("```json"):
-                router_response_str = router_response_str.strip()[7:-3].strip()
-
-            parsed_intent = json.loads(router_response_str)
-            intent = parsed_intent.get("intent")
-            query = parsed_intent.get("query")
-
-            logger.info(f"Successfully parsed intent: '{intent}' for query: '{query}'")
-
-        except (json.JSONDecodeError, AttributeError) as e:
-            logger.error(f"Failed to parse JSON from router: {e}. Defaulting to agent workflow.")
-            # Failsafe: If the router fails, assume it's a complex task.
-            intent = "COMPLEX_CHAT"
-            query = request.messages[-1].content  # Use the last message as the query
-
-        # === STEP 3: Execute the Chosen Workflow and Stream the Result ===
-
-        # --- PATH A: Agentic Workflows (ReAct Agent) ---
-        if intent in ["COMPLEX_CHAT"]:
-            logger.info(f"Routing to ReAct agent for intent: '{intent}'")
-
-            # Create conversation state for this request
-            from server.agent.conversation_state import ConversationState
-            from server.agent.react_agent import ReActAgent
-            
-            # Initialize conversation state with request messages
-            initial_messages = [msg.model_dump() for msg in request.messages]
-            conversation_state = ConversationState(initial_messages)
-            
-            # Create ReAct agent
-            react_agent = ReActAgent(
-                api_base_url=MODEL_SERVER_URL,
-                tools=request.tools or [],
-                max_iterations=10
-            )
-            
-            # Process with ReAct agent (replaces the complex organizer loop)
-            metrics = MetricsTracker(logger)
-            
-            async def react_with_metrics():
-                async for token in react_agent.process_request(conversation_state, logger):
-                    yield token
-            
-            metrics_generator = metrics_collecting_stream_generator(react_with_metrics(), metrics)
-            async for agent_token in metrics_generator:
-                yield agent_token
-
-        # --- PATH B: Knowledge Retrieval Workflow (Proper RAG implementation) ---
-        elif intent == "QUERY_KNOWLEDGE":
-            logger.info("Routing to RAG workflow for intent: 'QUERY_KNOWLEDGE'")
-            
-            # Retrieve relevant knowledge from the indexed knowledge base
-            relevant_docs = rag_manager.retrieve_knowledge(query, top_k=5)
-            
-            if relevant_docs:
-                # Build context from retrieved documents
-                context_parts = []
-                for i, doc in enumerate(relevant_docs):
-                    context_parts.append(f"Source {i+1}: {doc['source']}\n{doc['text'][:500]}...")
-                
-                context = "\n\n".join(context_parts)
-                
-                rag_system_prompt = f"""You are Anton, an AI assistant. Answer the user's question using the provided context from the knowledge base.
-
-Context from knowledge base:
-{context}
-
-If the context doesn't contain relevant information, say so and provide a general response."""
-            else:
-                rag_system_prompt = "You are Anton, an AI assistant. The knowledge base doesn't contain relevant information for this query. Provide a helpful general response."
-            
-            rag_messages = [
-                {'role': 'system', 'content': rag_system_prompt},
-                {'role': 'user', 'content': query}
-            ]
-            
-            rag_chat_gen = execute_turn(
-                api_base_url=MODEL_SERVER_URL, 
-                messages=rag_messages, 
-                logger=logger,
-                tools=[],
-                temperature=0.7,
-                complex=False
-            )
-            async for chat_token in rag_chat_gen:
-                yield chat_token
-
-        # --- PATH C: Simple Conversational Chat ---
-        elif intent == "GENERAL_CHAT":
-            logger.info("Routing to simple chat for intent: 'GENERAL_CHAT'")
-            # This is a simple chat. We generate a new response.
-            # We use the original messages so the AI has conversation history.
-            chat_messages = [{'role': 'system', 'content': 'You are Anton, a friendly and helpful AI assistant.'}] + [
-                msg.model_dump() for msg in request.messages
-            ]
-
-            simple_chat_gen = execute_turn(
-                api_base_url=MODEL_SERVER_URL,
-                messages=chat_messages,
-                logger=logger,
-                tools=[],
-                temperature=0.7,  # Allow more creativity in chat
-                complex=False
-            )
-            async for chat_token in simple_chat_gen:
-                yield chat_token
-
-        else:
-            # Fallback for unknown intents
-            logger.warning(f"Unknown intent '{intent}'. Yielding fallback response.")
-            fallback_response = "I'm not sure how to handle that request. Could you please rephrase?"
-            for char in fallback_response:
-                yield char
+    # Create conversation state for this request
+    from server.agent.conversation_state import ConversationState
+    from server.agent.react_agent import ReActAgent
+    
+    # Initialize conversation state with request messages
+    initial_messages = [msg.model_dump() for msg in request.messages]
+    conversation_state = ConversationState(initial_messages)
+    
+    # Create ReAct agent
+    react_agent = ReActAgent(
+        api_base_url=MODEL_SERVER_URL,
+        tools=request.tools or [],
+        max_iterations=10
+    )
+    
+    # Process with ReAct agent (replaces the complex organizer loop)
+    metrics = MetricsTracker(logger)
+    
+    async def react_with_metrics():
+        async for token in react_agent.process_request(conversation_state, logger):
+            yield token
+    
+    metrics_generator = metrics_collecting_stream_generator(react_with_metrics(), metrics)
+    async for agent_token in metrics_generator:
+        yield agent_token
 
     return StreamingResponse(
-        router_and_stream_generator(),
+        metrics_generator,
         media_type="text/plain"
     )
 

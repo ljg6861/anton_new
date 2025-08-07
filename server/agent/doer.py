@@ -36,27 +36,3 @@ async def execute_turn(
         except Exception as e:
             logger.error(f"Doer: An unexpected error occurred during model streaming: {e}", exc_info=True)
             yield f"\n[ERROR: An unexpected error occurred: {e}]\n"
-
-
-async def run_doer_loop(
-        messages: List[dict],
-        tools: List,
-        logger: Any,
-        api_base_url: str,
-        complex: bool,
-        knowledge_store = None  # New parameter for knowledge tracking
-) -> None:
-
-    for i in range(config.MAX_TURNS):
-        response_buffer = ""
-        async for token in execute_turn(api_base_url, messages, logger, tools, 0.6, complex):
-            response_buffer += token
-
-        logger.info("Doer said:\n" + response_buffer)
-        content = re.split(r"</think>", response_buffer, maxsplit=1)[-1].strip()
-        messages.append({"role": ASSISTANT_ROLE, "content": content})
-
-        made_tool_calls = await process_tool_calls(content, config.TOOL_CALL_REGEX, messages, logger, knowledge_store)
-
-        if not made_tool_calls:
-            return
