@@ -19,6 +19,9 @@ class ContextType(Enum):
     PLANNER_INSIGHT = "planner_insight"
     EVALUATOR_FEEDBACK = "evaluator_feedback"
     TASK_PROGRESS = "task_progress"
+    MESSAGE = "message"
+    THOUGHT = "thought"
+    ACTION = "action"
 
 
 class ImportanceLevel(Enum):
@@ -64,6 +67,13 @@ class KnowledgeStore:
             ImportanceLevel.HIGH: 4.0,
             ImportanceLevel.CRITICAL: 8.0
         }
+        
+        # Conversation state management (replaces ConversationState)
+        self.messages: List[Dict[str, str]] = []
+        self.tool_outputs: Dict[str, Any] = {}
+        self.start_time = time.time()
+        self.is_complete = False
+        self.final_response = ""
     
     def add_context(
         self, 
@@ -281,3 +291,67 @@ class KnowledgeStore:
     def get_relevant_past_experiences(self, prompt: str):
         """Get relevant past learnings for the current task."""
         return learning_loop.get_relevant_learnings(prompt)
+    
+    # Conversation state management methods (replacing ConversationState)
+    
+    def add_message(self, role: str, content: str, metadata: Optional[Dict] = None):
+        """Add a message to the conversation"""
+        message = {"role": role, "content": content}
+        if metadata:
+            message.update(metadata)
+        self.messages.append(message)
+        
+        # Also track as context item for advanced prioritization
+        self.add_context(
+            content=content,
+            context_type=ContextType.MESSAGE,
+            importance=ImportanceLevel.MEDIUM,
+            source=f"message_{role}",
+            metadata={"role": role, **(metadata or {})}
+        )
+    
+    def add_tool_output(self, tool_name: str, output: Any, metadata: Optional[Dict] = None):
+        """Store tool execution results"""
+        self.tool_outputs[tool_name] = {
+            "output": output,
+            "timestamp": time.time(),
+            "metadata": metadata or {}
+        }
+        
+        # Track as context item with high importance
+        self.add_context(
+            content=f"Tool {tool_name}: {str(output)[:500]}",
+            context_type=ContextType.TOOL_EXECUTION,
+            importance=ImportanceLevel.HIGH,
+            source=f"tool_{tool_name}",
+            metadata={"tool_name": tool_name, "tool_args": metadata.get("args", {}) if metadata else {}}
+        )
+    
+    def get_messages_for_llm(self) -> List[Dict[str, str]]:
+        """Get messages formatted for LLM consumption"""
+        return [{"role": msg["role"], "content": msg["content"]} for msg in self.messages]
+    
+    def mark_complete(self, final_response: str):
+        """Mark conversation as complete"""
+        self.is_complete = True
+        self.final_response = final_response
+        self.add_context(
+            content=final_response,
+            context_type=ContextType.MESSAGE,
+            importance=ImportanceLevel.HIGH,
+            source="final_response",
+            metadata={"final": True}
+        )
+    
+    def get_duration(self) -> float:
+        """Get conversation duration in seconds"""
+        return time.time() - self.start_time
+    
+    def reset_conversation(self):
+        """Reset conversation state for a new conversation"""
+        self.messages = []
+        self.tool_outputs = {}
+        self.start_time = time.time()
+        self.is_complete = False
+        self.final_response = ""
+        # Note: Keep context_items for cross-conversation learning

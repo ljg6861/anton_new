@@ -1,15 +1,15 @@
 """
-ReAct (Reason-Act) Agent implementation that replaces the rigid Planner-Doer-Evaluator loop
-with a more flexible single-agent model that decides next steps in a single LLM call.
+ReAct (Reason-Act) Agent implementation that handles the complete reasoning and tool-use loop.
+Centralized state management through KnowledgeStore, eliminating ConversationState redundancy.
 """
 import json
 import re
 import time
 import logging
+import httpx
 from typing import AsyncGenerator, List, Dict, Any, Optional
 
-from server.agent.conversation_state import ConversationState, StateType
-from server.agent.doer import execute_turn
+from server.agent.knowledge_store import KnowledgeStore, ContextType, ImportanceLevel
 from server.agent.tool_executor import process_tool_calls
 from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
 
@@ -19,17 +19,21 @@ logger = logging.getLogger(__name__)
 class ReActAgent:
     """
     Single-agent ReAct implementation that combines reasoning and acting in one flow.
-    Significantly reduces latency compared to the multi-agent Planner-Doer-Evaluator pattern.
+    Uses KnowledgeStore for centralized state management and includes direct LLM interaction.
     """
     
-    def __init__(self, api_base_url: str, tools: List[Dict], max_iterations: int = 10):
+    def __init__(self, api_base_url: str, tools: List[Dict], knowledge_store: KnowledgeStore, max_iterations: int = 10):
         self.api_base_url = api_base_url
         self.tools = tools
+        self.knowledge_store = knowledge_store
         self.max_iterations = max_iterations
         
     def get_react_system_prompt(self) -> str:
         """Get the system prompt for the ReAct agent"""
-        return f"""You are Anton, an intelligent AI assistant that uses the ReAct (Reason-Act) pattern.
+        # Query relevant knowledge from RAG to enhance the system prompt
+        relevant_knowledge = self.knowledge_store.query_relevant_knowledge("react agent reasoning tools", max_results=3)
+        
+        base_prompt = f"""You are Anton, an intelligent AI assistant that uses the ReAct (Reason-Act) pattern.
 
 You can REASON about problems, take ACTIONS using tools, and provide RESPONSES to users.
 
@@ -58,8 +62,9 @@ You have access to these capabilities:
 You have these capabilities with the following tools:
 {self.tools}
 
-You can call these tools using the following format:\n
-""" + """
+You can call these tools using the following format:\n"""
+
+        base_prompt += """
 <tool_code>
 {"tool_name" : "tool name", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
 </tool_code>
@@ -71,26 +76,38 @@ You may use multiple tool calls, as long as no tool call relies on the output of
 
 Always think step by step and be helpful to the user."""
 
+        # Add relevant knowledge if available
+        if relevant_knowledge:
+            base_prompt += "\n\nRelevant past knowledge:\n"
+            for knowledge in relevant_knowledge[:2]:  # Limit to avoid prompt bloat
+                base_prompt += f"- {knowledge[:200]}...\n"
+                
+        return base_prompt
+
     async def process_request(
         self,
-        conversation_state: ConversationState,
+        initial_messages: List[Dict[str, str]],
         logger: Any
     ) -> AsyncGenerator[str, None]:
         """
-        Process a request using the ReAct pattern.
-        This replaces the complex Planner-Doer-Evaluator loop.
+        Process a request using the ReAct pattern with KnowledgeStore for state management.
+        Handles the complete reasoning and tool-use loop without external dependencies.
         """
         logger.info("Starting ReAct agent processing...")
         
+        # Initialize conversation in knowledge store
+        for msg in initial_messages:
+            self.knowledge_store.add_message(msg["role"], msg["content"])
+        
         # Build messages for the LLM
-        messages = conversation_state.get_messages_for_llm()
+        messages = self.knowledge_store.get_messages_for_llm()
         
         # Add system prompt
         system_prompt = self.get_react_system_prompt()
         react_messages = [{"role": SYSTEM_ROLE, "content": system_prompt}]
         
         # Add context if available
-        context_summary = conversation_state.build_context_summary()
+        context_summary = self.knowledge_store.build_context_summary()
         if context_summary and context_summary != "No significant context yet.":
             react_messages.append({
                 "role": SYSTEM_ROLE, 
@@ -107,23 +124,18 @@ Always think step by step and be helpful to the user."""
             iteration += 1
             logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
             
-            conversation_state.add_state_entry(
+            self.knowledge_store.add_context(
                 f"Starting ReAct iteration {iteration}",
-                StateType.THOUGHT
+                ContextType.THOUGHT,
+                ImportanceLevel.LOW,
+                "react_agent"
             )
             
-            # Get response from LLM
+            # Get response from LLM directly (no longer using doer.py)
             response_buffer = ""
             start_time = time.time()
             
-            async for token in execute_turn(
-                api_base_url=self.api_base_url,
-                messages=react_messages,
-                logger=logger,
-                tools=self.tools,
-                temperature=0.7,
-                complex=True
-            ):
+            async for token in self._execute_llm_request(react_messages, logger):
                 response_buffer += token
                 yield token
             
@@ -134,39 +146,46 @@ Always think step by step and be helpful to the user."""
             thinking_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
             if thinking_match:
                 thinking = thinking_match.group(1).strip()
-                conversation_state.add_state_entry(thinking, StateType.THOUGHT)
+                self.knowledge_store.add_context(
+                    thinking,
+                    ContextType.THOUGHT,
+                    ImportanceLevel.MEDIUM,
+                    "react_agent"
+                )
                 logger.info(f"Agent thinking: {thinking}")
             
             # Extract content after thinking markers
             content = re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
             
             # Add to conversation
-            conversation_state.add_message(ASSISTANT_ROLE, content)
+            self.knowledge_store.add_message(ASSISTANT_ROLE, content)
             react_messages.append({"role": ASSISTANT_ROLE, "content": content})
             
             # Check if agent made tool calls
             from server.agent import config
-            made_tool_calls = await process_tool_calls_with_state(
+            made_tool_calls = await process_tool_calls_with_knowledge_store(
                 content, 
                 config.TOOL_CALL_REGEX,  # Use existing tool call regex
                 react_messages,
                 logger,
-                conversation_state
+                self.knowledge_store
             )
             
             if made_tool_calls:
                 # If tools were called, continue the loop to let agent process results
                 logger.info("Tools were executed, continuing ReAct loop...")
-                conversation_state.add_state_entry(
+                self.knowledge_store.add_context(
                     "Tool calls completed, processing results...",
-                    StateType.ACTION
+                    ContextType.ACTION,
+                    ImportanceLevel.MEDIUM,
+                    "react_agent"
                 )
                 continue
             else:
                 # No tool calls, check if this looks like a final response
                 if self._is_final_response(content):
                     logger.info("Agent provided final response, ending ReAct loop")
-                    conversation_state.mark_complete(content)
+                    self.knowledge_store.mark_complete(content)
                     break
                 else:
                     # Agent might need another iteration to complete the task
@@ -176,12 +195,42 @@ Always think step by step and be helpful to the user."""
         if iteration >= self.max_iterations:
             logger.warning(f"ReAct agent reached max iterations ({self.max_iterations})")
             final_msg = "\n\n[Task completed - reached maximum iterations]"
-            conversation_state.add_state_entry(
+            self.knowledge_store.add_context(
                 "Reached maximum iterations",
-                StateType.THOUGHT,
+                ContextType.THOUGHT,
+                ImportanceLevel.HIGH,
+                "react_agent",
                 {"reason": "max_iterations"}
             )
             yield final_msg
+    
+    async def _execute_llm_request(
+        self,
+        messages: List[Dict[str, str]],
+        logger: Any
+    ) -> AsyncGenerator[str, None]:
+        """
+        Execute LLM request directly, replacing dependency on doer.py
+        """
+        request_payload = {
+            "messages": messages,
+            "temperature": 0.7,
+            'tools': self.tools,
+            'complex': True,
+        }
+
+        async with httpx.AsyncClient(timeout=None) as client:
+            try:
+                async with client.stream("POST", f"{self.api_base_url}/v1/chat/stream", json=request_payload) as response:
+                    response.raise_for_status()
+                    async for chunk in response.aiter_text():
+                        yield chunk
+            except httpx.RequestError as e:
+                logger.error(f"ReActAgent: API request to model server failed: {e}")
+                yield f"\n[ERROR: Could not connect to the model server: {e}]\n"
+            except Exception as e:
+                logger.error(f"ReActAgent: An unexpected error occurred during model streaming: {e}", exc_info=True)
+                yield f"\n[ERROR: An unexpected error occurred: {e}]\n"
     
     def _is_final_response(self, content: str) -> bool:
         """
@@ -218,39 +267,21 @@ Always think step by step and be helpful to the user."""
         return False
 
 
-async def process_tool_calls_with_state(
+async def process_tool_calls_with_knowledge_store(
     content: str,
     tool_call_regex,  # Already compiled regex from config
     messages: List[Dict],
     logger: Any,
-    conversation_state: ConversationState
+    knowledge_store: KnowledgeStore
 ) -> bool:
     """
-    Process tool calls in the agent's response using the existing tool_executor.
-    Updated to work with ConversationState.
+    Process tool calls in the agent's response using KnowledgeStore for state management.
     """
-    from server.agent.tool_executor import process_tool_calls
-    
-    # Use existing tool executor but adapt it for ConversationState
-    class StateAdapter:
-        """Adapter to make ConversationState compatible with knowledge_store interface"""
-        def __init__(self, conv_state: ConversationState):
-            self.conv_state = conv_state
-            
-        def update_from_tool_execution(self, tool_name: str, tool_args: dict, tool_result: str):
-            self.conv_state.add_tool_output(tool_name, tool_result, {"args": tool_args})
-            
-            # Track file explorations for file-related tools
-            if tool_name in ['read_file', 'list_files', 'write_file'] and 'path' in tool_args:
-                self.conv_state.add_file_exploration(tool_args['path'])
-    
-    state_adapter = StateAdapter(conversation_state)
-    
-    # Use the existing tool executor
+    # Use existing tool executor directly with knowledge_store
     return await process_tool_calls(
         content,
         tool_call_regex,  # Pass the compiled regex directly
         messages,
         logger,
-        state_adapter
+        knowledge_store
     )

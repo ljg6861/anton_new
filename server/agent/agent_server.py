@@ -11,8 +11,8 @@ from typing import AsyncGenerator
 from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
     nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
 
-from server.agent.doer import execute_turn
 from server.agent.rag_manager import rag_manager
+from server.agent.knowledge_store import KnowledgeStore
 
 try:
     from pynvml import *
@@ -36,6 +36,10 @@ print("--- Discovering and Registering Tools ---")
 # The enhanced tool manager now automatically discovers and registers tools
 # No need for manual registration loop
 print(f"--- Tool Registration Complete: {tool_manager.get_tool_count()} tools registered ---")
+
+
+# Global knowledge store instance for centralized state management
+knowledge_store = KnowledgeStore()
 
 
 def get_all_resource_usage(logger_instance) -> dict:
@@ -173,39 +177,35 @@ async def metrics_collecting_stream_generator(
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
     """
-    Handles incoming chat requests by first classifying the user's intent
-    and then routing to the appropriate workflow (Agent, RAG, or Chat).
+    Handles incoming chat requests using the refactored ReAct agent with KnowledgeStore.
+    Eliminates the complex Planner-Doer-Evaluator loop for simplified control flow.
     """
-    logger.info("Agent Server received request. Routing intent...")
+    logger.info("Agent Server received request. Processing with ReAct agent...")
 
-    # Create conversation state for this request
-    from server.agent.conversation_state import ConversationState
+    # Reset conversation state for new request
+    knowledge_store.reset_conversation()
+    
+    # Create ReAct agent with knowledge store
     from server.agent.react_agent import ReActAgent
-    
-    # Initialize conversation state with request messages
-    initial_messages = [msg.model_dump() for msg in request.messages]
-    conversation_state = ConversationState(initial_messages)
-    
-    # Create ReAct agent
     react_agent = ReActAgent(
         api_base_url=MODEL_SERVER_URL,
         tools=request.tools or [],
+        knowledge_store=knowledge_store,
         max_iterations=10
     )
+    
+    # Extract initial messages from request
+    initial_messages = [msg.model_dump() for msg in request.messages]
     
     # Process with ReAct agent (replaces the complex organizer loop)
     metrics = MetricsTracker(logger)
     
     async def react_with_metrics():
-        async for token in react_agent.process_request(conversation_state, logger):
+        async for token in react_agent.process_request(initial_messages, logger):
             yield token
     
-    metrics_generator = metrics_collecting_stream_generator(react_with_metrics(), metrics)
-    async for agent_token in metrics_generator:
-        yield agent_token
-
     return StreamingResponse(
-        metrics_generator,
+        metrics_collecting_stream_generator(react_with_metrics(), metrics),
         media_type="text/plain"
     )
 
