@@ -131,12 +131,8 @@ async def chat_completions_stream(request: AgentChatRequest):
             "num_predict": 4096,
         }
 
-        if request.complex:
-            model_to_use = OLLAMA_MODEL_ID
-            logger.info("Switching to large model for complex query.")
-        else:
-            model_to_use = SMALL_MODEL_ID
-            logger.info("Using small model for simple query.")
+        model_to_use = OLLAMA_MODEL_ID
+        logger.info("Switching to large model for complex query.")
         logger.info(f"Query: \n${request.messages}")
 
         # Step 2: Use the determined model for the actual chat
@@ -145,7 +141,7 @@ async def chat_completions_stream(request: AgentChatRequest):
             messages=request.messages,
             stream=True,
             options=ollama_options,
-            think=request.complex,
+            think=True,
         )
 
     except ollama.ResponseError as e:

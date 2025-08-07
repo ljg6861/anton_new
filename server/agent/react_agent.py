@@ -55,6 +55,7 @@ Then either:
 You have access to these capabilities:
 - File operations (read, write, list directories)
 - Access to your own source code via the file operations and embeddings
+- Persistent memory, including the ability to recall parts of past interactions using RAG
 - Code analysis and search
 - Web search 
 - Knowledge retrieval
