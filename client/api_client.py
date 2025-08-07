@@ -31,7 +31,7 @@ class ApiClient:
     async def stream_agent_chat(self, request_data: Dict[str, Any]) -> AsyncIterator[str]:
         logger.info("Streaming request to agent chat endpoint.")
         async with self.http_client.stream(
-                "POST", f"{self.api_base_url}/v1/agent/chat", json=request_data
+                "POST", f"{self.api_base_url}/v1/agent/chat", json=request_data, timeout=3600
         ) as response:
             response.raise_for_status()
             async for chunk in response.aiter_text():

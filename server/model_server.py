@@ -128,7 +128,7 @@ async def chat_completions_stream(request: AgentChatRequest):
     try:
         ollama_options = {
             "temperature": request.temperature,
-            "num_predict": 2048,
+            "num_predict": 4096,
         }
 
         if request.complex:
@@ -137,13 +137,15 @@ async def chat_completions_stream(request: AgentChatRequest):
         else:
             model_to_use = SMALL_MODEL_ID
             logger.info("Using small model for simple query.")
+        logger.info(f"Query: \n${request.messages}")
 
         # Step 2: Use the determined model for the actual chat
         actual_ollama_stream_generator = await client.chat(
             model=model_to_use,
             messages=request.messages,
             stream=True,
-            options=ollama_options
+            options=ollama_options,
+            think=request.complex
         )
 
     except ollama.ResponseError as e:
