@@ -329,6 +329,9 @@ Always think step by step and be helpful to the user."""
         """
         content_lower = content.lower().strip()
 
+        if not content:
+            return False
+
         # --- Rule 1: Check for explicit signs of continuation or tool use ---
         # If these are present, the response is definitely NOT final.
         continuation_signals = [
