@@ -1,0 +1,230 @@
+INFO:     Will watch for changes in these directories: ['/home/lucas/anton_new']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [10123] using WatchFiles
+2025-08-08 10:09:52,514 - server.agent.code_indexer - INFO - Loaded metadata for 64 previously indexed files
+INFO:     Started server process [10131]
+INFO:     Waiting for application startup.
+2025-08-08 10:09:52,514 - server.agent.agent_server - INFO - 🚀 Agent Server starting up...
+2025-08-08 10:09:52,514 - server.agent.agent_server - INFO - Starting code indexing...
+2025-08-08 10:09:52,514 - server.agent.agent_server - INFO - ✅ NVML Initialized for GPU monitoring.
+INFO:     Application startup complete.
+2025-08-08 10:09:52,518 - server.agent.agent_server - INFO - ✅ Code indexing complete. 0 files indexed.
+2025-08-08 10:09:52,518 - server.agent.rag_manager - INFO - Saving knowledge base with 371 entries to disk...
+2025-08-08 10:09:52,518 - server.agent.rag_manager - INFO - Knowledge base saved successfully.
+2025-08-08 10:09:55,024 - server.agent.agent_server - INFO - Agent Server received request. Processing with ReAct agent...
+🔧 Wrapped legacy tool: execute_python_code
+🔧 Wrapped legacy tool: write_file
+🔧 Wrapped legacy tool: read_file
+🔧 Wrapped legacy tool: list_directory
+ℹ️  Skipping WebSearchTool due to missing dependency: duckduckgo_search
+✅ Enhanced ToolManager initialized.
+🔍 Discovering tools...
+⚠️  Warning: Failed to instantiate LegacyToolWrapper from legacy_wrapper.py: LegacyToolWrapper.__init__() missing 1 required positional argument: 'legacy_tool_instance'
+🔧 Discovered tool: rebuild_code_index from rebuild_index_tool.py
+ℹ️  Info: Skipping web_search.py due to missing dependency: duckduckgo_search
+🔧 Discovered tool: get_codebase_stats from code_stats.py
+🔧 Discovered tool: list_directory from file_management.py
+🔧 Discovered tool: read_file from file_management.py
+🔧 Discovered tool: write_file from file_management.py
+🔧 Discovered tool: create_pull_request from git.py
+🔧 Discovered tool: git_commit from git.py
+🔧 Discovered tool: git_create_branch from git.py
+🔧 Discovered tool: git_push from git.py
+🔧 Discovered tool: git_status from git.py
+🔧 Discovered tool: git_switch_branch from git.py
+🔧 Discovered tool: check_learning_progress from learning_tools.py
+🔧 Discovered tool: execute_python_code from coding.py
+🔧 Discovered tool: search_codebase from code_search.py
+🔧 Tool 'rebuild_code_index' registered.
+🔧 Tool 'get_codebase_stats' registered.
+🔧 Tool 'list_directory' registered.
+🔧 Tool 'read_file' registered.
+🔧 Tool 'write_file' registered.
+🔧 Tool 'create_pull_request' registered.
+🔧 Tool 'git_commit' registered.
+🔧 Tool 'git_create_branch' registered.
+🔧 Tool 'git_push' registered.
+🔧 Tool 'git_status' registered.
+🔧 Tool 'git_switch_branch' registered.
+🔧 Tool 'check_learning_progress' registered.
+🔧 Tool 'execute_python_code' registered.
+🔧 Tool 'search_codebase' registered.
+✅ Tool discovery complete. 14 tools registered.
+🔧 Wrapped legacy tool: create_new_tool
+🔧 Wrapped git tool: git_status
+🔧 Wrapped git tool: git_commit
+🔧 Wrapped git tool: git_push
+🔧 Wrapped git tool: create_pull_request
+🔧 Wrapped git tool: git_create_branch
+🔧 Wrapped git tool: git_switch_branch
+⚠️  Warning: Failed to instantiate LegacyToolWrapper from legacy_wrapper.py: LegacyToolWrapper.__init__() missing 1 required positional argument: 'legacy_tool_instance'
+🔧 Discovered tool: rebuild_code_index from rebuild_index_tool.py
+ℹ️  Info: Skipping web_search.py due to missing dependency: duckduckgo_search
+🔧 Discovered tool: get_codebase_stats from code_stats.py
+🔧 Discovered tool: list_directory from file_management.py
+🔧 Discovered tool: read_file from file_management.py
+🔧 Discovered tool: write_file from file_management.py
+🔧 Discovered tool: create_pull_request from git.py
+🔧 Discovered tool: git_commit from git.py
+🔧 Discovered tool: git_create_branch from git.py
+🔧 Discovered tool: git_push from git.py
+🔧 Discovered tool: git_status from git.py
+🔧 Discovered tool: git_switch_branch from git.py
+🔧 Discovered tool: check_learning_progress from learning_tools.py
+🔧 Discovered tool: execute_python_code from coding.py
+🔧 Discovered tool: search_codebase from code_search.py
+--- Discovering and Registering Tools ---
+--- Tool Registration Complete: 14 tools registered ---
+INFO:     192.168.1.250:50800 - "POST /v1/agent/chat HTTP/1.1" 200 OK
+2025-08-08 10:09:55,050 - server.agent.agent_server - INFO - Starting ReAct agent processing...
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  9.33it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  9.32it/s]
+2025-08-08 10:09:55,159 - server.agent.agent_server - INFO - ReAct iteration 1/10
+2025-08-08 10:09:55,201 - httpx - INFO - HTTP Request: POST http://localhost:8000/v1/chat/stream "HTTP/1.1 200 OK"
+2025-08-08 10:09:56,994 - server.agent.agent_server - INFO - ReAct agent response: <think>
+Okay, the user said "good morning anton". I need to respond appropriately. Let me check the previous messages to make sure.
+
+Looking at the history, there's no prior conversation. The user is greeting me. As Anton, I should respond politely.
+
+First, I'll reason: The user is greeting me, so I should say good morning back. Maybe add a friendly note about helping them today.
+
+Check if I need to use any tools. The greeting is straightforward, no tools needed for that. So just provide a response.
+
+Make sure the response is friendly and offers assistance. Maybe "Good morning! How can I assist you today?" or something similar.
+
+No tools required here, so the response is direct. Let me write that.
+</think>
+
+Good morning! How can I assist you today? Whether you have a question, need help with code, or want to explore something new, I'm here to help. 😊
+2025-08-08 10:09:56,995 - server.agent.agent_server - INFO - Agent thinking: Okay, the user said "good morning anton". I need to respond appropriately. Let me check the previous messages to make sure.
+
+Looking at the history, there's no prior conversation. The user is greeting me. As Anton, I should respond politely.
+
+First, I'll reason: The user is greeting me, so I should say good morning back. Maybe add a friendly note about helping them today.
+
+Check if I need to use any tools. The greeting is straightforward, no tools needed for that. So just provide a response.
+
+Make sure the response is friendly and offers assistance. Maybe "Good morning! How can I assist you today?" or something similar.
+
+No tools required here, so the response is direct. Let me write that.
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - --- AGENT SERVER REQUEST METRICS ---
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - [Latency] Full Request End-to-End: 1.95 seconds
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - [Throughput] Chunks per Second: 74.98
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - [Throughput] Total Chunks Streamed: 146
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - [Resources] Start - CPU: 6.4%, RAM: 10.4%, Util: GPU0:0.0%, GPU1:0.0%, VRAM: GPU0:79.4%, GPU1:2.1%
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - [Resources] End   - CPU: 6.5%, RAM: 11.0%, Util: GPU0:93.0%, GPU1:0.0%, VRAM: GPU0:79.6%, GPU1:2.1%
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - [Resources] Difference- CPU: +0.1%, RAM: +0.6%, Util: GPU0:+93.0%, GPU1:+0.0%, VRAM: GPU0:+0.2%, GPU1:+0.0%
+2025-08-08 10:09:56,996 - server.agent.agent_server - INFO - ------------------------------------
+ERROR:    Exception in ASGI application
+  + Exception Group Traceback (most recent call last):
+  |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_utils.py", line 77, in collapse_excgroups
+  |     yield
+  |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/responses.py", line 271, in __call__
+  |     async with anyio.create_task_group() as task_group:
+  |   File "/home/lucas/.local/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+  |     raise BaseExceptionGroup(
+  | exceptiongroup.ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    |     result = await app(  # type: ignore[func-returns-value]
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    |     return await self.app(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    |     await super().__call__(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/applications.py", line 113, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    |     raise exc
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 716, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 736, in app
+    |     await route.handle(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 290, in handle
+    |     await self.app(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 78, in app
+    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 76, in app
+    |     await response(scope, receive, send)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/responses.py", line 270, in __call__
+    |     with collapse_excgroups():
+    |   File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_utils.py", line 83, in collapse_excgroups
+    |     raise exc
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/responses.py", line 274, in wrap
+    |     await func()
+    |   File "/home/lucas/.local/lib/python3.10/site-packages/starlette/responses.py", line 254, in stream_response
+    |     async for chunk in self.body_iterator:
+    |   File "/home/lucas/anton_new/server/agent/agent_server.py", line 120, in metrics_collecting_stream_generator
+    |     async for chunk in stream:
+    |   File "/home/lucas/anton_new/server/agent/agent_server.py", line 205, in react_with_metrics
+    |     async for token in react_agent.process_request(initial_messages, logger):
+    |   File "/home/lucas/anton_new/server/agent/react_agent.py", line 208, in process_request
+    |     if self._is_final_response(content):
+    | AttributeError: 'ReActAgent' object has no attribute '_is_final_response'
+    +------------------------------------
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 76, in app
+    await response(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/responses.py", line 270, in __call__
+    with collapse_excgroups():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_utils.py", line 83, in collapse_excgroups
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/responses.py", line 274, in wrap
+    await func()
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/responses.py", line 254, in stream_response
+    async for chunk in self.body_iterator:
+  File "/home/lucas/anton_new/server/agent/agent_server.py", line 120, in metrics_collecting_stream_generator
+    async for chunk in stream:
+  File "/home/lucas/anton_new/server/agent/agent_server.py", line 205, in react_with_metrics
+    async for token in react_agent.process_request(initial_messages, logger):
+  File "/home/lucas/anton_new/server/agent/react_agent.py", line 208, in process_request
+    if self._is_final_response(content):
+AttributeError: 'ReActAgent' object has no attribute '_is_final_response'

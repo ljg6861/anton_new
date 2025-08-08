@@ -10,13 +10,12 @@ from typing import AsyncGenerator
 import ollama # Import the ollama client library
 
 from metrics import MetricsTracker
+from server.config import THINKING_MODEL_ID
 from server.helpers import AgentChatRequest
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-OLLAMA_MODEL_ID = 'qwen3:30b-a3b-thinking-2507-q4_K_M'
-SMALL_MODEL_ID = 'mistral:7b-instruct-v0.3-q4_K_M'
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 # ----------------------------
 
@@ -131,8 +130,7 @@ async def chat_completions_stream(request: AgentChatRequest):
             "num_predict": 4096,
         }
 
-        model_to_use = OLLAMA_MODEL_ID
-        logger.info("Switching to large model for complex query.")
+        model_to_use = THINKING_MODEL_ID
         logger.info(f"Query: \n${request.messages}")
 
         # Step 2: Use the determined model for the actual chat
@@ -141,7 +139,6 @@ async def chat_completions_stream(request: AgentChatRequest):
             messages=request.messages,
             stream=True,
             options=ollama_options,
-            think=True,
         )
 
     except ollama.ResponseError as e:

@@ -254,39 +254,48 @@ Always think step by step and be helpful to the user."""
                 logger.error(f"ReActAgent: An unexpected error occurred during model streaming: {e}", exc_info=True)
                 yield f"\n[ERROR: An unexpected error occurred: {e}]\n"
     
-    def _is_final_response(self, content: str) -> bool:
-        """
-        Heuristic to determine if the agent's response is final.
-        This replaces the evaluator component.
-        """
-        # Check for tool calls - if present, not final
-        if '<function_calls>' in content or 'I need to' in content.lower():
-            return False
-            
-        # Check for completion indicators
-        completion_indicators = [
-            'task completed',
-            'finished',
-            'done',
-            'here is the result',
-            'the answer is',
-            'i have completed',
-            'successfully',
-            'final result'
-        ]
-        
-        content_lower = content.lower()
-        for indicator in completion_indicators:
-            if indicator in content_lower:
-                return True
-        
-        # If response is substantial and doesn't indicate more work needed
-        if len(content.strip()) > 50 and not any(phrase in content_lower for phrase in [
-            'let me', 'i should', 'i will', 'next i', 'first i', 'i need to'
-        ]):
-            return True
-            
+def _is_final_response(self, content: str) -> bool:
+    """
+    Determines if the agent's response is final using a more robust set of heuristics.
+    It prioritizes clear signals of continuation or conversational closing statements.
+    """
+    content_lower = content.lower().strip()
+
+    # --- Rule 1: Check for explicit signs of continuation or tool use ---
+    # If these are present, the response is definitely NOT final.
+    continuation_signals = [
+        '<function_calls>',  # Explicit tool use
+        'i need to use the tool',
+        'i will now',
+        'the next step is to',
+        'let me first',
+    ]
+    if any(signal in content_lower for signal in continuation_signals):
         return False
+
+    # --- Rule 2: Check for conversational closing statements ---
+    # If these are present, the response IS final. This fixes your "good morning" issue.
+    closing_signals = [
+        'let me know if you need anything else',
+        'is there anything else',
+        'how else can i help',
+        'hope that helps',
+    ]
+    if any(signal in content_lower for signal in closing_signals):
+        return True
+
+    # --- Rule 3: Check for explicit task completion indicators ---
+    # These are strong indicators that the task is finished.
+    completion_indicators = [
+        'task completed', 'i have finished', 'here is the final answer', 'done'
+    ]
+    if any(indicator in content_lower for indicator in completion_indicators):
+        return True
+
+    # --- Rule 4: Default to final if no continuation signals were found ---
+    # A safer default is to assume the response is final unless the agent
+    # explicitly states it needs to continue working.
+    return True
 
 
 async def process_tool_calls_with_knowledge_store(
