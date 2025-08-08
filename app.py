@@ -1,8 +1,26 @@
 from typing import List, Dict
-
 import chainlit as cl
+import re
 
 from client.anton_client import AntonClient
+
+def clean_text_for_display(text: str) -> str:
+    """Clean text to prevent unwanted markdown formatting issues in Chainlit"""
+    # Very simple approach - just prevent common markdown formatting issues
+    # by escaping standalone asterisks and underscores that cause unwanted italics
+    
+    # Escape single asterisks that aren't part of pairs (which would be intentional formatting)
+    import re
+    
+    # Replace standalone asterisks that would cause italic formatting issues
+    # This regex finds asterisks that are not preceded and followed by another asterisk
+    text = re.sub(r'(?<!\*)\*(?!\*)', r'\\*', text)
+    
+    # Replace standalone underscores that would cause italic formatting issues
+    # This regex finds underscores that are not preceded and followed by another underscore
+    text = re.sub(r'(?<!_)_(?!_)', r'\\_', text)
+    
+    return text
 
 @cl.on_chat_start
 async def on_chat_start():
@@ -52,7 +70,9 @@ async def on_message(message: cl.Message):
                     elif chunk["type"] == "token":
                         if answer_msg is None:
                             answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
-                        await answer_msg.stream_token((chunk["content"]))
+                        # Clean text to prevent markdown formatting issues
+                        cleaned_content = clean_text_for_display(chunk["content"])
+                        await answer_msg.stream_token(cleaned_content)
             
             # After the loop, flush any final thought that might be in the buffer.
             if thought_buffer:
