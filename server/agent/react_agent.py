@@ -60,8 +60,8 @@ You have access to these capabilities:
 - Web search 
 - Knowledge retrieval
 
-You have these capabilities with the following tools:
-{self.tools}
+Available tools:
+{self._format_tools_compact()}
 
 You can call these tools using the following format:\n"""
 
@@ -84,6 +84,24 @@ Always think step by step and be helpful to the user."""
                 base_prompt += f"- {knowledge[:200]}...\n"
                 
         return base_prompt
+    
+    def _format_tools_compact(self) -> str:
+        """Format tools in a compact way to reduce prompt bloat"""
+        if not self.tools:
+            return "No tools available"
+        
+        tool_summaries = []
+        for tool in self.tools:
+            if isinstance(tool, dict):
+                name = tool.get('name', 'unknown')
+                description = tool.get('description', 'No description')
+                # Limit description length to avoid bloat
+                short_desc = description[:100] + "..." if len(description) > 100 else description
+                tool_summaries.append(f"- {name}: {short_desc}")
+            else:
+                tool_summaries.append(f"- {str(tool)}")
+        
+        return "\n".join(tool_summaries)
 
     async def process_request(
         self,
@@ -233,11 +251,11 @@ Always think step by step and be helpful to the user."""
     ) -> AsyncGenerator[str, None]:
         """
         Execute LLM request directly, replacing dependency on doer.py
+        Tools parameter removed as it's unused by Ollama - tools are described in system prompt instead.
         """
         request_payload = {
             "messages": messages,
             "temperature": 0.7,
-            'tools': self.tools,
             'complex': True,
         }
 

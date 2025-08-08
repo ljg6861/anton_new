@@ -55,19 +55,18 @@ async def process_tool_calls(
             if knowledge_store is not None:
                 knowledge_store.update_from_tool_execution(tool_name, tool_args, tool_result)
 
-            # Append the structured tool result to messages
+            # Append the structured tool result to messages as user role for Ollama compatibility
+            # Ollama expects system/user/assistant roles, not "tool" role
             messages.append({
-                "role": "tool",
-                "content": json.dumps({
-                    "name": tool_name,
-                    "result": tool_result
-                })
+                "role": "user",
+                "content": f"Tool result for {tool_name}: {tool_result}"
             })
 
         except (json.JSONDecodeError, KeyError) as e:
             error_msg = f"Error: Invalid tool call format. Reason: {e}"
             logger.error(f"{error_msg}\nContent: {tool_call_content}")
-            messages.append({"role": "tool", "content": json.dumps({"error": error_msg})})
+            # Convert tool error to user role for Ollama compatibility
+            messages.append({"role": "user", "content": f"Tool error: {error_msg}"})
 
     return tool_calls_made
 
