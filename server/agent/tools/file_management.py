@@ -128,7 +128,15 @@ class ReadFileTool:
 
             with open(safe_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            return content.replace("tool_call", "tool call placeholder")
+            
+            # Sanitize potentially problematic patterns that could be misinterpreted as tool calls
+            # Replace <tool_code> patterns with escaped versions to prevent false tool call detection
+            content = content.replace("<tool_code>", "&lt;tool_code&gt;")
+            content = content.replace("</tool_code>", "&lt;/tool_code&gt;")
+            content = content.replace("<tool_call>", "&lt;tool_call&gt;")
+            content = content.replace("</tool_call>", "&lt;/tool_call&gt;")
+            
+            return content
         except ValueError as e:
             return f"❌ Security Error: {str(e)}"
         except Exception as e:

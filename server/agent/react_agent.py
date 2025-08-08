@@ -69,11 +69,16 @@ You can call these tools using the following format:\n"""
 <tool_code>
 {"name" : "tool name", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
 </tool_code>
-<tool_code>
-{"name" : "tool name 2", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
-</tool_code>
 
-You may use multiple tool calls, as long as no tool call relies on the output of another within the same turn.
+IMPORTANT TOOL USAGE RULES:
+- Use only ONE tool per turn to avoid dependency issues
+- Always wait for tool results before deciding on next actions
+- Never include multiple tool calls in the same response
+- Summarize tool results before providing your final answer
+- Use "Final Answer:" when you are completely done with the task
+- Tool results will be provided as OBSERVATIONS - acknowledge and use them
+
+When a tool completes, you will see an OBSERVATION message. Always process this before continuing.
 
 Always think step by step and be helpful to the user."""
 
@@ -114,8 +119,19 @@ Always think step by step and be helpful to the user."""
         """
         Process a request using the ReAct pattern with KnowledgeStore for state management.
         Handles the complete reasoning and tool-use loop without external dependencies.
+        Integrates learning loop for experience tracking and improvement.
         """
         logger.info("Starting ReAct agent processing...")
+        
+        # Start learning task tracking
+        user_prompt = None
+        for msg in initial_messages:
+            if msg["role"] == "user":
+                user_prompt = msg["content"]
+                break
+        
+        if user_prompt:
+            self.knowledge_store.start_learning_task(user_prompt)
         
         # Initialize conversation in knowledge store
         for msg in initial_messages:
@@ -222,20 +238,41 @@ Always think step by step and be helpful to the user."""
             
             # Check if agent made tool calls before yielding the content
             from server.agent import config
+            
+            # Collect tool results for streaming to UI
+            tool_results_for_ui = []
+            
+            # Create callback to capture actual tool results
+            async def tool_result_callback(tool_result_summary):
+                """Capture actual tool results for UI streaming"""
+                tool_results_for_ui.append(tool_result_summary)
+            
             made_tool_calls = await process_tool_calls_with_knowledge_store(
                 content, 
                 config.TOOL_CALL_REGEX,  # Use existing tool call regex
                 react_messages,
                 logger,
-                self.knowledge_store
+                self.knowledge_store,
+                tool_result_callback
             )
             
+            # Stream captured tool results to UI
+            for tool_result_summary in tool_results_for_ui:
+                import json
+                yield f"<tool_result>{json.dumps(tool_result_summary)}</tool_result>"
+            
             if made_tool_calls:
-                # Tool calls were made - yield tool result events
-                tool_matches = config.TOOL_CALL_REGEX.finditer(content)
-                for match in tool_matches:
-                    tool_call_content = match.group(1).strip()
-                    yield f"<tool_result>{tool_call_content}</tool_result>"
+                # Record tool actions in learning loop
+                for tool_result_summary in tool_results_for_ui:
+                    self.knowledge_store.add_learning_action(
+                        "tool_execution", 
+                        {
+                            "tool_name": tool_result_summary["name"],
+                            "arguments": tool_result_summary["arguments"],
+                            "status": tool_result_summary["status"],
+                            "result_preview": tool_result_summary["brief_result"][:100]
+                        }
+                    )
                 
                 # Remove tool code blocks from content before yielding clean response
                 clean_content = config.TOOL_CALL_REGEX.sub('', content).strip()
@@ -267,6 +304,10 @@ Always think step by step and be helpful to the user."""
                 if self._is_final_response(content):
                     logger.info("Agent provided final response, ending ReAct loop")
                     self.knowledge_store.mark_complete(content)
+                    
+                    # Complete learning task
+                    success = "error" not in content.lower() and "failed" not in content.lower()
+                    self.knowledge_store.complete_learning_task(success, content[:200])
                     break
                 else:
                     # Agent might need another iteration to complete the task
@@ -283,6 +324,9 @@ Always think step by step and be helpful to the user."""
                 "react_agent",
                 {"reason": "max_iterations"}
             )
+            
+            # Complete learning task as partially successful (timeout)
+            self.knowledge_store.complete_learning_task(False, "Reached maximum iterations without completion")
             yield final_msg
     
     async def _execute_llm_request(
@@ -324,49 +368,58 @@ Always think step by step and be helpful to the user."""
     
     def _is_final_response(self, content: str) -> bool:
         """
-        Determines if the agent's response is final using a more robust set of heuristics.
-        It prioritizes clear signals of continuation or conversational closing statements.
+        Determines if the agent's response is final using explicit finality markers.
+        Now defaults to NOT final unless explicit indicators are found.
         """
         content_lower = content.lower().strip()
 
         if not content:
             return False
 
-        # --- Rule 1: Check for explicit signs of continuation or tool use ---
-        # If these are present, the response is definitely NOT final.
-        continuation_signals = [
-            '<tool_call>',  # Explicit tool use
-            'i need to use the tool',
-            'i will now',
-            'the next step is to',
-            'let me first',
+        # --- Rule 1: Check for explicit final answer markers ---
+        # These are strong indicators that the task is finished.
+        final_markers = [
+            'final answer:',
+            '<final_answer>',
+            'task completed',
+            'i have finished',
+            'done.',
+            'that completes'
         ]
-        if any(signal in content_lower for signal in continuation_signals):
-            return False
+        if any(marker in content_lower for marker in final_markers):
+            return True
 
         # --- Rule 2: Check for conversational closing statements ---
-        # If these are present, the response IS final. This fixes your "good morning" issue.
+        # If these are present, the response IS final.
         closing_signals = [
             'let me know if you need anything else',
             'is there anything else',
             'how else can i help',
             'hope that helps',
+            'feel free to ask'
         ]
         if any(signal in content_lower for signal in closing_signals):
             return True
 
-        # --- Rule 3: Check for explicit task completion indicators ---
-        # These are strong indicators that the task is finished.
-        completion_indicators = [
-            'task completed', 'i have finished', 'here is the final answer', 'done'
+        # --- Rule 3: Check for explicit signs of continuation or tool use ---
+        # If these are present, the response is definitely NOT final.
+        continuation_signals = [
+            '<tool_call>',
+            '<tool_code>',
+            'i need to use',
+            'i will now',
+            'the next step is to',
+            'let me first',
+            'let me check',
+            'i should',
+            'i need to'
         ]
-        if any(indicator in content_lower for indicator in completion_indicators):
-            return True
+        if any(signal in content_lower for signal in continuation_signals):
+            return False
 
-        # --- Rule 4: Default to final if no continuation signals were found ---
-        # A safer default is to assume the response is final unless the agent
-        # explicitly states it needs to continue working.
-        return True
+        # --- Rule 4: Default to NOT final unless explicit finality is indicated ---
+        # This is the key change - be conservative and continue unless clearly final
+        return False
 
 
 async def process_tool_calls_with_knowledge_store(
@@ -374,7 +427,8 @@ async def process_tool_calls_with_knowledge_store(
     tool_call_regex,  # Already compiled regex from config
     messages: List[Dict],
     logger: Any,
-    knowledge_store: KnowledgeStore
+    knowledge_store: KnowledgeStore,
+    result_callback = None
 ) -> bool:
     """
     Process tool calls in the agent's response using KnowledgeStore for state management.
@@ -385,5 +439,6 @@ async def process_tool_calls_with_knowledge_store(
         tool_call_regex,  # Pass the compiled regex directly
         messages,
         logger,
-        knowledge_store
+        knowledge_store,
+        result_callback
     )

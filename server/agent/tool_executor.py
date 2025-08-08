@@ -21,7 +21,8 @@ async def process_tool_calls(
         tool_call_regex: Any,
         messages: list[dict],
         logger: Any,
-        knowledge_store = None  # Updated parameter to use KnowledgeStore
+        knowledge_store = None,  # Updated parameter to use KnowledgeStore
+        result_callback = None  # Callback to stream tool results to UI
 ) -> bool:
     """
     Parses and executes all tool calls from the model's response buffer.
@@ -58,45 +59,68 @@ async def process_tool_calls(
             # Convert tool error to user role for Ollama compatibility
             messages.append({"role": "user", "content": f"Tool error: {error_msg}"})
 
-    # Execute all valid tool calls in parallel if there are any
+    # Execute all valid tool calls - but enforce single tool per turn for safety
     if tool_calls:
-        logger.info(f"Executing {len(tool_calls)} tool calls in parallel...")
+        # Limit to single tool per turn to avoid dependency issues
+        if len(tool_calls) > 1:
+            logger.warning(f"Multiple tool calls detected ({len(tool_calls)}), executing only the first one to avoid dependencies")
+            tool_calls = [tool_calls[0]]
         
-        # Create tasks for parallel execution
-        tasks = []
-        for tool_call in tool_calls:
-            task = execute_tool_async(tool_call["name"], tool_call["arguments"], logger)
-            tasks.append(task)
+        logger.info(f"Executing {len(tool_calls)} tool call...")
         
-        # Execute all tools in parallel
+        # Execute the tool call
+        tool_call = tool_calls[0]
+        tool_name = tool_call["name"]
+        
         try:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            result = await execute_tool_async(tool_name, tool_call["arguments"], logger)
             
-            # Process results and update messages
-            for i, (tool_call, result) in enumerate(zip(tool_calls, results)):
-                tool_name = tool_call["name"]
+            if isinstance(result, Exception):
+                logger.error(f"Tool {tool_name} failed with exception: {result}")
+                tool_result = f"Error: {str(result)}"
+                status = "error"
+            else:
+                tool_result = result
+                logger.info(f"Tool {tool_name} completed successfully")
+                status = "success"
+
+            # Update knowledge store for file operations
+            if knowledge_store is not None:
+                knowledge_store.update_from_tool_execution(tool_name, tool_call["arguments"], tool_result)
+
+            # Stream tool result to UI if callback provided
+            if result_callback:
+                # Create a concise, user-facing summary of the tool result
+                brief_result = str(tool_result)[:200] + "..." if len(str(tool_result)) > 200 else str(tool_result)
                 
-                if isinstance(result, Exception):
-                    logger.error(f"Tool {tool_name} failed with exception: {result}")
-                    tool_result = f"Error: {str(result)}"
-                else:
-                    tool_result = result
-                    logger.info(f"Tool {tool_name} completed successfully")
+                tool_result_summary = {
+                    "name": tool_name,
+                    "status": status,
+                    "brief_result": brief_result,
+                    "arguments": tool_call["arguments"]
+                }
+                await result_callback(tool_result_summary)
 
-                # Update knowledge store for file operations
-                if knowledge_store is not None:
-                    knowledge_store.update_from_tool_execution(tool_name, tool_call["arguments"], tool_result)
-
-                # Append the structured tool result to messages as user role for Ollama compatibility
-                # Ollama expects system/user/assistant roles, not "tool" role
-                messages.append({
-                    "role": "user",
-                    "content": f"Tool result for {tool_name}: {tool_result}"
-                })
+            # Append the structured tool result to messages as system role for better model understanding
+            # Use "system" role instead of "user" to clearly indicate this is an observation
+            messages.append({
+                "role": "system",
+                "content": f"OBSERVATION: Tool '{tool_name}' result: {tool_result}"
+            })
                 
         except Exception as e:
-            logger.error(f"Error during parallel tool execution: {e}", exc_info=True)
-            messages.append({"role": "user", "content": f"Tool execution error: {str(e)}"})
+            logger.error(f"Error during tool execution: {e}", exc_info=True)
+            messages.append({"role": "system", "content": f"TOOL_ERROR: {tool_name} failed: {str(e)}"})
+            
+            # Stream error to UI if callback provided
+            if result_callback:
+                error_summary = {
+                    "name": tool_name,
+                    "status": "error", 
+                    "brief_result": f"Error: {str(e)}",
+                    "arguments": tool_call["arguments"]
+                }
+                await result_callback(error_summary)
 
     return tool_calls_made
 
