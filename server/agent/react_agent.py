@@ -50,7 +50,7 @@ Your reasoning about what to do next...
 
 Then either:
 - Use a tool if you need to gather information or perform an action
-- Provide a direct response if you have enough information using tags <final_answer>...</final_answer>
+- Provide a direct response if you have enough information by starting your response with <final_answer>. 
 
 You have access to these capabilities:
 - File operations (read, write, list directories)
@@ -82,11 +82,13 @@ When a tool completes, you will see an OBSERVATION message. Always process this 
 
 Always think step by step and be helpful to the user.
 
-If and only if you believe you have the final answer to the users message, you MUST add <final_answer>...</final_answer> tags to your output.
+If and only if you are ready to respond to the user, you MUST add <final_answer>...</final_answer> tags to your output.
 Example:
+<think>
+I know the answer to this!
+</think>
 <final_answer>
 The capital of France is Paris.
-</final_answer>
 """
 
         # Add relevant knowledge if available
@@ -183,6 +185,7 @@ The capital of France is Paris.
             thinking_content = ""
             thinking_started = False
             thinking_ended = False
+            answering = False
             content_after_thinking = ""
             pre_think_buffer = ""
             
@@ -221,7 +224,12 @@ The capital of France is Paris.
                         content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
                 else:
                     # We're past thinking, accumulate remaining content
-                    content_after_thinking = response_buffer.rsplit("</think>", 1)[-1] if "</think>" in response_buffer else response_buffer
+                    content_after_thinking += token
+                    if '<final_answer>' in content_after_thinking and not answering:
+                        answering = True
+                    if answering:
+                        yield f'<token>{token}</token>'
+                    
             
             # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
@@ -281,17 +289,6 @@ The capital of France is Paris.
                             "result_preview": tool_result_summary["brief_result"][:100]
                         }
                     )
-                
-                # Remove tool code blocks from content before yielding clean response
-                clean_content = config.TOOL_CALL_REGEX.sub('', content).strip()
-                if clean_content:
-                    # Yield clean content as tokens
-                    for char in clean_content:
-                        yield f"<token>{char}</token>"
-            else:
-                # No tool calls - yield the clean content as tokens
-                for char in content:
-                    yield f"<token>{char}</token>"
             
             # Add to conversation (use original content with tool calls for internal tracking)
             self.knowledge_store.add_message(ASSISTANT_ROLE, content)
@@ -309,7 +306,7 @@ The capital of France is Paris.
                 continue
             else:
                 # No tool calls, check if this looks like a final response
-                if self._is_final_response(content):
+                if answering:
                     logger.info("Agent provided final response, ending ReAct loop")
                     self.knowledge_store.mark_complete(content)
                     
@@ -384,7 +381,7 @@ The capital of France is Paris.
         if not content:
             return False
         
-        final_answer_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+        final_answer_match = re.search(r'<final_answer>(.*?)', content, re.DOTALL)
         return final_answer_match
 
         # --- Rule 1: Check for explicit final answer markers ---
