@@ -83,7 +83,7 @@ async def execute_tool_async(tool_name: str, tool_args: dict, logger) -> str:
         logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
         # Run the potentially blocking tool in a thread pool
         result = await asyncio.to_thread(tool_manager.run_tool, tool_name, tool_args)
-        return json.dumps(result)
+        return result
     except Exception as e:
         logger.error(f"Error executing tool '{tool_name}': {e}", exc_info=True)
         return f'{{"error": "Failed to execute tool: {str(e)}"}}'
