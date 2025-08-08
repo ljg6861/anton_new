@@ -150,34 +150,72 @@ Always think step by step and be helpful to the user."""
                 "react_agent"
             )
             
-            # Get response from LLM and buffer it completely before processing
+            # Get response from LLM with incremental streaming and parsing
             response_buffer = ""
             start_time = time.time()
+            thinking_content = ""
+            thinking_started = False
+            thinking_ended = False
+            content_after_thinking = ""
             
             async for token in self._execute_llm_request(react_messages, logger):
                 response_buffer += token
-                # Don't yield raw tokens yet - buffer everything first
+                
+                # Incremental parsing for better streaming
+                if not thinking_ended:
+                    # Check for start of thinking block
+                    if not thinking_started and "<think>" in response_buffer:
+                        thinking_started = True
+                        # Extract any content before <think>
+                        before_think = response_buffer.split("<think>")[0]
+                        if before_think.strip():
+                            for char in before_think:
+                                yield f"<token>{char}</token>"
+                    
+                    # Check for end of thinking block
+                    if thinking_started and "</think>" in response_buffer:
+                        thinking_ended = True
+                        # Extract thinking content
+                        think_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
+                        if think_match:
+                            thinking_content = think_match.group(1).strip()
+                            if thinking_content:
+                                # Yield structured thinking event for Chainlit UI
+                                yield f"<thought>{thinking_content}</thought>"
+                                logger.info(f"Agent thinking: {thinking_content}")
+                                self.knowledge_store.add_context(
+                                    thinking_content,
+                                    ContextType.THOUGHT,
+                                    ImportanceLevel.MEDIUM,
+                                    "react_agent"
+                                )
+                        
+                        # Get content after thinking block
+                        content_after_thinking = response_buffer.split("</think>", 1)[-1]
+                else:
+                    # We're past thinking, accumulate remaining content
+                    content_after_thinking = response_buffer.split("</think>", 1)[-1] if "</think>" in response_buffer else response_buffer
             
             # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
             
-            # Extract thinking from response
-            thinking_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
-            thinking_content = ""
-            if thinking_match:
-                thinking_content = thinking_match.group(1).strip()
-                self.knowledge_store.add_context(
-                    thinking_content,
-                    ContextType.THOUGHT,
-                    ImportanceLevel.MEDIUM,
-                    "react_agent"
-                )
-                logger.info(f"Agent thinking: {thinking_content}")
-                # Yield structured thinking event for Chainlit UI
-                yield f"<thought>{thinking_content}</thought>"
+            # Use extracted thinking content if available, otherwise try to extract it
+            if not thinking_content:
+                thinking_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
+                if thinking_match:
+                    thinking_content = thinking_match.group(1).strip()
+                    self.knowledge_store.add_context(
+                        thinking_content,
+                        ContextType.THOUGHT,
+                        ImportanceLevel.MEDIUM,
+                        "react_agent"
+                    )
+                    logger.info(f"Agent thinking: {thinking_content}")
+                    # Yield structured thinking event for Chainlit UI
+                    yield f"<thought>{thinking_content}</thought>"
             
             # Extract content after thinking markers and tool code blocks
-            content = re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
+            content = content_after_thinking or re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
             
             # Check if agent made tool calls before yielding the content
             from server.agent import config
@@ -263,8 +301,17 @@ Always think step by step and be helpful to the user."""
             try:
                 async with client.stream("POST", f"{self.api_base_url}/v1/chat/stream", json=request_payload) as response:
                     response.raise_for_status()
+                    # Parse SSE format (data: prefix)
                     async for chunk in response.aiter_text():
-                        yield chunk
+                        for line in chunk.split('\n'):
+                            if line.startswith('data: '):
+                                content = line[6:]  # Remove 'data: ' prefix
+                                if content == '[DONE]':
+                                    return
+                                yield content
+                            elif line.strip():
+                                # Fallback for non-SSE format
+                                yield line
             except httpx.RequestError as e:
                 logger.error(f"ReActAgent: API request to model server failed: {e}")
                 yield f"\n[ERROR: Could not connect to the model server: {e}]\n"

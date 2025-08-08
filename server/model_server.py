@@ -90,11 +90,13 @@ async def metrics_collecting_stream_generator(
         async for chunk in ollama_stream:
             # Ollama's chat API yields dicts with a 'content' field in 'message'
             if 'message' in chunk and 'content' in chunk['message']:
-                yield chunk['message']['content']
+                # Format as proper SSE with data: prefix
+                content = chunk['message']['content']
+                yield f"data: {content}\n\n"
                 chunk_count += 1
             elif 'done' in chunk and chunk['done']:
                 # The 'done' chunk signifies the end and contains final metrics
-                pass # We'll process final metrics in finally block
+                yield "data: [DONE]\n\n"
     finally:
         metrics.end_time = time.monotonic()
         metrics.step_token_counts['generation'] = chunk_count

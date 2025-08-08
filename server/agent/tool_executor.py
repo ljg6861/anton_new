@@ -26,6 +26,7 @@ async def process_tool_calls(
     """
     Parses and executes all tool calls from the model's response buffer.
     Now updates a knowledge store with information about accessed files and tool results.
+    Executes independent tool calls in parallel for better performance.
 
     Returns:
         True if at least one tool was called, False otherwise.
@@ -33,7 +34,8 @@ async def process_tool_calls(
     tool_calls_made = False
     matches = tool_call_regex.finditer(response_buffer)
 
-    # Loop through all found tool calls
+    # Collect all tool calls first
+    tool_calls = []
     for match in matches:
         tool_calls_made = True
         tool_call_content = match.group(1).strip()
@@ -43,30 +45,58 @@ async def process_tool_calls(
             tool_name = tool_data.get("name")
             if not tool_name:
                 raise KeyError("'name' not found in tool data.")
-
-            logger.info(f"Processing tool call: {tool_name}")
+            
             tool_args = tool_data.get("arguments", {})
-
-            # Execute the tool and get the result (async)
-            tool_result = await execute_tool_async(tool_name, tool_args, logger)
-            logger.info(f"tool result: {tool_result}")
-
-            # Update knowledge store for file operations
-            if knowledge_store is not None:
-                knowledge_store.update_from_tool_execution(tool_name, tool_args, tool_result)
-
-            # Append the structured tool result to messages as user role for Ollama compatibility
-            # Ollama expects system/user/assistant roles, not "tool" role
-            messages.append({
-                "role": "user",
-                "content": f"Tool result for {tool_name}: {tool_result}"
+            tool_calls.append({
+                "name": tool_name,
+                "arguments": tool_args,
+                "raw_content": tool_call_content
             })
-
         except (json.JSONDecodeError, KeyError) as e:
             error_msg = f"Error: Invalid tool call format. Reason: {e}"
             logger.error(f"{error_msg}\nContent: {tool_call_content}")
             # Convert tool error to user role for Ollama compatibility
             messages.append({"role": "user", "content": f"Tool error: {error_msg}"})
+
+    # Execute all valid tool calls in parallel if there are any
+    if tool_calls:
+        logger.info(f"Executing {len(tool_calls)} tool calls in parallel...")
+        
+        # Create tasks for parallel execution
+        tasks = []
+        for tool_call in tool_calls:
+            task = execute_tool_async(tool_call["name"], tool_call["arguments"], logger)
+            tasks.append(task)
+        
+        # Execute all tools in parallel
+        try:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results and update messages
+            for i, (tool_call, result) in enumerate(zip(tool_calls, results)):
+                tool_name = tool_call["name"]
+                
+                if isinstance(result, Exception):
+                    logger.error(f"Tool {tool_name} failed with exception: {result}")
+                    tool_result = f"Error: {str(result)}"
+                else:
+                    tool_result = result
+                    logger.info(f"Tool {tool_name} completed successfully")
+
+                # Update knowledge store for file operations
+                if knowledge_store is not None:
+                    knowledge_store.update_from_tool_execution(tool_name, tool_call["arguments"], tool_result)
+
+                # Append the structured tool result to messages as user role for Ollama compatibility
+                # Ollama expects system/user/assistant roles, not "tool" role
+                messages.append({
+                    "role": "user",
+                    "content": f"Tool result for {tool_name}: {tool_result}"
+                })
+                
+        except Exception as e:
+            logger.error(f"Error during parallel tool execution: {e}", exc_info=True)
+            messages.append({"role": "user", "content": f"Tool execution error: {str(e)}"})
 
     return tool_calls_made
 

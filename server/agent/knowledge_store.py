@@ -3,12 +3,16 @@ Centralized knowledge management system that tracks context across planner, doer
 Provides persistent storage, context prioritization, and knowledge transfer capabilities.
 """
 import time
+import logging
 from typing import Dict, Set, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 
 from server.agent.learning_loop import learning_loop
 from server.agent.rag_manager import rag_manager
+
+# Configure logger for knowledge store
+logger = logging.getLogger(__name__)
 
 
 class ContextType(Enum):
@@ -254,16 +258,26 @@ class KnowledgeStore:
                 text=rag_content,
                 source=f"{context_item.source}_{context_item.timestamp}"
             )
+            logger.debug(f"Successfully persisted context to RAG: {context_item.context_type.value}")
         except Exception as e:
-            # Don't fail if RAG storage fails - log and continue
-            pass
+            # Log the error but don't fail - RAG persistence is not critical
+            logger.error(f"Failed to persist context to RAG: {e}", exc_info=True)
     
     def query_relevant_knowledge(self, query: str, max_results: int = 5) -> List[str]:
         """Query RAG for relevant past knowledge"""
         try:
             # Query both RAG and current context
             rag_results = rag_manager.retrieve_knowledge(query, top_k=max_results)
-            rag_texts = [result.get('text', '') for result in rag_results]
+            
+            # Handle different return types from RAG manager (dict or string)
+            rag_texts = []
+            for result in rag_results:
+                if isinstance(result, dict):
+                    rag_texts.append(result.get('text', ''))
+                elif isinstance(result, str):
+                    rag_texts.append(result)
+                else:
+                    rag_texts.append(str(result))
             
             # Also search current context items
             query_lower = query.lower()
@@ -274,6 +288,7 @@ class KnowledgeStore:
             
             return rag_texts + relevant_current
         except Exception as e:
+            logger.error(f"Failed to query knowledge: {e}", exc_info=True)
             return []
 
     def start_learning_task(self, user_prompt: str):
@@ -347,11 +362,35 @@ class KnowledgeStore:
         """Get conversation duration in seconds"""
         return time.time() - self.start_time
     
-    def reset_conversation(self):
-        """Reset conversation state for a new conversation"""
+    def reset_conversation(self, preserve_important_context: bool = True):
+        """
+        Reset conversation state for a new conversation.
+        
+        Args:
+            preserve_important_context: If True, keeps CRITICAL and HIGH importance contexts
+                                      from previous sessions. If False, starts completely fresh.
+        """
+        # Clear session-specific state
         self.messages = []
         self.tool_outputs = {}
         self.start_time = time.time()
         self.is_complete = False
         self.final_response = ""
-        # Note: Keep context_items for cross-conversation learning
+        
+        # Handle context isolation
+        if preserve_important_context:
+            # Keep only CRITICAL and HIGH importance contexts from previous sessions
+            preserved_context = [
+                item for item in self.context_items 
+                if item.importance in [ImportanceLevel.CRITICAL, ImportanceLevel.HIGH]
+            ]
+            self.context_items = preserved_context
+            logger.info(f"Reset conversation, preserved {len(preserved_context)} important context items")
+        else:
+            # Complete fresh start - clear all context
+            self.context_items = []
+            logger.info("Reset conversation with complete fresh start")
+    
+    def start_new_session(self):
+        """Start a completely new session with fresh context"""
+        self.reset_conversation(preserve_important_context=False)
