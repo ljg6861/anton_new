@@ -12,6 +12,7 @@ from server.agent.tools.tool_manager import tool_manager
 Handles parsing and execution of tool calls from the model's output.
 """
 import json
+import asyncio
 from typing import Any
 
 
@@ -46,8 +47,8 @@ async def process_tool_calls(
             logger.info(f"Processing tool call: {tool_name}")
             tool_args = tool_data.get("arguments", {})
 
-            # Execute the tool and get the result
-            tool_result = execute_tool(tool_name, tool_args, logger)
+            # Execute the tool and get the result (async)
+            tool_result = await execute_tool_async(tool_name, tool_args, logger)
             logger.info(f"tool result: {tool_result}")
 
             # Update knowledge store for file operations
@@ -73,8 +74,24 @@ async def process_tool_calls(
 
 
 
+async def execute_tool_async(tool_name: str, tool_args: dict, logger) -> str:
+    """
+    Looks up a tool by name in the registry and executes it with the given arguments.
+    Uses asyncio.to_thread to run blocking IO-bound tools in a thread pool.
+    """
+    try:
+        logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
+        # Run the potentially blocking tool in a thread pool
+        result = await asyncio.to_thread(tool_manager.run_tool, tool_name, tool_args)
+        return json.dumps(result)
+    except Exception as e:
+        logger.error(f"Error executing tool '{tool_name}': {e}", exc_info=True)
+        return f'{{"error": "Failed to execute tool: {str(e)}"}}'
+
+
 def execute_tool(tool_name: str, tool_args: dict, logger) -> str:
     """
+    Synchronous version for backward compatibility.
     Looks up a tool by name in the registry and executes it with the given arguments.
     """
     try:

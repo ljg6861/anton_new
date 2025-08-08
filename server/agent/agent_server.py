@@ -185,11 +185,12 @@ async def agent_chat(request: AgentChatRequest):
     # Reset conversation state for new request
     knowledge_store.reset_conversation()
     
-    # Create ReAct agent with knowledge store
+    # Create ReAct agent with knowledge store and tool schemas
     from server.agent.react_agent import ReActAgent
+    available_tools = tool_manager.get_tool_schemas()
     react_agent = ReActAgent(
         api_base_url=MODEL_SERVER_URL,
-        tools=request.tools or [],
+        tools=available_tools,
         knowledge_store=knowledge_store,
         max_iterations=10
     )

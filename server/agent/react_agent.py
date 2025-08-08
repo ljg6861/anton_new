@@ -67,10 +67,10 @@ You can call these tools using the following format:\n"""
 
         base_prompt += """
 <tool_code>
-{"tool_name" : "tool name", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
+{"name" : "tool name", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
 </tool_code>
 <tool_code>
-{"tool_name" : "tool name 2", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
+{"name" : "tool name 2", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
 </tool_code>
 
 You may use multiple tool calls, as long as no tool call relies on the output of another within the same turn.
