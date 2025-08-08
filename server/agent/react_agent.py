@@ -160,6 +160,7 @@ Always think step by step and be helpful to the user."""
             thinking_started = False
             thinking_ended = False
             content_after_thinking = ""
+            pre_think_buffer = ""
             
             async for token in self._execute_llm_request(react_messages, logger):
                 response_buffer += token
@@ -171,9 +172,8 @@ Always think step by step and be helpful to the user."""
                         thinking_started = True
                         # Extract any content before <think>
                         before_think = response_buffer.split("<think>")[0]
-                        if before_think.strip():
-                            for char in before_think:
-                                yield f"<token>{char}</token>"
+                        if before_think:
+                            pre_think_buffer += before_think
                     
                     # Check for end of thinking block
                     if thinking_started and "</think>" in response_buffer:
@@ -181,7 +181,7 @@ Always think step by step and be helpful to the user."""
                         # Extract thinking content
                         think_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
                         if think_match:
-                            thinking_content = think_match.group(1).strip()
+                            thinking_content = (pre_think_buffer + think_match.group(1)).strip()
                             if thinking_content:
                                 # Yield structured thinking event for Chainlit UI
                                 yield f"<thought>{thinking_content}</thought>"
@@ -194,10 +194,10 @@ Always think step by step and be helpful to the user."""
                                 )
                         
                         # Get content after thinking block
-                        content_after_thinking = response_buffer.split("</think>", 1)[-1]
+                        content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
                 else:
                     # We're past thinking, accumulate remaining content
-                    content_after_thinking = response_buffer.split("</think>", 1)[-1] if "</think>" in response_buffer else response_buffer
+                    content_after_thinking = response_buffer.rsplit("</think>", 1)[-1] if "</think>" in response_buffer else response_buffer
             
             # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
@@ -206,7 +206,7 @@ Always think step by step and be helpful to the user."""
             if not thinking_content:
                 thinking_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
                 if thinking_match:
-                    thinking_content = thinking_match.group(1).strip()
+                    thinking_content = (pre_think_buffer + thinking_match.group(1)).strip()
                     self.knowledge_store.add_context(
                         thinking_content,
                         ContextType.THOUGHT,

@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+logs/
 chroma_db/
 server/chroma_db/
 build/

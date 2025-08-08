@@ -32,3 +32,15 @@
 2025-08-08 11:52:02 - Phase 2: Streaming processed response from server.
 2025-08-08 11:52:02 - Streaming request to agent chat endpoint.
 2025-08-08 11:52:02 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-08 12:02:15 - API client initialized for server at http://192.168.1.250:8001
+2025-08-08 12:02:15 - Anton client initialized.
+2025-08-08 12:02:16 - Phase 1: Sending raw prompt to server for routing.
+2025-08-08 12:02:16 - Phase 2: Streaming processed response from server.
+2025-08-08 12:02:16 - Streaming request to agent chat endpoint.
+2025-08-08 12:02:16 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-08 12:07:52 - API client initialized for server at http://192.168.1.250:8001
+2025-08-08 12:07:52 - Anton client initialized.
+2025-08-08 12:07:53 - Phase 1: Sending raw prompt to server for routing.
+2025-08-08 12:07:53 - Phase 2: Streaming processed response from server.
+2025-08-08 12:07:53 - Streaming request to agent chat endpoint.
+2025-08-08 12:07:53 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
