@@ -27,6 +27,29 @@ class ReActAgent:
         self.tools = tools
         self.knowledge_store = knowledge_store
         self.max_iterations = max_iterations
+    
+    def _clean_output_for_user(self, content: str) -> str:
+        """
+        Clean content before showing to user by removing internal tags and markers.
+        This preserves internal logic while providing clean user output.
+        """
+        if not content:
+            return content
+            
+        # Remove various final answer tags that are meant for internal processing
+        cleaned = content
+        
+        # Remove opening and closing final answer tags
+        cleaned = re.sub(r'<final_answer>\s*', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\s*</final_answer>', '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove standalone final answer markers
+        cleaned = re.sub(r'^final answer:\s*', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Remove other internal markers that shouldn't be shown to users
+        cleaned = re.sub(r'</?task_completed>', '', cleaned, flags=re.IGNORECASE)
+        
+        return cleaned.strip()
         
     def get_react_system_prompt(self) -> str:
         """Get the system prompt for the ReAct agent"""
@@ -75,10 +98,16 @@ IMPORTANT TOOL USAGE RULES:
 - Always wait for tool results before deciding on next actions
 - Never include multiple tool calls in the same response
 - Summarize tool results before providing your final answer
-- Use "Final Answer:" when you are completely done with the task
+- Use clear, natural language in your responses - avoid XML tags or special markers in your answers
 - Tool results will be provided as OBSERVATIONS - acknowledge and use them
 
 When a tool completes, you will see an OBSERVATION message. Always process this before continuing.
+
+IMPORTANT OUTPUT FORMATTING:
+- Write your final responses in natural, conversational language
+- Do NOT use HTML/XML tags like <final_answer> or </final_answer> in your responses to users
+- Use proper markdown formatting when appropriate (like **bold** or *italic* text)
+- Keep your responses clear and user-friendly
 
 Always think step by step and be helpful to the user."""
 
@@ -277,13 +306,28 @@ Always think step by step and be helpful to the user."""
                 # Remove tool code blocks from content before yielding clean response
                 clean_content = config.TOOL_CALL_REGEX.sub('', content).strip()
                 if clean_content:
-                    # Yield clean content as tokens
-                    for char in clean_content:
-                        yield f"<token>{char}</token>"
+                    # Clean the content for user display
+                    user_content = self._clean_output_for_user(clean_content)
+                    if user_content:
+                        # Stream in word-sized chunks while preserving whitespace and newlines
+                        # Split on spaces but preserve newlines and multiple spaces
+                        import re
+                        # Split on spaces but keep the whitespace separators
+                        parts = re.split(r'( +|\n+)', user_content)
+                        for part in parts:
+                            if part:  # Skip empty parts
+                                yield f"<token>{part}</token>"
             else:
-                # No tool calls - yield the clean content as tokens
-                for char in content:
-                    yield f"<token>{char}</token>"
+                # No tool calls - clean and yield the content
+                user_content = self._clean_output_for_user(content)
+                if user_content:
+                    # Stream in word-sized chunks while preserving whitespace and newlines
+                    import re
+                    # Split on spaces but keep the whitespace separators
+                    parts = re.split(r'( +|\n+)', user_content)
+                    for part in parts:
+                        if part:  # Skip empty parts
+                            yield f"<token>{part}</token>"
             
             # Add to conversation (use original content with tool calls for internal tracking)
             self.knowledge_store.add_message(ASSISTANT_ROLE, content)
