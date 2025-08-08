@@ -132,37 +132,36 @@ Always think step by step and be helpful to the user."""
                 "react_agent"
             )
             
-            # Get response from LLM directly (no longer using doer.py)
+            # Get response from LLM and buffer it completely before processing
             response_buffer = ""
             start_time = time.time()
             
             async for token in self._execute_llm_request(react_messages, logger):
                 response_buffer += token
-                yield token
+                # Don't yield raw tokens yet - buffer everything first
             
-            # Process the response
+            # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
             
             # Extract thinking from response
             thinking_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
+            thinking_content = ""
             if thinking_match:
-                thinking = thinking_match.group(1).strip()
+                thinking_content = thinking_match.group(1).strip()
                 self.knowledge_store.add_context(
-                    thinking,
+                    thinking_content,
                     ContextType.THOUGHT,
                     ImportanceLevel.MEDIUM,
                     "react_agent"
                 )
-                logger.info(f"Agent thinking: {thinking}")
+                logger.info(f"Agent thinking: {thinking_content}")
+                # Yield structured thinking event for Chainlit UI
+                yield f"<thought>{thinking_content}</thought>"
             
-            # Extract content after thinking markers
+            # Extract content after thinking markers and tool code blocks
             content = re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
             
-            # Add to conversation
-            self.knowledge_store.add_message(ASSISTANT_ROLE, content)
-            react_messages.append({"role": ASSISTANT_ROLE, "content": content})
-            
-            # Check if agent made tool calls
+            # Check if agent made tool calls before yielding the content
             from server.agent import config
             made_tool_calls = await process_tool_calls_with_knowledge_store(
                 content, 
@@ -171,6 +170,28 @@ Always think step by step and be helpful to the user."""
                 logger,
                 self.knowledge_store
             )
+            
+            if made_tool_calls:
+                # Tool calls were made - yield tool result events
+                tool_matches = config.TOOL_CALL_REGEX.finditer(content)
+                for match in tool_matches:
+                    tool_call_content = match.group(1).strip()
+                    yield f"<tool_result>{tool_call_content}</tool_result>"
+                
+                # Remove tool code blocks from content before yielding clean response
+                clean_content = config.TOOL_CALL_REGEX.sub('', content).strip()
+                if clean_content:
+                    # Yield clean content as tokens
+                    for char in clean_content:
+                        yield f"<token>{char}</token>"
+            else:
+                # No tool calls - yield the clean content as tokens
+                for char in content:
+                    yield f"<token>{char}</token>"
+            
+            # Add to conversation (use original content with tool calls for internal tracking)
+            self.knowledge_store.add_message(ASSISTANT_ROLE, content)
+            react_messages.append({"role": ASSISTANT_ROLE, "content": content})
             
             if made_tool_calls:
                 # If tools were called, continue the loop to let agent process results

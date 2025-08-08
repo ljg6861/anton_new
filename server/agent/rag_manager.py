@@ -133,5 +133,61 @@ class RAGManager:
             logger.error(f"Failed to retrieve knowledge: {e}", exc_info=True)
             return []
 
+    def rebuild_index(self) -> int:
+        """
+        Rebuild the FAISS index from the current document store to remove orphaned vectors.
+        This addresses the issue where deleted documents leave vectors in the FAISS index.
+        
+        Returns:
+            Number of documents in the rebuilt index
+        """
+        if not self.doc_store:
+            # If no documents, create an empty index
+            self.index = faiss.IndexFlatL2(self.embedding_dim)
+            logger.info("Rebuilt empty FAISS index")
+            return 0
+        
+        try:
+            logger.info(f"Rebuilding FAISS index from {len(self.doc_store)} documents...")
+            
+            # Create new index
+            new_index = faiss.IndexFlatL2(self.embedding_dim)
+            
+            # Re-embed all current documents and add to new index
+            texts = []
+            doc_ids = []
+            
+            # Collect texts in order of document IDs
+            for doc_id in sorted(self.doc_store.keys()):
+                if doc_id in self.doc_store:
+                    texts.append(self.doc_store[doc_id]['text'])
+                    doc_ids.append(doc_id)
+            
+            if texts:
+                # Encode all texts at once for efficiency
+                embeddings = self.model.encode(texts)
+                embeddings_array = np.array(embeddings, dtype=np.float32)
+                
+                # Add to the new index
+                new_index.add(embeddings_array)
+                logger.info(f"Added {len(embeddings)} embeddings to rebuilt index")
+            
+            # Replace the old index
+            self.index = new_index
+            
+            # Create a new document store with sequential IDs
+            new_doc_store = {}
+            for i, old_doc_id in enumerate(doc_ids):
+                new_doc_store[i] = self.doc_store[old_doc_id]
+            
+            self.doc_store = new_doc_store
+            
+            logger.info(f"Successfully rebuilt FAISS index with {self.index.ntotal} vectors")
+            return self.index.ntotal
+            
+        except Exception as e:
+            logger.error(f"Failed to rebuild FAISS index: {e}", exc_info=True)
+            return 0
+
 # Create a singleton instance to be imported by other modules
 rag_manager = RAGManager()

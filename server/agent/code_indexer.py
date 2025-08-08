@@ -295,13 +295,19 @@ class CodeIndexer:
         if not doc_ids_to_remove:
             return
 
-        # We can't directly remove from the FAISS index, so we'll have to rebuild it
-        # Instead, we'll mark these documents as deleted in the document store
+        # Remove documents from the document store
+        removed_count = 0
         for doc_id in doc_ids_to_remove:
             if doc_id in rag_manager.doc_store:
                 del rag_manager.doc_store[doc_id]
+                removed_count += 1
 
-        logger.info(f"Removed {len(doc_ids_to_remove)} previous chunks for {rel_path}")
+        # Rebuild the FAISS index to remove orphaned vectors
+        if removed_count > 0:
+            rag_manager.rebuild_index()
+            logger.info(f"Removed {removed_count} previous chunks for {rel_path} and rebuilt FAISS index")
+        else:
+            logger.info(f"No chunks found to remove for {rel_path}")
 
     def index_file(self, file_path: str) -> bool:
         """

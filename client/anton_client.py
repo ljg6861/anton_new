@@ -46,8 +46,21 @@ class AntonClient:
             logger.info("Phase 2: Streaming processed response from server.")
             stream = self.api_client.stream_agent_chat(request_data)
             async for chunk in stream:
-                yield {"type": "token", "content": chunk}
-                assistant_response_for_memory += chunk
+                # Parse structured events from the server
+                if chunk.startswith("<thought>") and chunk.endswith("</thought>"):
+                    content = chunk[9:-10]  # Remove <thought> tags
+                    yield {"type": "thought", "content": content}
+                elif chunk.startswith("<tool_result>") and chunk.endswith("</tool_result>"):
+                    content = chunk[13:-14]  # Remove <tool_result> tags
+                    yield {"type": "tool_result", "content": content}
+                elif chunk.startswith("<token>") and chunk.endswith("</token>"):
+                    content = chunk[7:-8]  # Remove <token> tags
+                    yield {"type": "token", "content": content}
+                    assistant_response_for_memory += content
+                else:
+                    # Fallback for any raw chunks (backward compatibility)
+                    yield {"type": "token", "content": chunk}
+                    assistant_response_for_memory += chunk
 
         except Exception as e:
             error_message = f"API call failed: {e}"
