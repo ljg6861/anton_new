@@ -340,7 +340,7 @@ Always think step by step and be helpful to the user."""
         """
         request_payload = {
             "messages": messages,
-            "temperature": 0.7,
+            "temperature": 0.6,
             'complex': True,
         }
 
