@@ -55,12 +55,19 @@ class AntonClient:
                     yield {"type": "tool_result", "content": content}
                 elif chunk.startswith("<token>") and chunk.endswith("</token>"):
                     content = chunk[7:-8]  # Remove <token> tags
+                    # Remove <final_answer> tag if present
+                    if content.startswith("<final_answer>"):
+                        content = content[14:]  # Remove <final_answer> tag
                     yield {"type": "token", "content": content}
                     assistant_response_for_memory += content
                 else:
                     # Fallback for any raw chunks (backward compatibility)
-                    yield {"type": "token", "content": chunk}
-                    assistant_response_for_memory += chunk
+                    content = chunk
+                    # Remove <final_answer> tag if present  
+                    if content.startswith("<final_answer>"):
+                        content = content[14:]  # Remove <final_answer> tag
+                    yield {"type": "token", "content": content}
+                    assistant_response_for_memory += content
 
         except Exception as e:
             error_message = f"API call failed: {e}"
