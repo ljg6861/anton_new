@@ -50,7 +50,7 @@ Your reasoning about what to do next...
 
 Then either:
 - Use a tool if you need to gather information or perform an action
-- Provide a direct response if you have enough information
+- Provide a direct response if you have enough information using tags <final_answer>...</final_answer>
 
 You have access to these capabilities:
 - File operations (read, write, list directories)
@@ -80,7 +80,14 @@ IMPORTANT TOOL USAGE RULES:
 
 When a tool completes, you will see an OBSERVATION message. Always process this before continuing.
 
-Always think step by step and be helpful to the user."""
+Always think step by step and be helpful to the user.
+
+If and only if you believe you have the final answer to the users message, you MUST add <final_answer>...</final_answer> tags to your output.
+Example:
+<final_answer>
+The capital of France is Paris.
+</final_answer>
+"""
 
         # Add relevant knowledge if available
         if relevant_knowledge:
@@ -103,9 +110,10 @@ Always think step by step and be helpful to the user."""
                     tool = tool.get('function')
                     name = tool.get('name', 'unknown')
                 description = tool.get('description', 'No description')
+                parameters = tool.get('parameters', '{}')
                 # Limit description length to avoid bloat
                 short_desc = description[:100] + "..." if len(description) > 100 else description
-                tool_summaries.append(f"- {name}: {short_desc}")
+                tool_summaries.append(f"- {name}: {short_desc}, Parameters: {parameters}")
             else:
                 tool_summaries.append(f"- {str(tool)}")
         
@@ -375,6 +383,9 @@ Always think step by step and be helpful to the user."""
 
         if not content:
             return False
+        
+        final_answer_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+        return final_answer_match
 
         # --- Rule 1: Check for explicit final answer markers ---
         # These are strong indicators that the task is finished.

@@ -133,12 +133,13 @@ async def chat_completions_stream(request: AgentChatRequest):
         }
 
         model_to_use = THINKING_MODEL_ID
-        logger.info(f"Query: \n${request.messages}")
+        logger.info(f"Query: \n{request.messages}")
+        messages=[m.model_dump() for m in request.messages]
 
         # Step 2: Use the determined model for the actual chat
         actual_ollama_stream_generator = await client.chat(
             model=model_to_use,
-            messages=request.messages,
+            messages=messages,
             stream=True,
             options=ollama_options,
         )
