@@ -38,10 +38,6 @@ print("--- Discovering and Registering Tools ---")
 print(f"--- Tool Registration Complete: {tool_manager.get_tool_count()} tools registered ---")
 
 
-# Global knowledge store instance for centralized state management
-knowledge_store = KnowledgeStore()
-
-
 def get_all_resource_usage(logger_instance) -> dict:
     """
     Captures a snapshot of current CPU, RAM, and usage across ALL GPUs.
@@ -183,7 +179,7 @@ async def agent_chat(request: AgentChatRequest):
     logger.info("Agent Server received request. Processing with ReAct agent...")
 
     # Reset conversation state for new request
-    knowledge_store.reset_conversation()
+    knowledge_store = KnowledgeStore()
     
     # Create ReAct agent with knowledge store and tool schemas
     from server.agent.react_agent import ReActAgent

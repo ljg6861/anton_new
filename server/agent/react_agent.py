@@ -94,6 +94,9 @@ Always think step by step and be helpful to the user."""
         for tool in self.tools:
             if isinstance(tool, dict):
                 name = tool.get('name', 'unknown')
+                if name == 'unknown':
+                    tool = tool.get('function')
+                    name = tool.get('name', 'unknown')
                 description = tool.get('description', 'No description')
                 # Limit description length to avoid bloat
                 short_desc = description[:100] + "..." if len(description) > 100 else description
@@ -329,7 +332,7 @@ Always think step by step and be helpful to the user."""
         # --- Rule 1: Check for explicit signs of continuation or tool use ---
         # If these are present, the response is definitely NOT final.
         continuation_signals = [
-            '<function_calls>',  # Explicit tool use
+            '<tool_call>',  # Explicit tool use
             'i need to use the tool',
             'i will now',
             'the next step is to',
