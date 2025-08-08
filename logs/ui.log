@@ -1,39 +1,8 @@
-2025-08-08 15:21:19 - Your app is available at http://0.0.0.0:7860
-2025-08-08 15:21:29 - API client initialized for server at http://192.168.1.250:8001
-2025-08-08 15:21:29 - Anton client initialized.
-2025-08-08 15:21:31 - Phase 1: Sending raw prompt to server for routing.
-2025-08-08 15:21:31 - Phase 2: Streaming processed response from server.
-2025-08-08 15:21:31 - Streaming request to agent chat endpoint.
-2025-08-08 15:21:31 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-08 15:22:45 - Phase 1: Sending raw prompt to server for routing.
-2025-08-08 15:22:45 - Phase 2: Streaming processed response from server.
-2025-08-08 15:22:45 - Streaming request to agent chat endpoint.
-2025-08-08 15:22:45 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-08 15:25:50 - Phase 1: Sending raw prompt to server for routing.
-2025-08-08 15:25:50 - Phase 2: Streaming processed response from server.
-2025-08-08 15:25:50 - Streaming request to agent chat endpoint.
-2025-08-08 15:25:50 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-08 15:30:45 - API client initialized for server at http://192.168.1.250:8001
-2025-08-08 15:30:45 - Anton client initialized.
-2025-08-08 15:30:47 - Phase 1: Sending raw prompt to server for routing.
-2025-08-08 15:30:47 - Phase 2: Streaming processed response from server.
-2025-08-08 15:30:47 - Streaming request to agent chat endpoint.
-2025-08-08 15:30:47 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-08 15:36:18 - API client initialized for server at http://192.168.1.250:8001
-2025-08-08 15:36:18 - Anton client initialized.
-2025-08-08 15:36:19 - Phase 1: Sending raw prompt to server for routing.
-2025-08-08 15:36:19 - Phase 2: Streaming processed response from server.
-2025-08-08 15:36:19 - Streaming request to agent chat endpoint.
-2025-08-08 15:36:19 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-08 15:38:27 - API client initialized for server at http://192.168.1.250:8001
-2025-08-08 15:38:27 - Anton client initialized.
-2025-08-08 15:38:27 - Phase 1: Sending raw prompt to server for routing.
-2025-08-08 15:38:27 - Phase 2: Streaming processed response from server.
-2025-08-08 15:38:27 - Streaming request to agent chat endpoint.
-2025-08-08 15:38:28 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-08 15:40:57 - API client initialized for server at http://192.168.1.250:8001
-2025-08-08 15:40:57 - Anton client initialized.
-2025-08-08 15:40:58 - Phase 1: Sending raw prompt to server for routing.
-2025-08-08 15:40:58 - Phase 2: Streaming processed response from server.
-2025-08-08 15:40:58 - Streaming request to agent chat endpoint.
-2025-08-08 15:40:58 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-08 17:14:54 - Your app is available at http://0.0.0.0:7860
+2025-08-08 17:14:55 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
+2025-08-08 17:14:56 - API client initialized for server at http://192.168.1.250:8001
+2025-08-08 17:14:56 - Anton client initialized.
+2025-08-08 17:15:01 - Phase 1: Sending raw prompt to server for routing.
+2025-08-08 17:15:01 - Phase 2: Streaming processed response from server.
+2025-08-08 17:15:01 - Streaming request to agent chat endpoint.
+2025-08-08 17:15:01 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"

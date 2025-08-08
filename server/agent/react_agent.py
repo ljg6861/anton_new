@@ -50,7 +50,7 @@ Your reasoning about what to do next...
 
 Then either:
 - Use a tool if you need to gather information or perform an action
-- Provide a direct response if you have enough information by starting your response with <final_answer>. 
+- Provide a direct response if you have enough information, which you MUST start your response with <final_answer>. DO NOT end your response with </final_answer>. The first tag is all that is needed
 
 You have access to these capabilities:
 - File operations (read, write, list directories)
@@ -63,16 +63,19 @@ You have access to these capabilities:
 Available tools:
 {self._format_tools_compact()}
 
-You can call these tools using the following format:\n"""
+To call a tool, output a JSON object wrapped in tool tags. Do NOT emit the example literally:
 
-        base_prompt += """
-<tool_code>
-{"name" : "tool name", "arguments" : {"arg1" : "arg1_value", "arg2" : "arg2_value"}}
-</tool_code>
+Example (do not copy as-is):
+&lt;tool_call&gt;
+{{
+  "name": "read_file",
+  "arguments": {{"file_path": "server/agent/react_agent.py"}}
+}}
+&lt;/tool_call&gt;
 
-IMPORTANT TOOL USAGE RULES:
-- Use only ONE tool per turn to avoid dependency issues
-- Always wait for tool results before deciding on next actions
+Rules:
+- Use only ONE tool per turn
+- Always wait for tool results before deciding next actions
 - Never include multiple tool calls in the same response
 - Summarize tool results before providing your final answer
 - Use "Final Answer:" when you are completely done with the task
@@ -82,7 +85,7 @@ When a tool completes, you will see an OBSERVATION message. Always process this 
 
 Always think step by step and be helpful to the user.
 
-If and only if you are ready to respond to the user, you MUST add <final_answer>...</final_answer> tags to your output.
+If and only if you are ready to respond to the user, you MUST begin your response with <final_answer>. DO NOT finish your response with </final_answer>
 Example:
 <think>
 I know the answer to this!
@@ -90,11 +93,10 @@ I know the answer to this!
 <final_answer>
 The capital of France is Paris.
 """
-
         # Add relevant knowledge if available
         if relevant_knowledge:
             base_prompt += "\n\nRelevant past knowledge:\n"
-            for knowledge in relevant_knowledge[:2]:  # Limit to avoid prompt bloat
+            for knowledge in relevant_knowledge[:2]:
                 base_prompt += f"- {knowledge[:200]}...\n"
                 
         return base_prompt
@@ -181,9 +183,8 @@ The capital of France is Paris.
             
             # Get response from LLM with incremental streaming and parsing
             response_buffer = ""
-            start_time = time.time()
             thinking_content = ""
-            thinking_started = False
+            thinking_started = True
             thinking_ended = False
             answering = False
             content_after_thinking = ""
@@ -201,6 +202,7 @@ The capital of France is Paris.
                         before_think = response_buffer.split("<think>")[0]
                         if before_think:
                             pre_think_buffer += before_think
+                        yield f'<thought>{response_buffer.split("<think>")[1]}</thought>'
                     
                     # Check for end of thinking block
                     if thinking_started and "</think>" in response_buffer:
@@ -211,7 +213,6 @@ The capital of France is Paris.
                             thinking_content = (pre_think_buffer + think_match.group(1)).strip()
                             if thinking_content:
                                 # Yield structured thinking event for Chainlit UI
-                                yield f"<thought>{thinking_content}</thought>"
                                 logger.info(f"Agent thinking: {thinking_content}")
                                 self.knowledge_store.add_context(
                                     thinking_content,
@@ -222,9 +223,11 @@ The capital of France is Paris.
                         
                         # Get content after thinking block
                         content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
+                    else:
+                        yield f'<thought>{token}</thought>'
                 else:
                     # We're past thinking, accumulate remaining content
-                    content_after_thinking += token
+                    content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
                     if '<final_answer>' in content_after_thinking and not answering:
                         answering = True
                     if answering:
@@ -251,7 +254,7 @@ The capital of France is Paris.
             
             # Extract content after thinking markers and tool code blocks
             content = content_after_thinking or re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
-            
+            logger.info(f"Content after thinking: {content}")
             # Check if agent made tool calls before yielding the content
             from server.agent import config
             
@@ -306,7 +309,7 @@ The capital of France is Paris.
                 continue
             else:
                 # No tool calls, check if this looks like a final response
-                if answering:
+                if content.strip().startswith('<final_answer>'):
                     logger.info("Agent provided final response, ending ReAct loop")
                     self.knowledge_store.mark_complete(content)
                     

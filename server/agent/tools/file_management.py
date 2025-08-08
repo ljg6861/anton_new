@@ -8,7 +8,7 @@ import pathspec
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Define the project root as two directories up from the script's location
-PROJECT_ROOT = os.path.abspath(os.path.join(script_dir, '..', '..'))
+PROJECT_ROOT = os.path.abspath(os.path.join(script_dir, '..', '..', '..'))
 
 
 # --- END: Added for Project Root ---
@@ -66,29 +66,24 @@ class WriteFileTool:
 
     def run(self, arguments: dict) -> str:
         """Executes the tool's logic."""
-        try:
-            file_path_arg = arguments.get('file_path')
-            content = arguments.get('content')
+        file_path_arg = arguments.get('file_path')
+        content = arguments.get('content')
 
-            if not file_path_arg or content is None:
-                return "❌ Error: Both 'file_path' and 'content' are required."
+        if not file_path_arg or content is None:
+            return "❌ Error: Both 'file_path' and 'content' are required."
 
-            # Use the helper to get a safe, absolute path
-            safe_file_path = _resolve_path(file_path_arg)
+        # Use the helper to get a safe, absolute path
+        safe_file_path = _resolve_path(file_path_arg)
 
-            dir_name = os.path.dirname(safe_file_path)
-            if dir_name:
-                os.makedirs(dir_name, exist_ok=True)
+        dir_name = os.path.dirname(safe_file_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
 
-            with open(safe_file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+        with open(safe_file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
 
-            # Show the relative path in the success message for clarity
-            return f"✅ Successfully wrote {len(content)} characters to '{file_path_arg}'."
-        except ValueError as e:
-            return f"❌ Security Error: {str(e)}"
-        except Exception as e:
-            return f"❌ An unexpected error occurred: {type(e).__name__}: {str(e)}"
+        # Show the relative path in the success message for clarity
+        return f"✅ Successfully wrote {len(content)} characters to '{file_path_arg}'."
 
 
 class ReadFileTool:
@@ -115,32 +110,25 @@ class ReadFileTool:
 
     def run(self, arguments: dict) -> str:
         """Executes the tool's logic."""
-        try:
-            file_path_arg = arguments.get('file_path')
-            if not file_path_arg:
-                return "❌ Error: 'file_path' is required."
+        file_path_arg = arguments.get('file_path')
 
-            # Use the helper to get a safe, absolute path
-            safe_file_path = _resolve_path(file_path_arg)
+        # Use the helper to get a safe, absolute path
+        safe_file_path = _resolve_path(file_path_arg)
 
-            if not os.path.exists(safe_file_path):
-                return f"❌ Error: The file '{file_path_arg}' was not found."
+        if not os.path.exists(safe_file_path):
+            return f"❌ Error: The file '{file_path_arg}' was not found."
 
-            with open(safe_file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Sanitize potentially problematic patterns that could be misinterpreted as tool calls
-            # Replace <tool_code> patterns with escaped versions to prevent false tool call detection
-            content = content.replace("<tool_code>", "&lt;tool_code&gt;")
-            content = content.replace("</tool_code>", "&lt;/tool_code&gt;")
-            content = content.replace("<tool_call>", "&lt;tool_call&gt;")
-            content = content.replace("</tool_call>", "&lt;/tool_call&gt;")
-            
-            return content
-        except ValueError as e:
-            return f"❌ Security Error: {str(e)}"
-        except Exception as e:
-            return f"❌ An unexpected error occurred: {type(e).__name__}: {str(e)}"
+        with open(safe_file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Sanitize potentially problematic patterns that could be misinterpreted as tool calls
+        # Replace <tool_code> patterns with escaped versions to prevent false tool call detection
+        content = content.replace("<tool_code>", "&lt;tool_code&gt;")
+        content = content.replace("</tool_code>", "&lt;/tool_code&gt;")
+        content = content.replace("<tool_call>", "&lt;tool_call&gt;")
+        content = content.replace("</tool_call>", "&lt;/tool_call&gt;")
+        
+        return content
 
 
 class ListDirectoryTool:
@@ -171,82 +159,76 @@ class ListDirectoryTool:
 
     def run(self, arguments: dict) -> str:
         """Executes the tool's logic, filtering results based on .gitignore."""
-        try:
-            path_arg = arguments.get('path', '.')
-            recursive = arguments.get('recursive', True)
+        path_arg = arguments.get('path', '.')
+        recursive = arguments.get('recursive', True)
 
-            # These are assumed to be defined elsewhere in your project
-            project_root = PROJECT_ROOT
-            safe_path = _resolve_path(path_arg)
+        # These are assumed to be defined elsewhere in your project
+        project_root = PROJECT_ROOT
+        safe_path = _resolve_path(path_arg)
 
-            if not os.path.isdir(safe_path):
-                return f"❌ Error: The path '{path_arg}' is not a valid directory."
+        if not os.path.isdir(safe_path):
+            return f"❌ Error: The path '{path_arg}' is not a valid directory."
 
-            # Load .gitignore rules from the project root
-            spec = None
-            gitignore_path = os.path.join(project_root, '.gitignore')
-            if os.path.exists(gitignore_path):
-                with open(gitignore_path, 'r') as f:
-                    spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
+        # Load .gitignore rules from the project root
+        spec = None
+        gitignore_path = os.path.join(project_root, '.gitignore')
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path, 'r') as f:
+                spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
 
-            display_path = path_arg if path_arg != '.' else 'project root'
-            output_message = f"✅ Contents of '{display_path}' (respecting .gitignore):\n"
+        display_path = path_arg if path_arg != '.' else 'project root'
+        output_message = f"✅ Contents of '{display_path}' (respecting .gitignore):\n"
 
-            # --- Non-Recursive Listing ---
-            if not recursive:
-                entries = os.listdir(safe_path)
-                if spec:
-                    relative_path = os.path.relpath(safe_path, project_root)
-                    if relative_path == '.': relative_path = ''
-                    entries = [
-                        e for e in entries
-                        if not spec.match_file(os.path.join(relative_path, e))
-                    ]
-                return output_message + "\n".join(sorted(entries))
+        # --- Non-Recursive Listing ---
+        if not recursive:
+            entries = os.listdir(safe_path)
+            if spec:
+                relative_path = os.path.relpath(safe_path, project_root)
+                if relative_path == '.': relative_path = ''
+                entries = [
+                    e for e in entries
+                    if not spec.match_file(os.path.join(relative_path, e))
+                ]
+            return output_message + "\n".join(sorted(entries))
 
-            # --- Recursive Listing ---
-            output_lines = []
-            has_content = False
-            for root, dirs, files in os.walk(safe_path, topdown=True):
-                # Filter directories and files using .gitignore spec
-                if spec:
-                    relative_root = os.path.relpath(root, project_root)
-                    if relative_root == '.': relative_root = ''
+        # --- Recursive Listing ---
+        output_lines = []
+        has_content = False
+        for root, dirs, files in os.walk(safe_path, topdown=True):
+            # Filter directories and files using .gitignore spec
+            if spec:
+                relative_root = os.path.relpath(root, project_root)
+                if relative_root == '.': relative_root = ''
 
-                    # Filter dirs IN-PLACE so os.walk doesn't traverse them
-                    dirs[:] = [d for d in dirs if not spec.match_file(os.path.join(relative_root, d))]
-                    files = [f for f in files if not spec.match_file(os.path.join(relative_root, f))]
+                # Filter dirs IN-PLACE so os.walk doesn't traverse them
+                dirs[:] = [d for d in dirs if not spec.match_file(os.path.join(relative_root, d))]
+                files = [f for f in files if not spec.match_file(os.path.join(relative_root, f))]
 
-                # Don't bother printing empty directories
-                if not files and not dirs:
-                    continue
+            # Don't bother printing empty directories
+            if not files and not dirs:
+                continue
 
-                has_content = True
-                dirs.sort()
-                files.sort()
+            has_content = True
+            dirs.sort()
+            files.sort()
 
-                level = root.replace(safe_path, '', 1).count(os.sep)
-                indent = ' ' * 4 * level
+            level = root.replace(safe_path, '', 1).count(os.sep)
+            indent = ' ' * 4 * level
 
-                dir_name = os.path.basename(root)
-                if root == safe_path:
-                    dir_name = display_path
+            dir_name = os.path.basename(root)
+            if root == safe_path:
+                dir_name = display_path
 
-                output_lines.append(f"{indent}📁 {dir_name}/")
+            output_lines.append(f"{indent}📁 {dir_name}/")
 
-                sub_indent = ' ' * 4 * (level + 1)
-                for f in files:
-                    output_lines.append(f"{sub_indent}📄 {f}")
+            sub_indent = ' ' * 4 * (level + 1)
+            for f in files:
+                output_lines.append(f"{sub_indent}📄 {f}")
 
-            if not has_content and os.listdir(safe_path):
-                return f"✅ All contents of '{display_path}' are ignored by .gitignore."
+        if not has_content and os.listdir(safe_path):
+            return f"✅ All contents of '{display_path}' are ignored by .gitignore."
 
-            if not has_content:
-                return f"✅ The directory '{display_path}' is empty."
+        if not has_content:
+            return f"✅ The directory '{display_path}' is empty."
 
-            return output_message + "\n".join(output_lines)
-
-        except ValueError as e:
-            return f"❌ Security Error: {str(e)}"
-        except Exception as e:
-            return f"❌ An unexpected error occurred: {type(e).__name__}: {str(e)}"
+        return output_message + "\n".join(output_lines)

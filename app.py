@@ -21,8 +21,9 @@ async def on_message(message: cl.Message):
     chat_history: List[Dict] = cl.user_session.get("chat_history")
 
     final_answer = ""
-    # Initialize answer_msg to None. We will create it on the fly.
     answer_msg = None
+    # Buffer to accumulate the content of a single thought.
+    thought_buffer = ""
 
     # By creating the Step first, it will appear at the top.
     async with cl.Step(name="Thinking", parent_id=message.id) as step:
@@ -30,25 +31,32 @@ async def on_message(message: cl.Message):
             async for chunk in anton.stream_response(
                 user_prompt=message.content, chat_history=chat_history
             ):
+                # If the chunk is part of a thought, add it to the buffer.
                 if chunk["type"] == "thought":
-                    await step.stream_token(f"• {chunk['content']}\n")
+                    thought_buffer += chunk["content"]
+                
+                # If a new chunk type arrives, the previous thought is complete.
+                # Flush the buffered thought before processing the new chunk.
+                else:
+                    if thought_buffer:
+                        await step.stream_token(f"• {thought_buffer}\n")
+                        thought_buffer = ""  # Reset buffer for the next thought
 
-                elif chunk["type"] == "tool_result":
-                    result_str = (
-                        f"\n*Tool Result:*\n```json\n{chunk['content']}\n```\n"
-                    )
-                    await step.stream_token(result_str)
-
-                elif chunk["type"] == "token":
-                    # If this is the first token, create the message object.
-                    # This ensures it appears *after* the "Thinking" step.
-                    if answer_msg is None:
-                        answer_msg = cl.Message(
-                            content="", author="Anton", parent_id=message.id
+                    # Process the non-thought chunk.
+                    if chunk["type"] == "tool_result":
+                        result_str = (
+                            f"\n*Tool Result:*\n```json\n{chunk['content']}\n```\n"
                         )
-                    
-                    await answer_msg.stream_token(chunk["content"])
-                    final_answer += chunk["content"]
+                        await step.stream_token(result_str)
+
+                    elif chunk["type"] == "token":
+                        if answer_msg is None:
+                            answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
+                        await answer_msg.stream_token((chunk["content"]))
+            
+            # After the loop, flush any final thought that might be in the buffer.
+            if thought_buffer:
+                await step.stream_token(f"• {thought_buffer}\n")
 
         finally:
             # Update the message only if it was created.
