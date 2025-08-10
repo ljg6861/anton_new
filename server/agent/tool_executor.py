@@ -4,6 +4,7 @@
 Handles the execution of tools from the tool registry.
 """
 
+import html
 from server.agent.tools.tool_manager import tool_manager
 
 # agent/tool_handler.py
@@ -33,6 +34,7 @@ async def process_tool_calls(
         True if at least one tool was called, False otherwise.
     """
     tool_calls_made = False
+    response_buffer = html.unescape(response_buffer)
     matches = tool_call_regex.finditer(response_buffer)
 
     # Collect all tool calls first
@@ -60,6 +62,7 @@ async def process_tool_calls(
             messages.append({"role": "user", "content": f"Tool error: {error_msg}"})
 
     # Execute all valid tool calls - but enforce single tool per turn for safety
+    logger.info('Detected tool calls:\n' + str(tool_calls))
     if tool_calls:
         # Limit to single tool per turn to avoid dependency issues
         if len(tool_calls) > 1:

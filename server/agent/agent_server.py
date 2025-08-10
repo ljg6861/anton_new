@@ -11,6 +11,7 @@ from typing import AsyncGenerator
 from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
     nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
 
+from server.agent.config import AGENT_SERVER_HOST, AGENT_SERVER_PORT, MODEL_SERVER_URL
 from server.agent.rag_manager import rag_manager
 from server.agent.knowledge_store import KnowledgeStore
 
@@ -24,10 +25,6 @@ from server.agent.tools.tool_defs import get_all_tools
 from server.agent.tools.tool_manager import tool_manager
 from server.helpers import AgentChatRequest
 
-# --- Configuration ---
-AGENT_SERVER_HOST = "0.0.0.0"
-AGENT_SERVER_PORT = 8001
-MODEL_SERVER_URL = "http://localhost:8000"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

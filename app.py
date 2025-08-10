@@ -1,3 +1,4 @@
+import html
 from typing import List, Dict
 
 import chainlit as cl
@@ -51,8 +52,8 @@ async def on_message(message: cl.Message):
 
                     elif chunk["type"] == "token":
                         if answer_msg is None:
-                            answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
-                        await answer_msg.stream_token((chunk["content"]))
+                            answer_msg = cl.Message(content="", author="Anton", parent_id=message.id,)
+                        await answer_msg.stream_token(html.unescape(chunk["content"]))
             
             # After the loop, flush any final thought that might be in the buffer.
             if thought_buffer:

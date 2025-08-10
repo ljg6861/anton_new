@@ -14,6 +14,10 @@ USER_ROLE = "user"
 ASSISTANT_ROLE = "assistant"
 SYSTEM_ROLE = "system"
 
+AGENT_SERVER_HOST = "0.0.0.0"
+AGENT_SERVER_PORT = 8001
+MODEL_SERVER_URL = "http://localhost:8000"
+
 # --- Regex Patterns ---
 TOOL_CALL_REGEX = re.compile(r"<tool_(?:code|call)>(.*?)</tool_(?:code|call)>", re.DOTALL)
 THOUGHT_SUMMARY_REGEX = re.compile(r"<thought_summary>(.*?)</thought_summary>", re.DOTALL)

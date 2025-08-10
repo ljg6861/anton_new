@@ -1,3 +1,4 @@
+# filepath: /home/lucas/anton_new/server/agent/react_agent.py
 """
 ReAct (Reason-Act) Agent implementation that handles the complete reasoning and tool-use loop.
 Centralized state management through KnowledgeStore, eliminating ConversationState redundancy.
@@ -12,6 +13,7 @@ from typing import AsyncGenerator, List, Dict, Any, Optional
 from server.agent.knowledge_store import KnowledgeStore, ContextType, ImportanceLevel
 from server.agent.tool_executor import process_tool_calls
 from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
+from server.agent.learning_loop import learning_loop
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +30,17 @@ class ReActAgent:
         self.knowledge_store = knowledge_store
         self.max_iterations = max_iterations
         
-    def get_react_system_prompt(self) -> str:
-        """Get the system prompt for the ReAct agent"""
+    async def get_react_system_prompt(self, user_prompt:str) -> str:
+        """Get the system prompt for the ReAct agent with relevant learnings"""
         # Query relevant knowledge from RAG to enhance the system prompt
         relevant_knowledge = self.knowledge_store.query_relevant_knowledge("react agent reasoning tools", max_results=3)
         
-        base_prompt = f"""You are Anton, an intelligent AI assistant that uses the ReAct (Reason-Act) pattern.
+        # Get relevant learnings from the learning loop
+        relevant_learnings = await learning_loop.get_relevant_learnings(user_prompt or "")
+        
+        base_prompt = f"""You are Anton, an intelligent, helpful AI assistant that uses the ReAct (Reason-Act) pattern.
+        As Anton, you are NOT just an LLM, you actually have a large amount of source code that helps power your responses and your capabilities. 
+        You should NEVER tell the user that you are an LLM or that you have limitations. As Anton, it is your responsibility to provide accurate and helpful information to the best of your abilities, and if you identify potential limitations, you should work to find solutions or workarounds and propose these to the user before acting on them.
 
 You can REASON about problems, take ACTIONS using tools, and provide RESPONSES to users.
 
@@ -50,7 +57,7 @@ Your reasoning about what to do next...
 
 Then either:
 - Use a tool if you need to gather information or perform an action
-- Provide a direct response if you have enough information, which you MUST start your response with <final_answer>. DO NOT end your response with </final_answer>. The first tag is all that is needed
+- Provide a direct response if you have enough information
 
 You have access to these capabilities:
 - File operations (read, write, list directories)
@@ -59,6 +66,7 @@ You have access to these capabilities:
 - Code analysis and search
 - Web search 
 - Knowledge retrieval
+- A large amount of general knowledge. You can answer questions about anything!
 
 Available tools:
 {self._format_tools_compact()}
@@ -78,26 +86,26 @@ Rules:
 - Always wait for tool results before deciding next actions
 - Never include multiple tool calls in the same response
 - Summarize tool results before providing your final answer
-- Use "Final Answer:" when you are completely done with the task
+- Use "Final Answer:" when you are ready to reply to the user. Example: User Prompt: "Hello!" Response: "Final Answer: Hello! How can I assist you today?"
 - Tool results will be provided as OBSERVATIONS - acknowledge and use them
 
 When a tool completes, you will see an OBSERVATION message. Always process this before continuing.
 
-Always think step by step and be helpful to the user.
+You MUST always remember that when you are ready to reply to the user, start your response with "Final Answer:"
 
-If and only if you are ready to respond to the user, you MUST begin your response with <final_answer>. DO NOT finish your response with </final_answer>
-Example:
-<think>
-I know the answer to this!
-</think>
-<final_answer>
-The capital of France is Paris.
+Always think step by step and be helpful to the user.
 """
         # Add relevant knowledge if available
         if relevant_knowledge:
             base_prompt += "\n\nRelevant past knowledge:\n"
             for knowledge in relevant_knowledge[:2]:
                 base_prompt += f"- {knowledge[:200]}...\n"
+                
+        # Add relevant learnings if available
+        if relevant_learnings:
+            base_prompt += "\n\nRelevant past learnings and capabilities:\n"
+            for learning in relevant_learnings[:3]:
+                base_prompt += f"- {learning[:200]}...\n"
                 
         return base_prompt
     
@@ -143,7 +151,7 @@ The capital of France is Paris.
                 break
         
         if user_prompt:
-            self.knowledge_store.start_learning_task(user_prompt)
+            learning_loop.start_task(user_prompt)
         
         # Initialize conversation in knowledge store
         for msg in initial_messages:
@@ -153,7 +161,7 @@ The capital of France is Paris.
         messages = self.knowledge_store.get_messages_for_llm()
         
         # Add system prompt
-        system_prompt = self.get_react_system_prompt()
+        system_prompt = await self.get_react_system_prompt(user_prompt)
         react_messages = [{"role": SYSTEM_ROLE, "content": system_prompt}]
         
         # Add context if available
@@ -220,6 +228,8 @@ The capital of France is Paris.
                                     ImportanceLevel.MEDIUM,
                                     "react_agent"
                                 )
+                                # Record thinking in learning loop
+                                learning_loop.record_action("thinking", {"content": thinking_content[:200] + "..."})
                         
                         # Get content after thinking block
                         content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
@@ -228,11 +238,10 @@ The capital of France is Paris.
                 else:
                     # We're past thinking, accumulate remaining content
                     content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
-                    if '<final_answer>' in content_after_thinking and not answering:
+                    if 'Final Answer:' in content_after_thinking and not answering:
                         answering = True
                     if answering:
                         yield f'<token>{token}</token>'
-                    
             
             # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
@@ -249,6 +258,8 @@ The capital of France is Paris.
                         "react_agent"
                     )
                     logger.info(f"Agent thinking: {thinking_content}")
+                    # Record thinking in learning loop
+                    learning_loop.record_action("thinking", {"content": thinking_content[:200] + "..."})
                     # Yield structured thinking event for Chainlit UI
                     yield f"<thought>{thinking_content}</thought>"
             
@@ -265,8 +276,14 @@ The capital of France is Paris.
             async def tool_result_callback(tool_result_summary):
                 """Capture actual tool results for UI streaming"""
                 tool_results_for_ui.append(tool_result_summary)
+                # Record tool use in learning loop
+                learning_loop.record_action("tool_use", {
+                    "tool_name": tool_result_summary["name"],
+                    "arguments": tool_result_summary["arguments"],
+                    "success": tool_result_summary["status"] == "success"
+                })
             
-            made_tool_calls = await process_tool_calls_with_knowledge_store(
+            made_tool_calls = await process_tool_calls(
                 content, 
                 config.TOOL_CALL_REGEX,  # Use existing tool call regex
                 react_messages,
@@ -281,17 +298,13 @@ The capital of France is Paris.
                 yield f"<tool_result>{json.dumps(tool_result_summary)}</tool_result>"
             
             if made_tool_calls:
-                # Record tool actions in learning loop
-                for tool_result_summary in tool_results_for_ui:
-                    self.knowledge_store.add_learning_action(
-                        "tool_execution", 
-                        {
-                            "tool_name": tool_result_summary["name"],
-                            "arguments": tool_result_summary["arguments"],
-                            "status": tool_result_summary["status"],
-                            "result_preview": tool_result_summary["brief_result"][:100]
-                        }
-                    )
+                self.knowledge_store.add_context(
+                    "Tool calls made",
+                    ContextType.ACTION,
+                    ImportanceLevel.MEDIUM,
+                    "react_agent"
+                )
+                pass
             
             # Add to conversation (use original content with tool calls for internal tracking)
             self.knowledge_store.add_message(ASSISTANT_ROLE, content)
@@ -309,13 +322,13 @@ The capital of France is Paris.
                 continue
             else:
                 # No tool calls, check if this looks like a final response
-                if content.strip().startswith('<final_answer>'):
+                if content.strip().startswith('Final Answer:'):
                     logger.info("Agent provided final response, ending ReAct loop")
                     self.knowledge_store.mark_complete(content)
                     
                     # Complete learning task
                     success = "error" not in content.lower() and "failed" not in content.lower()
-                    self.knowledge_store.complete_learning_task(success, content[:200])
+                    learning_loop.complete_task(success, content[:200])
                     break
                 else:
                     # Agent might need another iteration to complete the task
@@ -334,7 +347,7 @@ The capital of France is Paris.
             )
             
             # Complete learning task as partially successful (timeout)
-            self.knowledge_store.complete_learning_task(False, "Reached maximum iterations without completion")
+            learning_loop.complete_task(False, "Reached maximum iterations without completion")
             yield final_msg
     
     async def _execute_llm_request(
@@ -373,83 +386,3 @@ The capital of France is Paris.
             except Exception as e:
                 logger.error(f"ReActAgent: An unexpected error occurred during model streaming: {e}", exc_info=True)
                 yield f"\n[ERROR: An unexpected error occurred: {e}]\n"
-    
-    def _is_final_response(self, content: str) -> bool:
-        """
-        Determines if the agent's response is final using explicit finality markers.
-        Now defaults to NOT final unless explicit indicators are found.
-        """
-        content_lower = content.lower().strip()
-
-        if not content:
-            return False
-        
-        final_answer_match = re.search(r'<final_answer>(.*?)', content, re.DOTALL)
-        return final_answer_match
-
-        # --- Rule 1: Check for explicit final answer markers ---
-        # These are strong indicators that the task is finished.
-        final_markers = [
-            'final answer:',
-            '<final_answer>',
-            'task completed',
-            'i have finished',
-            'done.',
-            'that completes'
-        ]
-        if any(marker in content_lower for marker in final_markers):
-            return True
-
-        # --- Rule 2: Check for conversational closing statements ---
-        # If these are present, the response IS final.
-        closing_signals = [
-            'let me know if you need anything else',
-            'is there anything else',
-            'how else can i help',
-            'hope that helps',
-            'feel free to ask'
-        ]
-        if any(signal in content_lower for signal in closing_signals):
-            return True
-
-        # --- Rule 3: Check for explicit signs of continuation or tool use ---
-        # If these are present, the response is definitely NOT final.
-        continuation_signals = [
-            '<tool_call>',
-            '<tool_code>',
-            'i need to use',
-            'i will now',
-            'the next step is to',
-            'let me first',
-            'let me check',
-            'i should',
-            'i need to'
-        ]
-        if any(signal in content_lower for signal in continuation_signals):
-            return False
-
-        # --- Rule 4: Default to NOT final unless explicit finality is indicated ---
-        # This is the key change - be conservative and continue unless clearly final
-        return False
-
-
-async def process_tool_calls_with_knowledge_store(
-    content: str,
-    tool_call_regex,  # Already compiled regex from config
-    messages: List[Dict],
-    logger: Any,
-    knowledge_store: KnowledgeStore,
-    result_callback = None
-) -> bool:
-    """
-    Process tool calls in the agent's response using KnowledgeStore for state management.
-    """
-    # Use existing tool executor directly with knowledge_store
-    return await process_tool_calls(
-        content,
-        tool_call_regex,  # Pass the compiled regex directly
-        messages,
-        logger,
-        knowledge_store,
-        result_callback
-    )
