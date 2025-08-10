@@ -129,7 +129,7 @@ async def chat_completions_stream(request: AgentChatRequest):
     try:
         ollama_options = {
             "temperature": request.temperature,
-            "num_predict": 4096,
+            "num_predict": 16384 ,
         }
 
         model_to_use = THINKING_MODEL_ID
