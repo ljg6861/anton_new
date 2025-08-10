@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from server.config import QWEN_30B_THINKING
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,3 +43,4 @@ class AgentChatRequest(BaseModel):
     tools: list[ToolDefinition] | None = None
     temperature: float = 0.6
     complex: bool = False
+    model: str = QWEN_30B_THINKING

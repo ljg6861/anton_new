@@ -10,7 +10,7 @@ from typing import AsyncGenerator
 import ollama # Import the ollama client library
 
 from metrics import MetricsTracker
-from server.config import THINKING_MODEL_ID
+from server.config import QWEN_30B_THINKING
 from server.helpers import AgentChatRequest
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -132,7 +132,7 @@ async def chat_completions_stream(request: AgentChatRequest):
             "num_predict": 16384 ,
         }
 
-        model_to_use = THINKING_MODEL_ID
+        model_to_use = request.model
         logger.info(f"Query: \n{request.messages}")
 
         # Step 2: Use the determined model for the actual chat

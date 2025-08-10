@@ -7,8 +7,11 @@ import json
 import re
 import time
 import logging
+from urllib import response
 import httpx
 from typing import AsyncGenerator, List, Dict, Any, Optional
+
+from torch import chunk
 
 from server.agent.knowledge_store import KnowledgeStore, ContextType, ImportanceLevel
 from server.agent.tool_executor import process_tool_calls
@@ -24,11 +27,12 @@ class ReActAgent:
     Uses KnowledgeStore for centralized state management and includes direct LLM interaction.
     """
     
-    def __init__(self, api_base_url: str, tools: List[Dict], knowledge_store: KnowledgeStore, max_iterations: int = 10):
+    def __init__(self, api_base_url: str, tools: List[Dict], knowledge_store: KnowledgeStore, max_iterations: int = 10, domain_pack_dir: str = '../../learning/packs'):
         self.api_base_url = api_base_url
         self.tools = tools
         self.knowledge_store = knowledge_store
         self.max_iterations = max_iterations
+        self.domain_pack_dir = domain_pack_dir
         
     async def get_react_system_prompt(self, user_prompt:str) -> str:
         """Get the system prompt for the ReAct agent with relevant learnings"""
@@ -106,6 +110,23 @@ Always think step by step and be helpful to the user.
             base_prompt += "\n\nRelevant past learnings and capabilities:\n"
             for learning in relevant_learnings[:3]:
                 base_prompt += f"- {learning[:200]}...\n"
+
+        if user_prompt and self.domain_pack_dir:
+            bundle = self.knowledge_store.build_domain_knowledge_context(
+                query=user_prompt,
+                pack_dir=self.domain_pack_dir,
+                topk=5,
+                expand_radius=1,
+                max_nodes=8,
+                max_examples_per_node=1
+            )
+            if bundle:
+                base_prompt += "\n\n# Domain knowledge\n"
+                base_prompt += (
+                    "You have access to the following formal rules and concepts relevant to the user's request.\n"
+                    "Use these rules directly when solving; prefer formal definitions over prose.\n\n"
+                    + bundle
+                )
                 
         return base_prompt
     
@@ -233,15 +254,17 @@ Always think step by step and be helpful to the user.
                         
                         # Get content after thinking block
                         content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
+                        yield f'<token>{content_after_thinking}</token>'
                     else:
                         yield f'<thought>{token}</thought>'
                 else:
                     # We're past thinking, accumulate remaining content
                     content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
-                    if 'Final Answer:' in content_after_thinking and not answering:
-                        answering = True
                     if answering:
                         yield f'<token>{token}</token>'
+                    if 'Final Answer:' in content_after_thinking and not answering:
+                        answering = True
+
             
             # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
@@ -369,17 +392,33 @@ Always think step by step and be helpful to the user.
             try:
                 async with client.stream("POST", f"{self.api_base_url}/v1/chat/stream", json=request_payload) as response:
                     response.raise_for_status()
-                    # Parse SSE format (data: prefix)
+                    last_emitted = ""  # track cumulative text we've already emitted
                     async for chunk in response.aiter_text():
-                        for line in chunk.split('\n'):
-                            if line.startswith('data: '):
-                                content = line[6:]  # Remove 'data: ' prefix
-                                if content == '[DONE]':
+                        for raw in chunk.split("\n"):
+                            if not raw.strip():
+                                continue
+                            if raw.startswith("data: "):
+                                payload = raw[6:]
+                                if payload == "[DONE]":
                                     return
-                                yield content
-                            elif line.strip():
-                                # Fallback for non-SSE format
-                                yield line
+                                # Try JSON; fall back to raw text
+                                try:
+                                    obj = json.loads(payload)
+                                    # common keys: "delta", "content", "message"
+                                    piece = obj.get("delta") or obj.get("content") or obj.get("message") or ""
+                                except Exception:
+                                    piece = payload
+
+                                # If the server sends cumulative text, only emit the new suffix
+                                if piece.startswith(last_emitted):
+                                    delta = piece[len(last_emitted):]
+                                else:
+                                    # not cumulative; treat as incremental
+                                    delta = piece
+                                if delta:
+                                    last_emitted = piece if piece.startswith(last_emitted) else last_emitted + delta
+                                    yield delta
+
             except httpx.RequestError as e:
                 logger.error(f"ReActAgent: API request to model server failed: {e}")
                 yield f"\n[ERROR: Could not connect to the model server: {e}]\n"

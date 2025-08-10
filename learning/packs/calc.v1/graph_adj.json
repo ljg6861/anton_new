@@ -1,0 +1,667 @@
+{
+  "applies_to": {
+    "calculus.absolute-convergence": [
+      "calculus.rearrangement-theorem"
+    ],
+    "calculus.addition-formula": [
+      "calculus.double-angle-identity"
+    ],
+    "calculus.alternating-series-test-ast": [
+      "calculus.conditional-convergence"
+    ],
+    "calculus.angle-between-plane-and-axis": [
+      "calculus.cone-tangent-plane-through-origin"
+    ],
+    "calculus.area-between-polar-curves": [
+      "calculus.cardioid"
+    ],
+    "calculus.binomial-series-expansion": [
+      "calculus.radius-of-convergence"
+    ],
+    "calculus.conditional-convergence": [
+      "calculus.rearrangement-theorem"
+    ],
+    "calculus.conservative-vector-field-test": [
+      "calculus.line-integral-path-dependency-test"
+    ],
+    "calculus.curl": [
+      "calculus.stokes-theorem"
+    ],
+    "calculus.definite-integral": [
+      "calculus.indefinite-integral"
+    ],
+    "calculus.definite-integral-orthogonality": [
+      "calculus.integral-of-squared-sine-or-cosine"
+    ],
+    "calculus.derivative": [
+      "calculus.tangent-line"
+    ],
+    "calculus.derivative-of-ex": [
+      "calculus.solution-to-dydx-y"
+    ],
+    "calculus.derivative-of-hyperbolic-cosine": [
+      "calculus.integral-of-hyperbolic-sine"
+    ],
+    "calculus.derivative-of-hyperbolic-sine": [
+      "calculus.integral-of-hyperbolic-cosine"
+    ],
+    "calculus.derivative-of-hyperbolic-tangent": [
+      "calculus.integral-of-hyperbolic-secant"
+    ],
+    "calculus.derivative-of-integral": [
+      "calculus.fundamental-theorem-of-calculus"
+    ],
+    "calculus.discriminant-classification": [
+      "calculus.ellipse",
+      "calculus.hyperbola",
+      "calculus.parabola"
+    ],
+    "calculus.distance-from-changing-velocity": [
+      "calculus.velocity-from-distance"
+    ],
+    "calculus.distance-to-plane": [
+      "calculus.nearest-point-to-origin-on-plane"
+    ],
+    "calculus.divergence": [
+      "calculus.divergence-theorem"
+    ],
+    "calculus.domain-and-range-of-ln-x": [
+      "calculus.natural-logarithm"
+    ],
+    "calculus.double-angle-identity-for-cosine-squared": [
+      "calculus.integral-of-squared-sine-or-cosine"
+    ],
+    "calculus.double-integral-interpretation": [
+      "calculus.mass"
+    ],
+    "calculus.ellipse-standard-form": [
+      "calculus.conic-section-classification"
+    ],
+    "calculus.epsilon-n-definition": [
+      "calculus.limit-laws"
+    ],
+    "calculus.exponential-function-base-b": [
+      "calculus.natural-exponential-function"
+    ],
+    "calculus.exponential-function-ex": [
+      "calculus.derivative-of-ln-x"
+    ],
+    "calculus.fixed-point-stability-criterion": [
+      "calculus.cobweb-diagram"
+    ],
+    "calculus.flight-time": [
+      "calculus.horizontal-range"
+    ],
+    "calculus.foci-of-ellipse": [
+      "calculus.ellipse"
+    ],
+    "calculus.foci-of-hyperbola": [
+      "calculus.hyperbola"
+    ],
+    "calculus.fundamental-theorem-of-calculus-discrete-analog": [
+      "calculus.mathematical-induction"
+    ],
+    "calculus.gauss-quadrature": [
+      "calculus.error-scaling-for-high-order-methods"
+    ],
+    "calculus.general-iterative-method": [
+      "calculus.avoiding-division-via-iteration"
+    ],
+    "calculus.gradient-descent-conceptual": [
+      "calculus.stationary-point"
+    ],
+    "calculus.greedy-algorithm": [
+      "calculus.minimum-spanning-tree"
+    ],
+    "calculus.horizontal-range": [
+      "calculus.maximum-range-condition"
+    ],
+    "calculus.hyperbola-standard-form": [
+      "calculus.conic-section-classification"
+    ],
+    "calculus.improper-integral": [
+      "calculus.p-integral-convergence"
+    ],
+    "calculus.intermediate-value-theorem": [
+      "calculus.fixed-point-via-ivt"
+    ],
+    "calculus.kahans-adaptive-integration": [
+      "calculus.simpsons-rule"
+    ],
+    "calculus.limit-laws": [
+      "calculus.harmonic-series-divergence"
+    ],
+    "calculus.linear-combinations": [
+      "calculus.polynomials"
+    ],
+    "calculus.logarithmic-convergence-test": [
+      "calculus.comparison-test"
+    ],
+    "calculus.matrix-form-of-linear-system": [
+      "calculus.coefficient-matrix",
+      "calculus.constant-vector",
+      "calculus.unknown-vector"
+    ],
+    "calculus.mean-value-theorem": [
+      "calculus.lhopitals-rule"
+    ],
+    "calculus.natural-logarithm": [
+      "calculus.asymptotic-growth-of-ln-x",
+      "calculus.solution-to-dydx-y"
+    ],
+    "calculus.normal-vector-to-surface": [
+      "calculus.surface-area-via-double-integral"
+    ],
+    "calculus.p-test-for-convergence": [
+      "calculus.comparison-test"
+    ],
+    "calculus.parabola-focus-and-directrix": [
+      "calculus.parabola-standard-form"
+    ],
+    "calculus.partial-fractions-with-distinct-linear-factors": [
+      "calculus.cover-up-method"
+    ],
+    "calculus.pascals-triangle": [
+      "calculus.binomial-formula"
+    ],
+    "calculus.polar-area-element": [
+      "calculus.double-integral-in-polar-coordinates"
+    ],
+    "calculus.polar-coordinates": [
+      "calculus.cartesian-to-polar-conversion",
+      "calculus.polar-to-cartesian-conversion"
+    ],
+    "calculus.polynomial-limit-at-infinity": [
+      "calculus.trigonometric-limit"
+    ],
+    "calculus.power-rule": [
+      "calculus.polynomials"
+    ],
+    "calculus.product-to-sum-identity-cosine-cosine": [
+      "calculus.definite-integral-orthogonality"
+    ],
+    "calculus.product-to-sum-identity-sine-cosine": [
+      "calculus.definite-integral-orthogonality"
+    ],
+    "calculus.product-to-sum-identity-sine-sine": [
+      "calculus.definite-integral-orthogonality"
+    ],
+    "calculus.projection-computation": [
+      "calculus.vector-projection"
+    ],
+    "calculus.radius-of-convergence": [
+      "calculus.power-series-differentiation-and-integration"
+    ],
+    "calculus.reflection-property-of-parabola": [
+      "calculus.parabola"
+    ],
+    "calculus.rescaling-for-standard-form": [
+      "calculus.parabola-standard-form"
+    ],
+    "calculus.reversing-order": [
+      "calculus.double-integral-interpretation"
+    ],
+    "calculus.semicircle-function": [
+      "calculus.surface-area-of-revolution-x-axis"
+    ],
+    "calculus.shadow-as-projection": [
+      "calculus.relativity-of-physical-motion"
+    ],
+    "calculus.simpsons-rule": [
+      "calculus.error-scaling-for-high-order-methods"
+    ],
+    "calculus.squeeze-theorem": [
+      "calculus.trigonometric-limit"
+    ],
+    "calculus.stationary-point": [
+      "calculus.second-derivative-test",
+      "calculus.sum-of-distances-vs-sum-of-squares"
+    ],
+    "calculus.substitution-rule": [
+      "calculus.indefinite-integral"
+    ],
+    "calculus.sum-of-differences-theorem": [
+      "calculus.accumulated-values",
+      "calculus.differences-as-slopes"
+    ],
+    "calculus.sum-of-first-n-natural-numbers": [
+      "calculus.shifting-summation-limits"
+    ],
+    "calculus.surface-area-of-revolution-x-axis": [
+      "calculus.surface-area-of-a-sphere"
+    ],
+    "calculus.surface-area-via-double-integral": [
+      "calculus.polar-coordinate-transformation"
+    ],
+    "calculus.symmetry-test-x-axis": [
+      "calculus.four-petaled-rose"
+    ],
+    "calculus.tangent-plane-to-implicit-surface": [
+      "calculus.cone-tangent-plane-through-origin"
+    ],
+    "calculus.thousand-points-of-light": [
+      "calculus.numerical-visualization"
+    ],
+    "calculus.trigonometric-substitution": [
+      "calculus.trig-substitution-steps"
+    ],
+    "calculus.vector-projection": [
+      "calculus.distance-to-plane"
+    ],
+    "calculus.volume-element-spherical": [
+      "calculus.newtons-shell-theorem"
+    ]
+  },
+  "derived_from": {
+    "calculus.accumulated-values": [
+      "calculus.sum-of-differences-theorem"
+    ],
+    "calculus.binomial-formula": [
+      "calculus.power-rule"
+    ],
+    "calculus.cauchys-convergence-test": [
+      "calculus.limit-ε-δ"
+    ],
+    "calculus.common-mistake-missing-dudx": [
+      "calculus.substitution-rule"
+    ],
+    "calculus.connection-between-sums-and-integrals": [
+      "calculus.fundamental-theorem-of-calculus-discrete-analog"
+    ],
+    "calculus.conservative-vector-field-test": [
+      "calculus.conservative-vector-field"
+    ],
+    "calculus.cylindrical-coordinates": [
+      "calculus.volume-element-cylindrical"
+    ],
+    "calculus.derivative-of-ex": [
+      "calculus.derivative-of-bx"
+    ],
+    "calculus.derivative-of-geometric-series": [
+      "calculus.geometric-series"
+    ],
+    "calculus.differences-as-slopes": [
+      "calculus.sum-of-differences-theorem"
+    ],
+    "calculus.double-angle-identity": [
+      "calculus.addition-formula"
+    ],
+    "calculus.fundamental-hyperbolic-identity": [
+      "calculus.exponential-form-identity"
+    ],
+    "calculus.general-iterative-method": [
+      "calculus.newtons-method"
+    ],
+    "calculus.hyperbolic-identity": [
+      "calculus.derivative-of-sinh1x",
+      "calculus.derivative-of-tanh1x"
+    ],
+    "calculus.improper-integral": [
+      "calculus.gamma-function",
+      "calculus.logarithmic-convergence-test",
+      "calculus.p-test-for-convergence"
+    ],
+    "calculus.integral-of-alternating-geometric-series": [
+      "calculus.geometric-series"
+    ],
+    "calculus.inverse-hyperbolic-secant": [
+      "calculus.exponential-form-identity"
+    ],
+    "calculus.inverse-hyperbolic-sine": [
+      "calculus.exponential-form-identity"
+    ],
+    "calculus.inverse-hyperbolic-tangent": [
+      "calculus.exponential-form-identity"
+    ],
+    "calculus.inverse-tangent-derivative": [
+      "calculus.cotangent-identity"
+    ],
+    "calculus.jacobian-determinant": [
+      "calculus.cylindrical-volume-element",
+      "calculus.polar-area-element",
+      "calculus.spherical-volume-element"
+    ],
+    "calculus.lagrange-multiplier-equality": [
+      "calculus.inequality-constraint-multiplier-sign"
+    ],
+    "calculus.limit-definition-of-derivative": [
+      "calculus.instantaneous-velocity"
+    ],
+    "calculus.mass": [
+      "calculus.moments"
+    ],
+    "calculus.moments": [
+      "calculus.centroid"
+    ],
+    "calculus.natural-base-e": [
+      "calculus.derivative-of-ex"
+    ],
+    "calculus.natural-exponential-function": [
+      "calculus.definition-of-e"
+    ],
+    "calculus.natural-logarithm": [
+      "calculus.derivative-of-ln-x",
+      "calculus.derivative-of-logarithm-base-b"
+    ],
+    "calculus.negative-radius-interpretation": [
+      "calculus.symmetry-test-origin"
+    ],
+    "calculus.parametric-equations-of-projectile-motion": [
+      "calculus.flight-time"
+    ],
+    "calculus.partial-fractions-with-distinct-linear-factors": [
+      "calculus.partial-fraction-decomposition-existence"
+    ],
+    "calculus.polar-velocity-components": [
+      "calculus.polar-acceleration-derivation"
+    ],
+    "calculus.power-series-differentiation-and-integration": [
+      "calculus.taylor-series-remainder-theorem"
+    ],
+    "calculus.product-rule": [
+      "calculus.power-rule",
+      "calculus.quotient-rule"
+    ],
+    "calculus.pythagorean-identities": [
+      "calculus.trigonometric-substitution"
+    ],
+    "calculus.rational-approximation-of-π": [
+      "calculus.moire-pattern"
+    ],
+    "calculus.reciprocal-rule": [
+      "calculus.power-rule",
+      "calculus.quotient-rule"
+    ],
+    "calculus.rolles-theorem": [
+      "calculus.mean-value-theorem"
+    ],
+    "calculus.simpsons-rule": [
+      "calculus.midpoint-rule",
+      "calculus.trapezoidal-rule"
+    ],
+    "calculus.spanning-tree": [
+      "calculus.minimum-spanning-tree"
+    ],
+    "calculus.spherical-coordinates": [
+      "calculus.volume-element-spherical"
+    ],
+    "calculus.surface-area-calculation-via-integration": [
+      "calculus.surface-area-of-a-sphere"
+    ],
+    "calculus.tangent-line": [
+      "calculus.tangent-as-limit-of-secant"
+    ],
+    "calculus.vector-projection": [
+      "calculus.perpendicular-component"
+    ]
+  },
+  "depends_on": {
+    "calculus.alternating-series-test-ast": [
+      "calculus.divergence-test"
+    ],
+    "calculus.arcsecant-derivative": [
+      "calculus.cotangent-identity"
+    ],
+    "calculus.average-value-of-function": [
+      "calculus.definite-integral"
+    ],
+    "calculus.cartesian-to-polar-conversion": [
+      "calculus.symmetry-test-x-axis"
+    ],
+    "calculus.centering-transformation": [
+      "calculus.rescaling-for-standard-form"
+    ],
+    "calculus.chain-rule-for-eux": [
+      "calculus.integral-of-ex"
+    ],
+    "calculus.contour-map": [
+      "calculus.level-curves"
+    ],
+    "calculus.cover-up-method": [
+      "calculus.degree-precondition"
+    ],
+    "calculus.curl-fields-are-solenoidal": [
+      "calculus.divergence"
+    ],
+    "calculus.de-substitution-method": [
+      "calculus.complex-exponential-solutions",
+      "calculus.nth-roots-of-unity"
+    ],
+    "calculus.definition-of-e": [
+      "calculus.why-e-is-special"
+    ],
+    "calculus.derivative": [
+      "calculus.chain-rule",
+      "calculus.product-rule"
+    ],
+    "calculus.divergence-test": [
+      "calculus.absolute-convergence"
+    ],
+    "calculus.dot-product-and-cosine": [
+      "calculus.vector-projection"
+    ],
+    "calculus.exponential-growth-model": [
+      "calculus.growth-constant"
+    ],
+    "calculus.fundamental-theorem-of-calculus": [
+      "calculus.definite-integral"
+    ],
+    "calculus.gradient-fields-are-irrotational": [
+      "calculus.curl"
+    ],
+    "calculus.hyperbolic-cosine": [
+      "calculus.fundamental-hyperbolic-identity"
+    ],
+    "calculus.hyperbolic-sine": [
+      "calculus.fundamental-hyperbolic-identity"
+    ],
+    "calculus.inflection-point": [
+      "calculus.concavity-definition"
+    ],
+    "calculus.intermediate-value-theorem": [
+      "calculus.continuable-function"
+    ],
+    "calculus.keplers-second-law": [
+      "calculus.inverse-square-law"
+    ],
+    "calculus.lagrange-remainder": [
+      "calculus.power-series-convergence"
+    ],
+    "calculus.level-curves": [
+      "calculus.surface"
+    ],
+    "calculus.limit": [
+      "calculus.continuous-functions",
+      "calculus.derivative"
+    ],
+    "calculus.limit-ε-δ": [
+      "calculus.continuity-at-a-point"
+    ],
+    "calculus.line-integral-path-dependency-test": [
+      "calculus.conservative-vector-field"
+    ],
+    "calculus.logarithmic-properties": [
+      "calculus.asymptotic-growth-of-ln-x"
+    ],
+    "calculus.matrix-form-of-linear-system": [
+      "calculus.solve-linear-system-via-inverse"
+    ],
+    "calculus.mean-value-theorem": [
+      "calculus.continuity",
+      "calculus.differentiability"
+    ],
+    "calculus.natural-logarithm": [
+      "calculus.derivative-of-bx",
+      "calculus.logarithmic-properties"
+    ],
+    "calculus.necessary-condition-for-convergence": [
+      "calculus.sequence-convergence"
+    ],
+    "calculus.newtons-method": [
+      "calculus.fixed-point-stability-criterion"
+    ],
+    "calculus.one-sided-limit": [
+      "calculus.continuity-at-a-point"
+    ],
+    "calculus.p-integral-convergence": [
+      "calculus.gamma-function"
+    ],
+    "calculus.parabola-vertex": [
+      "calculus.centering-transformation"
+    ],
+    "calculus.perpendicular-component": [
+      "calculus.pythagorean-theorem-vector"
+    ],
+    "calculus.polar-to-cartesian-conversion": [
+      "calculus.negative-radius-interpretation"
+    ],
+    "calculus.power-series-convergence": [
+      "calculus.blowup-point"
+    ],
+    "calculus.secant-line": [
+      "calculus.derivative"
+    ],
+    "calculus.second-derivative-test": [
+      "calculus.concavity-definition",
+      "calculus.saddle-point"
+    ],
+    "calculus.sequence-convergence": [
+      "calculus.epsilon-n-definition"
+    ],
+    "calculus.shifting-summation-limits": [
+      "calculus.connection-between-sums-and-integrals"
+    ],
+    "calculus.sketch-region": [
+      "calculus.reversing-order"
+    ],
+    "calculus.solve-linear-system-via-inverse": [
+      "calculus.coefficient-matrix"
+    ],
+    "calculus.standard-form-conversion": [
+      "calculus.ellipse",
+      "calculus.hyperbola",
+      "calculus.parabola"
+    ],
+    "calculus.surface-area-element": [
+      "calculus.normal-vector-to-surface"
+    ],
+    "calculus.surface-area-of-revolution-x-axis": [
+      "calculus.surface-area-calculation-via-integration"
+    ],
+    "calculus.tangent-plane-to-implicit-surface": [
+      "calculus.angle-between-plane-and-axis"
+    ],
+    "calculus.taylor-series-coefficients": [
+      "calculus.lagrange-remainder"
+    ],
+    "calculus.taylor-series-remainder-theorem": [
+      "calculus.radius-of-convergence"
+    ],
+    "calculus.thousand-points-of-light": [
+      "calculus.rational-approximation-of-π"
+    ],
+    "calculus.trig-substitution-steps": [
+      "calculus.domain-constraints",
+      "calculus.sign-preservation"
+    ],
+    "calculus.trigonometric-substitution": [
+      "calculus.pythagorean-identities"
+    ],
+    "calculus.velocity-from-distance": [
+      "calculus.limit-definition-of-derivative"
+    ]
+  },
+  "analogous_to": {
+    "calculus.average-velocity": [
+      "calculus.limit-definition-of-derivative"
+    ],
+    "calculus.centroid-of-a-region": [
+      "calculus.moment-of-inertia"
+    ],
+    "calculus.comparison-test": [
+      "calculus.symmetric-divergence"
+    ],
+    "calculus.cylindrical-coordinates": [
+      "calculus.spherical-coordinates"
+    ],
+    "calculus.derivative-of-bx": [
+      "calculus.chain-rule-for-eux"
+    ],
+    "calculus.divergence": [
+      "calculus.curl"
+    ],
+    "calculus.divergence-theorem": [
+      "calculus.stokes-theorem"
+    ],
+    "calculus.double-integral-in-polar-coordinates": [
+      "calculus.cylindrical-volume-element"
+    ],
+    "calculus.eulers-formula-connection": [
+      "calculus.exponential-form-identity"
+    ],
+    "calculus.eulers-number-e": [
+      "calculus.exponential-function-ex"
+    ],
+    "calculus.exponential-form-identity": [
+      "calculus.eulers-formula-connection"
+    ],
+    "calculus.exponential-function-base-b": [
+      "calculus.why-e-is-special"
+    ],
+    "calculus.extreme-value-theorem": [
+      "calculus.intermediate-value-theorem"
+    ],
+    "calculus.gauss-quadrature": [
+      "calculus.simpsons-rule"
+    ],
+    "calculus.improper-integral": [
+      "calculus.cauchy-principal-value"
+    ],
+    "calculus.inequality-constraint-multiplier-sign": [
+      "calculus.strict-inequality-multiplier-zero"
+    ],
+    "calculus.integral-of-secant": [
+      "calculus.reduction-formula-for-cosine-power"
+    ],
+    "calculus.integral-of-tangent": [
+      "calculus.reduction-formula-for-cosine-power"
+    ],
+    "calculus.maximum-range-condition": [
+      "calculus.range-limitation-with-real-world-constraints"
+    ],
+    "calculus.minimum-spanning-tree": [
+      "calculus.shortest-path-algorithm"
+    ],
+    "calculus.natural-exponential-function": [
+      "calculus.natural-logarithm"
+    ],
+    "calculus.numerical-visualization": [
+      "calculus.chain-rule"
+    ],
+    "calculus.removable-discontinuity": [
+      "calculus.continuable-function"
+    ],
+    "calculus.substitution-rule": [
+      "calculus.chain-rule-for-integration"
+    ],
+    "calculus.tangent-line": [
+      "calculus.normal-line"
+    ]
+  },
+  "resolved_by": {
+    "calculus.faster-than-light-shadow-paradox": [
+      "calculus.shadow-as-projection"
+    ]
+  },
+  "relies_on": {
+    "calculus.fundamental-theorem-of-calculus": [
+      "calculus.antiderivative",
+      "calculus.constant-difference-for-same-derivative"
+    ]
+  },
+  "contradicts": {
+    "calculus.harmonic-series-divergence": [
+      "calculus.necessary-condition-for-convergence"
+    ]
+  }
+}

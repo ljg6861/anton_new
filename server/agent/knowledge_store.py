@@ -2,12 +2,13 @@
 Centralized knowledge management system that tracks context across planner, doer, and evaluator components.
 Provides persistent storage, context prioritization, and knowledge transfer capabilities.
 """
+from pathlib import Path
 import time
 import logging
 from typing import Dict, Set, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
-
+from server.agent.concept_graph import load_pack, rag_topk_nodes, expand_nodes, format_context
 from server.agent.learning_loop import learning_loop
 from server.agent.rag_manager import rag_manager
 
@@ -262,6 +263,38 @@ class KnowledgeStore:
         except Exception as e:
             # Log the error but don't fail - RAG persistence is not critical
             logger.error(f"Failed to persist context to RAG: {e}", exc_info=True)
+
+    def build_domain_knowledge_context(
+        self,
+        query: str,
+        pack_dir: str,
+        topk: int = 5,
+        expand_radius: int = 1,
+        max_nodes: int = 8,
+        max_examples_per_node: int = 1
+    ) -> str:
+        """
+        Retrieve top concepts for the query from the given pack, expand by prerequisites,
+        and return a compact context string to feed the LLM.
+        """
+        try:
+            adj, nodes_by_id = load_pack(pack_dir)
+            pack_name = Path(pack_dir).name  # e.g., 'calc.v1'
+            # 1) RAG top-k
+            node_ids = rag_topk_nodes(rag_manager, query, pack_name, topk=topk)
+            if not node_ids:
+                return ""
+            # 2) Graph expand
+            expanded = expand_nodes(node_ids, adj, edge_types=("depends_on",), radius=expand_radius)
+            # Keep retrieved nodes first, then add prereqs (dedup while preserving order)
+            keep_order = dict.fromkeys(node_ids + [x for x in expanded if x not in node_ids])
+            ordered_ids = list(keep_order.keys())
+            # 3) Format
+            context = format_context(nodes_by_id, ordered_ids, max_nodes=max_nodes, max_examples_per_node=max_examples_per_node)
+            return context
+        except Exception as e:
+            logger.error(f"Failed to build domain knowledge context: {e}", exc_info=True)
+            return ""
     
     def query_relevant_knowledge(self, query: str, max_results: int = 5) -> List[str]:
         """Query RAG for relevant past knowledge"""
