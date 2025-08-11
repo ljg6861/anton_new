@@ -1,0 +1,13 @@
+[project]
+name = "Anton"
+description = "Anton Assistant with ReAct and knowledge graph"
+
+[UI]
+# Enable LaTeX/KaTeX rendering for $...$ and $$...$$ in Markdown outputs
+# Supported in recent Chainlit versions. If your version uses a different key, I can adjust.
+markdown = true
+latex = true
+
+[features]
+# Keep streaming enabled
+continuous_streaming = true

@@ -22,7 +22,7 @@ async def on_message(message: cl.Message):
     chat_history: List[Dict] = cl.user_session.get("chat_history")
 
     final_answer = ""
-    answer_msg = None
+    answer_msg = None  # create on first token so the Thinking step appears first
     # Buffer to accumulate the content of a single thought.
     thought_buffer = ""
 
@@ -35,7 +35,6 @@ async def on_message(message: cl.Message):
                 # If the chunk is part of a thought, add it to the buffer.
                 if chunk["type"] == "thought":
                     thought_buffer += chunk["content"]
-                
                 # If a new chunk type arrives, the previous thought is complete.
                 # Flush the buffered thought before processing the new chunk.
                 else:
@@ -51,17 +50,20 @@ async def on_message(message: cl.Message):
                         await step.stream_token(result_str)
 
                     elif chunk["type"] == "token":
+                        token = html.unescape(chunk["content"])  # keep markdown; html entities only
                         if answer_msg is None:
-                            answer_msg = cl.Message(content="", author="Anton", parent_id=message.id,)
-                        await answer_msg.stream_token(html.unescape(chunk["content"]))
+                            answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
+                            await answer_msg.send()
+                        await answer_msg.stream_token(token)
+                        final_answer += token
             
             # After the loop, flush any final thought that might be in the buffer.
             if thought_buffer:
                 await step.stream_token(f"• {thought_buffer}\n")
 
         finally:
-            # Update the message only if it was created.
-            if answer_msg and answer_msg.content:
+            # Ensure the final message content is committed
+            if answer_msg:
                 await answer_msg.update()
 
     # Update the session's chat history.
