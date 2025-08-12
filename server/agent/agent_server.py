@@ -10,7 +10,8 @@ from typing import AsyncGenerator
 
 from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
     nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
-
+from server.agent.pack_builder import build_pack_centroids
+build_pack_centroids()
 from server.agent.config import AGENT_SERVER_HOST, AGENT_SERVER_PORT, MODEL_SERVER_URL
 from server.agent.rag_manager import rag_manager
 from server.agent.knowledge_store import KnowledgeStore
@@ -25,14 +26,12 @@ from server.agent.tools.tool_defs import get_all_tools
 from server.agent.tools.tool_manager import tool_manager
 from server.helpers import AgentChatRequest
 
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-print("--- Discovering and Registering Tools ---")
-# The enhanced tool manager now automatically discovers and registers tools
-# No need for manual registration loop
-print(f"--- Tool Registration Complete: {tool_manager.get_tool_count()} tools registered ---")
+from pathlib import Path
+import json, numpy as np
+from server.agent.rag_manager import rag_manager
 
 
 def get_all_resource_usage(logger_instance) -> dict:

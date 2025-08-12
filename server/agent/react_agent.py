@@ -20,7 +20,6 @@ from server.agent.learning_loop import learning_loop
 
 logger = logging.getLogger(__name__)
 
-
 class ReActAgent:
     """
     Single-agent ReAct implementation that combines reasoning and acting in one flow.
@@ -72,6 +71,10 @@ You have access to these capabilities:
 - Knowledge retrieval
 - A large amount of general knowledge. You can answer questions about anything!
 
+Coding Rules:
+- Under NO circumstances are you to do any coding tasks before checking out to a new branch. Call this branch feature/<feature_name>
+- You MUST ensure that your code compiles
+
 Available tools:
 {self._format_tools_compact()}
 
@@ -112,6 +115,9 @@ Always think step by step and be helpful to the user.
                 base_prompt += f"- {learning[:200]}...\n"
 
         if user_prompt and self.domain_pack_dir:
+            self.domain_pack_dir = (
+                self.knowledge_store.select_pack_by_embedding(user_prompt, "learning/packs/calc.v1")
+            )
             bundle = self.knowledge_store.build_domain_knowledge_context(
                 query=user_prompt,
                 pack_dir=self.domain_pack_dir,

@@ -580,7 +580,7 @@ Focus on extracting meaningful, actionable patterns that would help an AI assist
                             elif line.strip():
                                 # Fallback for non-SSE format
                                 full_response_content += line
-                learning_response = full_response_content.split('</think>')[1]
+                learning_response = full_response_content.split('</think>')[1] if len(full_response_content.split('</think>')) > 1 else full_response_content
                 logger.info(f"ReActAgent: Received response from model server: {learning_response}...")
                 return learning_response
 

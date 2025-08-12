@@ -1,0 +1,56 @@
+{
+  "calculus.integral-of-inverse-sine": {
+    "attempts": 1,
+    "correct": 1,
+    "streak": 1,
+    "last_ts": 1754877863.834981
+  },
+  "calculus.alternating-series-test-ast": {
+    "attempts": 2,
+    "correct": 1,
+    "streak": 1,
+    "last_ts": 1754877883.3778257
+  },
+  "calculus.derivative-of-bx": {
+    "attempts": 2,
+    "correct": 1,
+    "streak": 0,
+    "last_ts": 1754877924.909391
+  },
+  "calculus.constant-vector": {
+    "attempts": 2,
+    "correct": 0,
+    "streak": 0,
+    "last_ts": 1754948852.7553031
+  },
+  "calculus.parallel-axis-theorem": {
+    "attempts": 2,
+    "correct": 0,
+    "streak": 0,
+    "last_ts": 1754948877.3107045
+  },
+  "calculus.rearrangement-theorem": {
+    "attempts": 2,
+    "correct": 0,
+    "streak": 0,
+    "last_ts": 1754948812.6917515
+  },
+  "calculus.sign-preservation": {
+    "attempts": 1,
+    "correct": 0,
+    "streak": 0,
+    "last_ts": 1754948986.6966658
+  },
+  "calculus.quadratic-approximation": {
+    "attempts": 2,
+    "correct": 0,
+    "streak": 0,
+    "last_ts": 1754949025.117459
+  },
+  "calculus.centroid-of-a-region": {
+    "attempts": 2,
+    "correct": 0,
+    "streak": 0,
+    "last_ts": 1754949060.0340693
+  }
+}

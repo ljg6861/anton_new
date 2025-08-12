@@ -1,12 +1,93 @@
-2025-08-10 20:01:37 - Your app is available at http://0.0.0.0:7860
-2025-08-10 20:01:39 - API client initialized for server at http://192.168.1.250:8001
-2025-08-10 20:01:39 - Anton client initialized.
-2025-08-10 20:01:58 - API client initialized for server at http://192.168.1.250:8001
-2025-08-10 20:01:58 - Anton client initialized.
-2025-08-10 20:02:17 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
-2025-08-10 20:02:18 - API client initialized for server at http://192.168.1.250:8001
-2025-08-10 20:02:18 - Anton client initialized.
-2025-08-10 20:02:21 - Phase 1: Sending raw prompt to server for routing.
-2025-08-10 20:02:21 - Phase 2: Streaming processed response from server.
-2025-08-10 20:02:21 - Streaming request to agent chat endpoint.
-2025-08-10 20:02:21 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:30:22 - Your app is available at http://0.0.0.0:7860
+2025-08-11 17:30:23 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
+2025-08-11 17:30:24 - API client initialized for server at http://192.168.1.250:8001
+2025-08-11 17:30:24 - Anton client initialized.
+2025-08-11 17:30:31 - API client initialized for server at http://192.168.1.250:8001
+2025-08-11 17:30:31 - Anton client initialized.
+2025-08-11 17:30:32 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:30:32 - Phase 2: Streaming processed response from server.
+2025-08-11 17:30:32 - Streaming request to agent chat endpoint.
+2025-08-11 17:30:32 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:30:32 - API call failed during stream: peer closed connection without sending complete message body (incomplete chunked read)
+Traceback (most recent call last):
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 271, in __aiter__
+    async for part in self._httpcore_stream:
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/connection_pool.py", line 407, in __aiter__
+    raise exc from None
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/connection_pool.py", line 403, in __aiter__
+    async for part in self._stream:
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 342, in __aiter__
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 334, in __aiter__
+    async for chunk in self._connection._receive_response_body(**kwargs):
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 203, in _receive_response_body
+    event = await self._receive_event(timeout=timeout)
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 213, in _receive_event
+    with map_exceptions({h11.RemoteProtocolError: RemoteProtocolError}):
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/lucas/anton_new/client/anton_client.py", line 48, in stream_response
+    async for chunk in stream:
+  File "/home/lucas/anton_new/client/api_client.py", line 37, in stream_agent_chat
+    async for chunk in response.aiter_text():
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_models.py", line 1018, in aiter_text
+    async for byte_content in self.aiter_bytes():
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_models.py", line 997, in aiter_bytes
+    async for raw_bytes in self.aiter_raw():
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_models.py", line 1055, in aiter_raw
+    async for raw_stream_bytes in self.stream:
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_client.py", line 176, in __aiter__
+    async for chunk in self._stream:
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 270, in __aiter__
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)
+2025-08-11 17:30:57 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:30:57 - Phase 2: Streaming processed response from server.
+2025-08-11 17:30:57 - Streaming request to agent chat endpoint.
+2025-08-11 17:30:57 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:34:13 - API client initialized for server at http://192.168.1.250:8001
+2025-08-11 17:34:13 - Anton client initialized.
+2025-08-11 17:34:14 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:34:14 - Phase 2: Streaming processed response from server.
+2025-08-11 17:34:14 - Streaming request to agent chat endpoint.
+2025-08-11 17:34:15 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:34:36 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:34:36 - Phase 2: Streaming processed response from server.
+2025-08-11 17:34:36 - Streaming request to agent chat endpoint.
+2025-08-11 17:34:38 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:35:16 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:35:16 - Phase 2: Streaming processed response from server.
+2025-08-11 17:35:16 - Streaming request to agent chat endpoint.
+2025-08-11 17:35:16 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:39:24 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:39:24 - Phase 2: Streaming processed response from server.
+2025-08-11 17:39:24 - Streaming request to agent chat endpoint.
+2025-08-11 17:39:24 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:40:12 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:40:12 - Phase 2: Streaming processed response from server.
+2025-08-11 17:40:12 - Streaming request to agent chat endpoint.
+2025-08-11 17:40:12 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:43:27 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
+2025-08-11 17:43:27 - API client initialized for server at http://192.168.1.250:8001
+2025-08-11 17:43:27 - Anton client initialized.
+2025-08-11 17:43:29 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:43:29 - Phase 2: Streaming processed response from server.
+2025-08-11 17:43:29 - Streaming request to agent chat endpoint.
+2025-08-11 17:43:29 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-11 17:48:25 - Phase 1: Sending raw prompt to server for routing.
+2025-08-11 17:48:25 - Phase 2: Streaming processed response from server.
+2025-08-11 17:48:25 - Streaming request to agent chat endpoint.
+2025-08-11 17:48:25 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"

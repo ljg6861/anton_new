@@ -8,13 +8,15 @@ import logging
 from typing import Dict, Set, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
+
+import numpy as np
 from server.agent.concept_graph import load_pack, rag_topk_nodes, expand_nodes, format_context
 from server.agent.learning_loop import learning_loop
+from server.agent.pack_builder import load_centroids
 from server.agent.rag_manager import rag_manager
 
 # Configure logger for knowledge store
 logger = logging.getLogger(__name__)
-
 
 class ContextType(Enum):
     """Types of context information"""
@@ -295,6 +297,20 @@ class KnowledgeStore:
         except Exception as e:
             logger.error(f"Failed to build domain knowledge context: {e}", exc_info=True)
             return ""
+        
+    def select_pack_by_embedding(self, prompt: str, fallback="packs/calc.v1") -> str:
+        centroids = load_centroids()
+        if not centroids:
+            return fallback
+        q = rag_manager.model.encode([prompt])[0]  # (dim,)
+        best_pack, best_sim = None, -1.0
+        for pack_dir, data in centroids.items():
+            c = np.array(data["centroid"], dtype=np.float32)
+            sim = float(np.dot(q, c) / (np.linalg.norm(q) * np.linalg.norm(c) + 1e-9))
+            if sim > best_sim:
+                best_pack, best_sim = pack_dir, sim
+        # add a floor so random chit-chat doesn’t select a pack
+        return best_pack if best_sim >= 0.35 else fallback
     
     def query_relevant_knowledge(self, query: str, max_results: int = 5) -> List[str]:
         """Query RAG for relevant past knowledge"""
