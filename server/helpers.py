@@ -44,4 +44,3 @@ class AgentChatRequest(BaseModel):
     temperature: float = 0.6
     complex: bool = False
     model: str = QWEN_30B_THINKING
-    user_id: str | None = None
