@@ -50,13 +50,13 @@ class CodeIndexer:
             # Binaries
             '.so', '.dll', '.exe', '.bin', '.dat',
             # Images
-            '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.svg',
+            '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.svg', '.pdf',
             # Archives
             '.zip', '.tar', '.gz', '.7z', '.rar', '.jar', '.war',
             # Media
             '.mp3', '.mp4', '.avi', '.mov', '.flv', '.wav',
             # Data files
-            '.db', '.sqlite', '.mdb', '.ldb', '.npy', '.pkl',
+            '.db', '.sqlite', '.mdb', '.ldb', '.npy', '.pkl', '.index',
             # Log and cache files
             '.log', '.cache', '.tmp',
             # IDE/editor files

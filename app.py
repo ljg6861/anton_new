@@ -2,6 +2,7 @@ import html
 from typing import List, Dict
 
 import chainlit as cl
+import httpx
 
 from client.anton_client import AntonClient
 
@@ -70,3 +71,22 @@ async def on_message(message: cl.Message):
     chat_history.append({"role": "user", "content": message.content})
     chat_history.append({"role": "assistant", "content": final_answer})
     cl.user_session.set("chat_history", chat_history)
+
+
+
+@cl.password_auth_callback
+async def auth_callback(username: str, password: str):
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.post(
+                f"http://localhost:8000/v1/auth",
+                json={"username": username, "password": password},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            return cl.User(identifier=data["identifier"], metadata=data.get("metadata", {}))
+        return None
+    except Exception:
+        return None
+    
+    

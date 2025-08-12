@@ -1,0 +1,3 @@
+{"src": "anton_repo.get-all-tools", "dst": "anton_repo.get-tools-by-pattern", "type": "depends_on", "rationale": "", "confidence": 0.0, "source": {}}
+{"src": "anton_repo.get-all-tools", "dst": "anton_repo.reload-tools", "type": "depends_on", "rationale": "", "confidence": 0.0, "source": {}}
+{"src": "anton_repo.rebuild-code-index", "dst": "anton_repo.rebuild-code-index-api", "type": "depends_on", "rationale": "", "confidence": 0.0, "source": {}}

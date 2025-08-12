@@ -55,8 +55,8 @@ def compose_node_card(n: Dict[str, Any], max_examples: int) -> str:
     # add up to N examples
     exs = [e for e in (n.get("examples") or []) if isinstance(e, dict)]
     for e in exs[:max_examples]:
-        inp = (e.get("input") or "").strip()
-        out = (e.get("output") or "").strip()
+        inp = str((e.get("input") or "")).strip()
+        out = str((e.get("output") or "")).strip()
         if inp or out:
             lines.append(f"Example: {inp} -> {out}".strip())
     return "\n".join([s for s in lines if s])

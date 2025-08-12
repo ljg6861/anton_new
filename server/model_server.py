@@ -2,14 +2,16 @@ import logging
 import os
 import time
 import psutil
+from pydantic import BaseModel
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import ollama # Import the ollama client library
 
 from metrics import MetricsTracker
+from server.auth_db import create_user, init_db, verify_user
 from server.config import QWEN_30B_THINKING
 from server.helpers import AgentChatRequest
 
@@ -153,6 +155,41 @@ async def chat_completions_stream(request: AgentChatRequest):
     metrics_generator = metrics_collecting_stream_generator(actual_ollama_stream_generator, metrics)
 
     return StreamingResponse(metrics_generator, media_type="text/event-stream")
+
+
+router = APIRouter(prefix="/v1", tags=["auth"])
+init_db()  # ensure schema exists
+
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+class AuthResponse(BaseModel):
+    identifier: str
+    metadata: dict
+
+@app.post("/v1/auth", response_model=AuthResponse)
+async def auth(req: AuthRequest):
+    ok = verify_user(req.username, req.password)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    # You can enrich metadata here (role, plan, etc.)
+    return AuthResponse(
+        identifier=req.username,
+        metadata={"role": "user", "provider": "credentials"}
+    )
+
+class SignupRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/v1/users", status_code=status.HTTP_201_CREATED)
+async def signup(req: SignupRequest):
+    try:
+        create_user(req.username, req.password)
+        return {"ok": True}
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Username already exists")
 
 
 if __name__ == "__main__":

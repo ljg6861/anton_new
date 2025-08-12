@@ -23,6 +23,8 @@ parts/
 sdist/
 var/
 wheels/
+learning/content/
+pgdata/
 share/python-wheels/
 *.egg-info/
 .installed.cfg

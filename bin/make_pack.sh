@@ -15,11 +15,11 @@ INPUT=""
 API="${API:-http://localhost:8000}"
 PACK=""
 SECTION_CONCURRENCY="${SECTION_CONCURRENCY:-4}"
-CHUNK_CONCURRENCY="${CHUNK_CONCURRENCY:-4}"
+CHUNK_CONCURRENCY="${CHUNK_CONCURRENCY:-5}"
 TEMPERATURE="${TEMPERATURE:-0.6}"
-MAX_CHARS="${MAX_CHARS:-13000}"
+MAX_CHARS="${MAX_CHARS:-14000}"
 RETRIES="${RETRIES:-2}"
-TIMEOUT="${TIMEOUT:-120}"
+TIMEOUT="${TIMEOUT:-3600}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,29 +44,34 @@ cd "$ROOT"
 if [[ -z "$PACK" ]]; then
   # default: <domain>.<yyyymmdd_HHMM>
   ts="$(date +%Y%m%d_%H%M)"
-  PACK="packs/${DOMAIN}.${ts}"
+  PACK="learning/packs/${DOMAIN}.${ts}"
 fi
 OUTDIR="$PACK"
 mkdir -p "$OUTDIR"
 
-# Step 1: PDF -> blocks.jsonl (only if INPUT is a PDF)
+# Step 1: Build or use blocks.jsonl
 BLOCKS="$OUTDIR/blocks.jsonl"
-if [[ "$INPUT" == *.pdf ]]; then
+if [[ -d "$INPUT" ]]; then
+  echo "[1/3] Importing code directory to blocks.jsonl..."
+  python3 learning/code_importer.py --root "$INPUT" --out "$BLOCKS" --domain "$DOMAIN"
+elif [[ "$INPUT" == *.pdf ]]; then
   echo "[1/3] Building blocks.jsonl from PDF..."
-  # >>> Replace the line below with your actual PDF-to-blocks tool if different <<<
-  # Example assumes you have a module or script that does this:
-  # python3 -m server.agent.pdf_to_blocks "$INPUT" --out "$BLOCKS"
-  # Fallback: if you already have blocks, you can do it elsewhere and just pass the .jsonl path.
-  if [[ -x "server/agent/pdf_to_blocks.py" ]]; then
+  # Prefer the repo's PDF importer
+  if [[ -f "learning/pdf_importer.py" ]]; then
+    python3 learning/pdf_importer.py "$INPUT" --outdir "$OUTDIR" --domain "$DOMAIN"
+  elif [[ -f "server/agent/pdf_to_blocks.py" ]]; then
     python3 server/agent/pdf_to_blocks.py "$INPUT" --out "$BLOCKS"
   else
-    echo "ERROR: Need a PDF→blocks tool. Put it at server/agent/pdf_to_blocks.py or edit this script."
+    echo "ERROR: Need a PDF→blocks tool. Found neither learning/pdf_importer.py nor server/agent/pdf_to_blocks.py"
     exit 1
   fi
-else
-  # INPUT is already a blocks.jsonl
+elif [[ -f "$INPUT" ]]; then
+  # Assume INPUT is already a blocks.jsonl
   echo "[1/3] Using existing blocks.jsonl..."
   cp -f "$INPUT" "$BLOCKS"
+else
+  echo "ERROR: --input must be a directory, a .pdf, or a blocks.jsonl file"
+  exit 1
 fi
 
 # Step 2: Concept extraction -> nodes.jsonl + graph_adj.json
@@ -85,7 +90,7 @@ python3 learning/concept_extractor.py "$BLOCKS" \
 
 # Step 3: Index nodes into RAG
 echo "[3/3] Indexing nodes into RAG..."
-python3 -m server.agent.index_pack_to_rag --pack-dir "$OUTDIR" --domain "$DOMAIN"
+python3 learning/rag_indexer.py --pack-dir "$OUTDIR" --domain "$DOMAIN"
 
 echo "Done."
 echo "Pack directory: $OUTDIR"

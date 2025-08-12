@@ -1,0 +1,11 @@
+{
+  "depends_on": {
+    "anton_repo.get-all-tools": [
+      "anton_repo.get-tools-by-pattern",
+      "anton_repo.reload-tools"
+    ],
+    "anton_repo.rebuild-code-index": [
+      "anton_repo.rebuild-code-index-api"
+    ]
+  }
+}

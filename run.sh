@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"   # project root (put this file there)
-
+set -o allexport
+source <(grep -v '^\s*#' .env | grep -v '^\s*$')
+set +o allexport
 LOGDIR=logs
 mkdir -p "$LOGDIR"
 

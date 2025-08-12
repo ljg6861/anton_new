@@ -1,93 +1,745 @@
-2025-08-11 17:30:22 - Your app is available at http://0.0.0.0:7860
-2025-08-11 17:30:23 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
-2025-08-11 17:30:24 - API client initialized for server at http://192.168.1.250:8001
-2025-08-11 17:30:24 - Anton client initialized.
-2025-08-11 17:30:31 - API client initialized for server at http://192.168.1.250:8001
-2025-08-11 17:30:31 - Anton client initialized.
-2025-08-11 17:30:32 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:30:32 - Phase 2: Streaming processed response from server.
-2025-08-11 17:30:32 - Streaming request to agent chat endpoint.
-2025-08-11 17:30:32 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:30:32 - API call failed during stream: peer closed connection without sending complete message body (incomplete chunked read)
+2025-08-12 11:44:40 - Loaded .env file
+2025-08-12 11:44:41 - Your app is available at http://0.0.0.0:7860
+2025-08-12 11:44:44 - API client initialized for server at http://192.168.1.250:8001
+2025-08-12 11:44:44 - Anton client initialized.
+2025-08-12 11:44:44 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
+2025-08-12 11:44:44 - Database error: column t.deletedAt does not exist
+HINT:  Perhaps you meant to reference the column "t.deletedat".
+ERROR:    Exception in ASGI application
 Traceback (most recent call last):
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 271, in __aiter__
-    async for part in self._httpcore_stream:
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/connection_pool.py", line 407, in __aiter__
-    raise exc from None
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/connection_pool.py", line 403, in __aiter__
-    async for part in self._stream:
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 342, in __aiter__
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 186, in __call__
     raise exc
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 334, in __aiter__
-    async for chunk in self._connection._receive_response_body(**kwargs):
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 203, in _receive_response_body
-    event = await self._receive_event(timeout=timeout)
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_async/http11.py", line 213, in _receive_event
-    with map_exceptions({h11.RemoteProtocolError: RemoteProtocolError}):
-  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)
-
-The above exception was the direct cause of the following exception:
-
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 29, in __call__
+    await responder(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 130, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 46, in __call__
+    await self.app(scope, receive, self.send_with_compression)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/routing.py", line 302, in app
+    raw_response = await run_endpoint_function(
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/routing.py", line 213, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/server.py", line 882, in get_user_threads
+    res = await data_layer.list_threads(payload.pagination, payload.filter)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 460, in list_threads
+    results = await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column t.deletedAt does not exist
+HINT:  Perhaps you meant to reference the column "t.deletedat".
+2025-08-12 11:44:45 - Database error: column t.deletedAt does not exist
+HINT:  Perhaps you meant to reference the column "t.deletedat".
+ERROR:    Exception in ASGI application
 Traceback (most recent call last):
-  File "/home/lucas/anton_new/client/anton_client.py", line 48, in stream_response
-    async for chunk in stream:
-  File "/home/lucas/anton_new/client/api_client.py", line 37, in stream_agent_chat
-    async for chunk in response.aiter_text():
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_models.py", line 1018, in aiter_text
-    async for byte_content in self.aiter_bytes():
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_models.py", line 997, in aiter_bytes
-    async for raw_bytes in self.aiter_raw():
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_models.py", line 1055, in aiter_raw
-    async for raw_stream_bytes in self.stream:
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_client.py", line 176, in __aiter__
-    async for chunk in self._stream:
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 270, in __aiter__
-    with map_httpcore_exceptions():
-  File "/usr/lib/python3.10/contextlib.py", line 153, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/home/lucas/.local/lib/python3.10/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.RemoteProtocolError: peer closed connection without sending complete message body (incomplete chunked read)
-2025-08-11 17:30:57 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:30:57 - Phase 2: Streaming processed response from server.
-2025-08-11 17:30:57 - Streaming request to agent chat endpoint.
-2025-08-11 17:30:57 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:34:13 - API client initialized for server at http://192.168.1.250:8001
-2025-08-11 17:34:13 - Anton client initialized.
-2025-08-11 17:34:14 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:34:14 - Phase 2: Streaming processed response from server.
-2025-08-11 17:34:14 - Streaming request to agent chat endpoint.
-2025-08-11 17:34:15 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:34:36 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:34:36 - Phase 2: Streaming processed response from server.
-2025-08-11 17:34:36 - Streaming request to agent chat endpoint.
-2025-08-11 17:34:38 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:35:16 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:35:16 - Phase 2: Streaming processed response from server.
-2025-08-11 17:35:16 - Streaming request to agent chat endpoint.
-2025-08-11 17:35:16 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:39:24 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:39:24 - Phase 2: Streaming processed response from server.
-2025-08-11 17:39:24 - Streaming request to agent chat endpoint.
-2025-08-11 17:39:24 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:40:12 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:40:12 - Phase 2: Streaming processed response from server.
-2025-08-11 17:40:12 - Streaming request to agent chat endpoint.
-2025-08-11 17:40:12 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:43:27 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
-2025-08-11 17:43:27 - API client initialized for server at http://192.168.1.250:8001
-2025-08-11 17:43:27 - Anton client initialized.
-2025-08-11 17:43:29 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:43:29 - Phase 2: Streaming processed response from server.
-2025-08-11 17:43:29 - Streaming request to agent chat endpoint.
-2025-08-11 17:43:29 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
-2025-08-11 17:48:25 - Phase 1: Sending raw prompt to server for routing.
-2025-08-11 17:48:25 - Phase 2: Streaming processed response from server.
-2025-08-11 17:48:25 - Streaming request to agent chat endpoint.
-2025-08-11 17:48:25 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 29, in __call__
+    await responder(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 130, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 46, in __call__
+    await self.app(scope, receive, self.send_with_compression)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/routing.py", line 302, in app
+    raw_response = await run_endpoint_function(
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/routing.py", line 213, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/server.py", line 882, in get_user_threads
+    res = await data_layer.list_threads(payload.pagination, payload.filter)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 460, in list_threads
+    results = await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column t.deletedAt does not exist
+HINT:  Perhaps you meant to reference the column "t.deletedat".
+2025-08-12 11:44:45 - Database error: column t.deletedAt does not exist
+HINT:  Perhaps you meant to reference the column "t.deletedat".
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/home/lucas/.local/lib/python3.10/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 29, in __call__
+    await responder(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 130, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/gzip.py", line 46, in __call__
+    await self.app(scope, receive, self.send_with_compression)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/lucas/.local/lib/python3.10/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/routing.py", line 302, in app
+    raw_response = await run_endpoint_function(
+  File "/home/lucas/.local/lib/python3.10/site-packages/fastapi/routing.py", line 213, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/server.py", line 882, in get_user_threads
+    res = await data_layer.list_threads(payload.pagination, payload.filter)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 460, in list_threads
+    results = await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column t.deletedAt does not exist
+HINT:  Perhaps you meant to reference the column "t.deletedat".
+2025-08-12 11:44:46 - API client initialized for server at http://192.168.1.250:8001
+2025-08-12 11:44:46 - Anton client initialized.
+2025-08-12 11:45:34 - Translated markdown file for en-US not found. Defaulting to chainlit.md.
+2025-08-12 11:45:34 - API client initialized for server at http://192.168.1.250:8001
+2025-08-12 11:45:34 - Anton client initialized.
+2025-08-12 11:45:39 - Phase 1: Sending raw prompt to server for routing.
+2025-08-12 11:45:39 - Phase 2: Streaming processed response from server.
+2025-08-12 11:45:39 - Streaming request to agent chat endpoint.
+2025-08-12 11:45:39 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Error while flushing create_step: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Error while flushing update_step: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Task exception was never retrieved
+future: <Task finished name='Task-182' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Task exception was never retrieved
+future: <Task finished name='Task-186' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:39 - Task exception was never retrieved
+future: <Task finished name='Task-184' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:40 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-12 11:45:46 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:46 - Task exception was never retrieved
+future: <Task finished name='Task-221' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:46 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:46 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:46 - Task exception was never retrieved
+future: <Task finished name='Task-246' coro=<ChainlitDataLayer.update_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 381, in update_step
+    await self.create_step(step_dict)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:46 - Task exception was never retrieved
+future: <Task finished name='Task-248' coro=<ChainlitDataLayer.update_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 381, in update_step
+    await self.create_step(step_dict)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:46 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:46 - Task exception was never retrieved
+future: <Task finished name='Task-251' coro=<ChainlitDataLayer.update_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 381, in update_step
+    await self.create_step(step_dict)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:50 - API client initialized for server at http://192.168.1.250:8001
+2025-08-12 11:45:50 - Anton client initialized.
+2025-08-12 11:45:53 - Phase 1: Sending raw prompt to server for routing.
+2025-08-12 11:45:53 - Phase 2: Streaming processed response from server.
+2025-08-12 11:45:53 - Streaming request to agent chat endpoint.
+2025-08-12 11:45:53 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Error while flushing create_step: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Error while flushing update_step: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Task exception was never retrieved
+future: <Task finished name='Task-321' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Task exception was never retrieved
+future: <Task finished name='Task-323' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - Task exception was never retrieved
+future: <Task finished name='Task-325' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:45:53 - HTTP Request: POST http://192.168.1.250:8001/v1/agent/chat "HTTP/1.1 200 OK"
+2025-08-12 11:46:05 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:46:05 - Task exception was never retrieved
+future: <Task finished name='Task-365' coro=<ChainlitDataLayer.create_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:46:05 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:46:05 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:46:05 - Database error: column "threadId" of relation "Step" does not exist
+2025-08-12 11:46:05 - Task exception was never retrieved
+future: <Task finished name='Task-394' coro=<ChainlitDataLayer.update_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 381, in update_step
+    await self.create_step(step_dict)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:46:05 - Task exception was never retrieved
+future: <Task finished name='Task-392' coro=<ChainlitDataLayer.update_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 381, in update_step
+    await self.create_step(step_dict)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
+2025-08-12 11:46:05 - Task exception was never retrieved
+future: <Task finished name='Task-397' coro=<ChainlitDataLayer.update_step() done, defined at /home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py:10> exception=UndefinedColumnError('column "threadId" of relation "Step" does not exist')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 232, in __step
+    result = coro.send(None)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 381, in update_step
+    await self.create_step(step_dict)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 322, in create_step
+    await self.create_step(
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/utils.py", line 25, in wrapper
+    return await method(self, *args, **kwargs)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 377, in create_step
+    await self.execute_query(query, params)
+  File "/home/lucas/.local/lib/python3.10/site-packages/chainlit/data/chainlit_data_layer.py", line 70, in execute_query
+    records = await connection.fetch(query, *params.values())
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 690, in fetch
+    return await self._execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1864, in _execute
+    result, _ = await self.__execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 1961, in __execute
+    result, stmt = await self._do_execute(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 2004, in _do_execute
+    stmt = await self._get_statement(
+  File "/home/lucas/.local/lib/python3.10/site-packages/asyncpg/connection.py", line 432, in _get_statement
+    statement = await self._protocol.prepare(
+  File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+  File "/usr/lib/python3.10/asyncio/futures.py", line 285, in __await__
+    yield self  # This tells Task to wait for completion.
+  File "/usr/lib/python3.10/asyncio/tasks.py", line 304, in __wakeup
+    future.result()
+  File "/usr/lib/python3.10/asyncio/futures.py", line 201, in result
+    raise self._exception.with_traceback(self._exception_tb)
+asyncpg.exceptions.UndefinedColumnError: column "threadId" of relation "Step" does not exist
