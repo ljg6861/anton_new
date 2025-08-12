@@ -184,7 +184,8 @@ async def agent_chat(request: AgentChatRequest):
         api_base_url=MODEL_SERVER_URL,
         tools=available_tools,
         knowledge_store=knowledge_store,
-        max_iterations=30
+        max_iterations=30,
+        user_id=request.user_id
     )
     
     # Extract initial messages from request

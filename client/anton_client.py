@@ -23,7 +23,7 @@ class AntonClient:
         logger.info("Anton client initialized.")
 
     async def stream_response(
-            self, user_prompt: str, chat_history: Optional[List[Dict[str, str]]] = None
+        self, user_prompt: str, chat_history: Optional[List[Dict[str, str]]] = None, user_id: str | None = None
     ) -> AsyncIterator[Dict[str, str]]:
         """
         Sends the user prompt and chat history to the server and streams the response.
@@ -41,6 +41,8 @@ class AntonClient:
                 "messages": messages,
                 "temperature": config.DEFAULT_TEMPERATURE,
             }
+            if user_id:
+                request_data["user_id"] = user_id
 
             # --- 2. Streaming from Server ---
             logger.info("Phase 2: Streaming processed response from server.")

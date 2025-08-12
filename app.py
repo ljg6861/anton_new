@@ -21,6 +21,7 @@ async def on_message(message: cl.Message):
     """
     anton: AntonClient = cl.user_session.get("anton")
     chat_history: List[Dict] = cl.user_session.get("chat_history")
+    user_id = cl.user_session.get("user_id") or "anonymous"
 
     final_answer = ""
     answer_msg = None  # create on first token so the Thinking step appears first
@@ -31,7 +32,7 @@ async def on_message(message: cl.Message):
     async with cl.Step(name="Thinking", parent_id=message.id) as step:
         try:
             async for chunk in anton.stream_response(
-                user_prompt=message.content, chat_history=chat_history
+                user_prompt=message.content, chat_history=chat_history, user_id=user_id
             ):
                 # If the chunk is part of a thought, add it to the buffer.
                 if chunk["type"] == "thought":
@@ -84,6 +85,11 @@ async def auth_callback(username: str, password: str):
             )
         if r.status_code == 200:
             data = r.json()
+            # Persist user identifier into session for downstream requests
+            try:
+                cl.user_session.set("user_id", data.get("identifier"))
+            except Exception:
+                pass
             return cl.User(identifier=data["identifier"], metadata=data.get("metadata", {}))
         return None
     except Exception:
