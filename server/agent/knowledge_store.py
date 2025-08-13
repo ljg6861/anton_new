@@ -298,9 +298,11 @@ class KnowledgeStore:
             logger.error(f"Failed to build domain knowledge context: {e}", exc_info=True)
             return ""
         
-    def select_pack_by_embedding(self, prompt: str, fallback="packs/calc.v1") -> str:
+    def select_pack_by_embedding(self, prompt: str, fallback="packs/anton_repo.v1") -> str:
         centroids = load_centroids()
+        logger.info('loaded centroids')
         if not centroids:
+            logger.info('returning fallback pack, no centroids found')
             return fallback
         q = rag_manager.model.encode([prompt])[0]  # (dim,)
         best_pack, best_sim = None, -1.0
@@ -310,6 +312,7 @@ class KnowledgeStore:
             if sim > best_sim:
                 best_pack, best_sim = pack_dir, sim
         # add a floor so random chit-chat doesn’t select a pack
+        logger.info('selected pack: ' + str(best_pack))
         return best_pack if best_sim >= 0.35 else fallback
     
     def query_relevant_knowledge(self, query: str, max_results: int = 5) -> List[str]:

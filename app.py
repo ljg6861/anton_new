@@ -27,6 +27,10 @@ async def on_message(message: cl.Message):
     # Buffer to accumulate the content of a single thought.
     thought_buffer = ""
 
+    elements = [
+        cl.Text(name = '', content=final_answer)
+    ]
+
     # By creating the Step first, it will appear at the top.
     async with cl.Step(name="Thinking", parent_id=message.id) as step:
         try:

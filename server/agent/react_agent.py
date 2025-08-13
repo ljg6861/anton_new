@@ -210,9 +210,15 @@ TOOL USAGE:
 
 RULES:
 - ONE tool per turn
-- Wait for OBSERVATION before continuing
+- Following a successful tool call, an OBSERVATION will be provided to you.
 - If doing a coding task, before you start you MUST ensure you are not on the master branch. If you are, you must create a new branch using the schema: anton/<short_feature_name>
 - Start your final response to the user with "Final Answer:"
+- You may ONLY use markdown when giving your final answer.
+- When using markdown ensure that you are always using triple backticks (```) to start and end the code block, and specify the language.
+Example: ```python
+print("Hello, World!")
+```
+
 """
 
         # Truncate base system to fit budget

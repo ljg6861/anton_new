@@ -8,8 +8,19 @@ import pathspec
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Define the project root as two directories up from the script's location
-PROJECT_ROOT = os.path.abspath(os.path.join(script_dir, '..', '..', '..'))
+def find_project_root(start_path):
+    current_path = os.path.abspath(start_path)
+    while True:
+        if os.path.exists(os.path.join(current_path, '.git')):
+            return current_path
+        parent_path = os.path.dirname(current_path)
+        if parent_path == current_path: # Reached the filesystem root
+            return None
+        current_path = parent_path
 
+PROJECT_ROOT = find_project_root(os.path.dirname(os.path.abspath(__file__)))
+if not PROJECT_ROOT:
+    raise FileNotFoundError("Could not find project root containing a .git directory.")
 
 # --- END: Added for Project Root ---
 
@@ -157,78 +168,59 @@ class ListDirectoryTool:
         }
     }
 
-    def run(self, arguments: dict) -> str:
-        """Executes the tool's logic, filtering results based on .gitignore."""
-        path_arg = arguments.get('path', '.')
-        recursive = arguments.get('recursive', True)
+def run(self, arguments: dict) -> str:
+    """
+    Lists files and directories not excluded by .gitignore, starting from the
+    project root. The output is a simple newline-separated list of relative
+    paths, suitable for agent consumption.
+    """
+    path_arg = arguments.get('path', '.')
+    recursive = arguments.get('recursive', True)
 
-        # These are assumed to be defined elsewhere in your project
-        project_root = PROJECT_ROOT
-        safe_path = _resolve_path(path_arg)
+    # All paths are resolved relative to the project root.
+    project_root = PROJECT_ROOT
+    scan_path = _resolve_path(path_arg)
 
-        if not os.path.isdir(safe_path):
-            return f"❌ Error: The path '{path_arg}' is not a valid directory."
+    if not os.path.isdir(scan_path):
+        return "" # Return empty string for invalid or non-existent paths.
 
-        # Load .gitignore rules from the project root
-        spec = None
-        gitignore_path = os.path.join(project_root, '.gitignore')
-        if os.path.exists(gitignore_path):
-            with open(gitignore_path, 'r') as f:
-                spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
+    # Load .gitignore rules from the project root.
+    spec = None
+    gitignore_path = os.path.join(project_root, '.gitignore')
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, 'r', encoding='utf-8') as f:
+            spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
 
-        display_path = path_arg if path_arg != '.' else 'project root'
-        output_message = f"✅ Contents of '{display_path}' (respecting .gitignore):\n"
+    output_paths = []
 
-        # --- Non-Recursive Listing ---
+    for root, dirs, files in os.walk(scan_path, topdown=True):
+        # Determine the current directory's path relative to the project root.
+        relative_root = os.path.relpath(root, project_root)
+        if relative_root == '.':
+            relative_root = ''
+
+        # Filter directories and files using .gitignore spec if it exists.
+        if spec:
+            # Filter dirs in-place to prevent `os.walk` from traversing them.
+            dirs[:] = [d for d in dirs if not spec.match_file(os.path.join(relative_root, d))]
+            # Filter files.
+            files = [f for f in files if not spec.match_file(os.path.join(relative_root, f))]
+
+        # Add resulting directories to the output list.
+        for d in dirs:
+            # Construct the full relative path and normalize to forward slashes.
+            full_path = os.path.join(relative_root, d).replace(os.sep, '/')
+            output_paths.append(f"{full_path}/")
+
+        # Add resulting files to the output list.
+        for f in files:
+            # Construct the full relative path and normalize to forward slashes.
+            full_path = os.path.join(relative_root, f).replace(os.sep, '/')
+            output_paths.append(full_path)
+        
+        # If not recursive, stop after processing the top-level directory.
         if not recursive:
-            entries = os.listdir(safe_path)
-            if spec:
-                relative_path = os.path.relpath(safe_path, project_root)
-                if relative_path == '.': relative_path = ''
-                entries = [
-                    e for e in entries
-                    if not spec.match_file(os.path.join(relative_path, e))
-                ]
-            return output_message + "\n".join(sorted(entries))
+            break
 
-        # --- Recursive Listing ---
-        output_lines = []
-        has_content = False
-        for root, dirs, files in os.walk(safe_path, topdown=True):
-            # Filter directories and files using .gitignore spec
-            if spec:
-                relative_root = os.path.relpath(root, project_root)
-                if relative_root == '.': relative_root = ''
-
-                # Filter dirs IN-PLACE so os.walk doesn't traverse them
-                dirs[:] = [d for d in dirs if not spec.match_file(os.path.join(relative_root, d))]
-                files = [f for f in files if not spec.match_file(os.path.join(relative_root, f))]
-
-            # Don't bother printing empty directories
-            if not files and not dirs:
-                continue
-
-            has_content = True
-            dirs.sort()
-            files.sort()
-
-            level = root.replace(safe_path, '', 1).count(os.sep)
-            indent = ' ' * 4 * level
-
-            dir_name = os.path.basename(root)
-            if root == safe_path:
-                dir_name = display_path
-
-            output_lines.append(f"{indent}📁 {dir_name}/")
-
-            sub_indent = ' ' * 4 * (level + 1)
-            for f in files:
-                output_lines.append(f"{sub_indent}📄 {f}")
-
-        if not has_content and os.listdir(safe_path):
-            return f"✅ All contents of '{display_path}' are ignored by .gitignore."
-
-        if not has_content:
-            return f"✅ The directory '{display_path}' is empty."
-
-        return output_message + "\n".join(output_lines)
+    # Return a single, sorted string with each path on a new line.
+    return "\n".join(sorted(output_paths))

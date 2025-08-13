@@ -34,6 +34,8 @@ chainlit-datalayer/
 logs/
 documents.pkl
 knowledge.index
+*.pkl
+*.index
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
