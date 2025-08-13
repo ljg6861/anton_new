@@ -181,6 +181,11 @@ async def agent_chat(request: AgentChatRequest):
     from server.agent.react_agent import ReActAgent, TokenBudget
     available_tools = tool_manager.get_tool_schemas()
     
+    # Set up expand_content tool with knowledge store dependency
+    expand_tool = tool_manager.get_tool_by_name("expand_content")
+    if expand_tool and hasattr(expand_tool, 'set_knowledge_store'):
+        expand_tool.set_knowledge_store(knowledge_store)
+    
     # Configure token budget based on request complexity
     budget = TokenBudget(total_budget=8192)  # Conservative default
     if hasattr(request, 'complex') and request.complex:

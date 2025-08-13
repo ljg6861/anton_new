@@ -217,7 +217,7 @@ RULES:
         # Truncate base system to fit budget
         system_prompt = self.memory.truncate_to_budget(base_system, self.budget.system_tools_budget)
         
-        # Add domain knowledge bundle (LTM retrieval with budget)
+        # Add domain knowledge bundle (LTM retrieval with budget) 
         domain_bundle = ""
         if user_prompt and self.domain_pack_dir:
             selected_pack = self.knowledge_store.select_pack_by_embedding(
@@ -227,9 +227,9 @@ RULES:
             bundle = self.knowledge_store.build_domain_knowledge_context(
                 query=user_prompt,
                 pack_dir=self.domain_pack_dir,
-                topk=3,  # Reduced for budget
+                topk=6,  # Reduced for skinnier format
                 expand_radius=1,
-                max_nodes=5,  # Reduced for budget
+                max_nodes=6,  # Using new default from format_context  
                 max_examples_per_node=1,
             )
             if bundle:
