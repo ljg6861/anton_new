@@ -414,7 +414,7 @@ print("Hello, World!") **Ensure there is a new line here!**
         # Main ReAct loop
         iteration = 0
         
-        while iteration < 1:
+        while iteration < self.max_iterations:
             iteration += 1
             logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
             
