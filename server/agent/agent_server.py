@@ -183,13 +183,8 @@ async def agent_chat(request: AgentChatRequest):
     knowledge_store = KnowledgeStore()
     
     # Create ReAct agent with knowledge store, tool schemas, and token budget
-    from server.agent.react_agent import ReActAgent, TokenBudget
+    from server.agent.react_agent import ReActAgent
     available_tools = tool_manager.get_tool_schemas()
-    
-    # Configure token budget based on request complexity
-    budget = TokenBudget(total_budget=8192)  # Conservative default
-    if hasattr(request, 'complex') and request.complex:
-        budget.total_budget = 16384  # Larger budget for complex tasks
         
     react_agent = ReActAgent(
         api_base_url=MODEL_SERVER_URL,
@@ -197,7 +192,6 @@ async def agent_chat(request: AgentChatRequest):
         knowledge_store=knowledge_store,
         max_iterations=30,
         user_id=request.user_id,
-        token_budget=budget
     )
     
     # Extract initial messages from request
