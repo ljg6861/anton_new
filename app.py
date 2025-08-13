@@ -1,8 +1,14 @@
 import html
+import re
 from typing import List, Dict
 
 import chainlit as cl
+import os
 import httpx
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
 
 from client.anton_client import AntonClient
 
@@ -23,53 +29,50 @@ async def on_message(message: cl.Message):
     chat_history: List[Dict] = cl.user_session.get("chat_history")
 
     final_answer = ""
-    answer_msg = None  # create on first token so the Thinking step appears first
-    # Buffer to accumulate the content of a single thought.
-    thought_buffer = ""
-
-    elements = [
-        cl.Text(name = '', content=final_answer)
-    ]
+    answer_msg = None
+    thought_has_started = False 
 
     # By creating the Step first, it will appear at the top.
     async with cl.Step(name="Thinking", parent_id=message.id) as step:
-        try:
-            async for chunk in anton.stream_response(
-                user_prompt=message.content, chat_history=chat_history
-            ):
-                # If the chunk is part of a thought, add it to the buffer.
-                if chunk["type"] == "thought":
-                    thought_buffer += chunk["content"]
-                # If a new chunk type arrives, the previous thought is complete.
-                # Flush the buffered thought before processing the new chunk.
-                else:
-                    if thought_buffer:
-                        await step.stream_token(f"• {thought_buffer}\n")
-                        thought_buffer = ""  # Reset buffer for the next thought
+        async for chunk in anton.stream_response(
+            user_prompt=message.content, chat_history=chat_history
+        ):
+            if chunk["type"] == "thought":
+                content = chunk["content"]
+                # Add a bullet point only for the first thought chunk.
+                if not thought_has_started:
+                    content = "• " + content
+                    thought_has_started = True
+                
+                # Stream the new content directly to the step.
+                await step.stream_token(content)
 
-                    # Process the non-thought chunk.
-                    if chunk["type"] == "tool_result":
-                        result_str = (
-                            f"\n*Tool Result:*\n```json\n{chunk['content']}\n```\n"
-                        )
-                        await step.stream_token(result_str)
+            # Process the non-thought chunk.
+            elif chunk["type"] == "tool_result":
+                result_str = (
+                    f"\n*Tool Result:*\n```json\n{chunk['content']}\n```\n"
+                )
+                await step.stream_token(result_str)
 
-                    elif chunk["type"] == "token":
-                        token = html.unescape(chunk["content"])  # keep markdown; html entities only
-                        if answer_msg is None:
-                            answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
-                            await answer_msg.send()
-                        await answer_msg.stream_token(token)
-                        final_answer += token
+            elif chunk["type"] == "token":
+                final_answer += chunk["content"]
+                token = chunk["content"]
+                if answer_msg is None:
+                    answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
+                if MD_DEBUG:
+                    _tok_preview = token.replace('\n', '\\n')
+                    logger.info(f"[MDDBG:ui] stream token len={len(token)} repr={_tok_preview!r}")
+                await answer_msg.stream_token(token)
             
-            # After the loop, flush any final thought that might be in the buffer.
-            if thought_buffer:
-                await step.stream_token(f"• {thought_buffer}\n")
-
-        finally:
-            # Ensure the final message content is committed
-            if answer_msg:
-                await answer_msg.update()
+            else:
+                if chunk["type"] == "info":
+                    continue
+                if answer_msg is None:
+                    answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
+                await answer_msg.stream_token("Unkown chunk: " + chunk["type"])
+        
+        if answer_msg:
+            await answer_msg.send()
 
     # Update the session's chat history.
     chat_history.append({"role": "user", "content": message.content})

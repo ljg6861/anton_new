@@ -4,13 +4,14 @@ Handles all direct HTTP communications with the Anton agent server.
 This class encapsulates the logic for making API calls, handling responses,
 and managing the HTTP client session.
 """
-import logging
+import logging, os
 from typing import AsyncIterator, Dict, Any
 
 import httpx
 
 # Set up a dedicated logger for this module
 logger = logging.getLogger(__name__)
+MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
 
 
 class ApiClient:

@@ -1,4 +1,3 @@
-# filepath: /home/lucas/anton_new/server/agent/react_agent.py
 """
 ReAct (Reason-Act) Agent: single-loop reasoning, tool use, and response streaming.
 Integrates KnowledgeStore, LearningLoop, RAG, and per-user memory.
@@ -7,7 +6,7 @@ Uses three-memory architecture with token budgeting.
 import json
 import re
 import time
-import logging
+import logging, os, re, json, httpx
 from urllib import response
 import httpx
 from typing import AsyncGenerator, List, Dict, Any, Optional
@@ -21,6 +20,7 @@ from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
 from server.agent.learning_loop import learning_loop
 
 logger = logging.getLogger(__name__)
+MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
 
 
 @dataclass
@@ -52,6 +52,71 @@ class TokenBudget:
     @property
     def scratchpad_budget(self) -> int:
         return int(self.total_budget * self.scratchpad_pct)
+
+
+class TokenLoopDetector:
+    """Detects token-level repetition and loops in model output"""
+    
+    def __init__(self, window_size: int = 50, min_phrase_length: int = 4, repeat_threshold: int = 3):
+        self.window_size = window_size
+        self.min_phrase_length = min_phrase_length
+        self.repeat_threshold = repeat_threshold
+        self.token_buffer = []
+        self.phrase_counts = {}
+        self.last_warning_position = -1
+        
+    def add_token(self, token: str) -> bool:
+        """
+        Add a token and check for loops. Returns True if loop detected.
+        """
+        self.token_buffer.append(token.strip())
+        
+        # Keep only recent tokens
+        if len(self.token_buffer) > self.window_size:
+            self.token_buffer.pop(0)
+            
+        # Only check for loops if we have enough tokens
+        if len(self.token_buffer) < self.min_phrase_length * 2:
+            return False
+            
+        # Check for repeated phrases
+        return self._detect_phrase_repetition()
+    
+    def _detect_phrase_repetition(self) -> bool:
+        """Detect if phrases are repeating"""
+        # Create phrases of different lengths
+        for phrase_len in range(self.min_phrase_length, min(len(self.token_buffer) // 2, 15)):
+            phrases = []
+            
+            # Extract overlapping phrases
+            for i in range(len(self.token_buffer) - phrase_len + 1):
+                phrase = " ".join(self.token_buffer[i:i + phrase_len])
+                phrases.append(phrase)
+            
+            # Count phrase occurrences in recent window
+            phrase_counts = {}
+            recent_phrases = phrases[-20:]  # Look at last 20 phrases
+            
+            for phrase in recent_phrases:
+                phrase_counts[phrase] = phrase_counts.get(phrase, 0) + 1
+                
+            # Check if any phrase repeats too often
+            for phrase, count in phrase_counts.items():
+                if count >= self.repeat_threshold and len(phrase.strip()) > 10:
+                    # Avoid warning about the same phrase repeatedly
+                    current_pos = len(self.token_buffer)
+                    if current_pos - self.last_warning_position > 20:
+                        self.last_warning_position = current_pos
+                        logger.warning(f"Loop detected: phrase '{phrase[:50]}...' repeated {count} times")
+                        return True
+                        
+        return False
+    
+    def reset(self):
+        """Reset the detector for a new request"""
+        self.token_buffer.clear()
+        self.phrase_counts.clear()
+        self.last_warning_position = -1
 
 
 class MemoryManager:
@@ -178,6 +243,9 @@ class ReActAgent:
         self.budget = token_budget or TokenBudget()
         self.memory = MemoryManager(self.budget)
         
+        # Initialize loop detection
+        self.loop_detector = TokenLoopDetector()
+        
         logger.info(f"ReActAgent initialized with token budget: {self.budget.total_budget}")
 
     async def get_react_system_prompt(self, user_prompt: str, working_memory: str, session_memory: str) -> str:
@@ -215,8 +283,9 @@ RULES:
 - Start your final response to the user with "Final Answer:"
 - You may ONLY use markdown when giving your final answer.
 - When using markdown ensure that you are always using triple backticks (```) to start and end the code block, and specify the language.
-Example: ```python
-print("Hello, World!")
+Example: 
+```python **Ensure there is a new line here!**
+print("Hello, World!") **Ensure there is a new line here!**
 ```
 
 """
@@ -345,7 +414,7 @@ print("Hello, World!")
         # Main ReAct loop
         iteration = 0
         
-        while iteration < self.max_iterations:
+        while iteration < 1:
             iteration += 1
             logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
             
@@ -356,7 +425,6 @@ print("Hello, World!")
                 "react_agent"
             )
             
-            # Get response from LLM with incremental streaming and parsing
             response_buffer = ""
             thinking_content = ""
             thinking_started = True
@@ -410,7 +478,6 @@ print("Hello, World!")
                         yield f'<token>{token}</token>'
                     if 'Final Answer:' in content_after_thinking and not answering:
                         answering = True
-
             
             # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
@@ -419,7 +486,7 @@ print("Hello, World!")
             if not thinking_content:
                 thinking_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
                 if thinking_match:
-                    thinking_content = (pre_think_buffer + thinking_match.group(1)).strip()
+                    thinking_content = thinking_match.group(1).strip()
                     self.knowledge_store.add_context(
                         thinking_content,
                         ContextType.THOUGHT,
@@ -433,7 +500,7 @@ print("Hello, World!")
                     yield f"<thought>{thinking_content}</thought>"
             
             # Extract content after thinking markers and tool code blocks
-            content = content_after_thinking or re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
+            content = re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
             logger.info(f"Content after thinking: {content}")
             # Check if agent made tool calls before yielding the content
             from server.agent import config
@@ -518,34 +585,12 @@ print("Hello, World!")
 
         async with httpx.AsyncClient(timeout=None) as client:
             try:
+                # Assuming self.api_base_url is defined elsewhere
                 async with client.stream("POST", f"{self.api_base_url}/v1/chat/stream", json=request_payload) as response:
                     response.raise_for_status()
-                    last_emitted = ""  # track cumulative text we've already emitted
                     async for chunk in response.aiter_text():
-                        for raw in chunk.split("\n"):
-                            if not raw.strip():
-                                continue
-                            if raw.startswith("data: "):
-                                payload = raw[6:]
-                                if payload == "[DONE]":
-                                    return
-                                # Try JSON; fall back to raw text
-                                try:
-                                    obj = json.loads(payload)
-                                    # common keys: "delta", "content", "message"
-                                    piece = obj.get("delta") or obj.get("content") or obj.get("message") or ""
-                                except Exception:
-                                    piece = payload
-
-                                # If the server sends cumulative text, only emit the new suffix
-                                if piece.startswith(last_emitted):
-                                    delta = piece[len(last_emitted):]
-                                else:
-                                    # not cumulative; treat as incremental
-                                    delta = piece
-                                if delta:
-                                    last_emitted = piece if piece.startswith(last_emitted) else last_emitted + delta
-                                    yield delta
+                        chunk = json.loads(chunk)
+                        yield chunk.get("message").get("content")
 
             except httpx.RequestError as e:
                 logger.error(f"ReActAgent: API request to model server failed: {e}")

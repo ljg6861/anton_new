@@ -108,9 +108,14 @@ async def metrics_collecting_stream_generator(
     # Use the local get_all_resource_usage function
     metrics.get_resource_usage = lambda: get_all_resource_usage(logger)
     metrics.resource_snapshots['agent_request_start'] = metrics.get_resource_usage()
+    import os
+    MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
     try:
         async for chunk in stream:
             chunk_count += 1
+            if MD_DEBUG:
+                _chunk_preview = chunk[:120].replace('\n', '\\n')
+                logger.info(f"[MDDBG:agent_server] outbound chunk len={len(chunk)} repr={_chunk_preview!r}")
             yield chunk
     finally:
         metrics.end_time = time.monotonic()

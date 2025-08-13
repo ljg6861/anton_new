@@ -1,6 +1,6 @@
 # client/anton_client.py
 
-import logging
+import logging, os
 from typing import AsyncIterator, Dict, List, Optional
 
 from client import config
@@ -9,6 +9,7 @@ from client.api_client import ApiClient
 
 # Set up a dedicated logger for this module
 logger = logging.getLogger(__name__)
+MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
 
 
 class AntonClient:
@@ -46,19 +47,32 @@ class AntonClient:
             logger.info("Phase 2: Streaming processed response from server.")
             stream = self.api_client.stream_agent_chat(request_data)
             async for chunk in stream:
+                if MD_DEBUG:
+                    _chunk_escaped = chunk.replace('\n', '\\n')
+                    logger.info(f"[MDDBG:anton_client] inbound raw len={len(chunk)} repr={_chunk_escaped!r}")
                 # Parse structured events from the server
                 if chunk.startswith("<thought>") and chunk.endswith("</thought>"):
                     content = chunk[9:-10]  # Remove <thought> tags
+                    if MD_DEBUG:
+                        logger.info(f"[MDDBG:anton_client] parsed thought len={len(content)}")
                     yield {"type": "thought", "content": content}
                 elif chunk.startswith("<tool_result>") and chunk.endswith("</tool_result>"):
                     content = chunk[13:-14]  # Remove <tool_result> tags
+                    if MD_DEBUG:
+                        logger.info(f"[MDDBG:anton_client] parsed tool_result len={len(content)}")
                     yield {"type": "tool_result", "content": content}
                 elif chunk.startswith("<token>") and chunk.endswith("</token>"):
+                    logger.info(f"Current chunk: {chunk!r}")
                     content = chunk[7:-8]  # Remove <token> tags
+                    if MD_DEBUG:
+                        _content_escaped = content.replace('\n', '\\n')
+                        logger.info(f"[MDDBG:anton_client] parsed token len={len(content)} repr={_content_escaped!r}")
                     yield {"type": "token", "content": content}
                     assistant_response_for_memory += content
                 else:
                     # Fallback for any raw chunks (backward compatibility)
+                    if MD_DEBUG:
+                        logger.info(f"[MDDBG:anton_client] fallback len={len(chunk)}")
                     yield {"type": "token", "content": chunk}
                     assistant_response_for_memory += chunk
 

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -7,16 +8,13 @@ import uvicorn
 from fastapi import APIRouter, FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-import ollama # Import the ollama client library
-
-from metrics import MetricsTracker
+import ollama
 from server.auth_db import create_user, init_db, verify_user
-from server.config import QWEN_30B_THINKING
 from server.helpers import AgentChatRequest
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 # ----------------------------
@@ -81,81 +79,47 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Ollama API Server", version="1.0.0", lifespan=lifespan)
 
 
-async def metrics_collecting_stream_generator(
-        ollama_stream: AsyncGenerator[dict, None], # Ollama streams dictionaries
-        metrics: MetricsTracker
-) -> AsyncGenerator[str, None]:
-    chunk_count = 0
-    metrics.get_resource_usage = lambda: get_all_resource_usage(logger)
-    metrics.resource_snapshots['request_start'] = metrics.get_resource_usage()
-    try:
-        async for chunk in ollama_stream:
-            # Ollama's chat API yields dicts with a 'content' field in 'message'
-            if 'message' in chunk and 'content' in chunk['message']:
-                # Format as proper SSE with data: prefix
-                content = chunk['message']['content']
-                yield f"data: {content}\n\n"
-                chunk_count += 1
-            elif 'done' in chunk and chunk['done']:
-                # The 'done' chunk signifies the end and contains final metrics
-                yield "data: [DONE]\n\n"
-    finally:
-        metrics.end_time = time.monotonic()
-        metrics.step_token_counts['generation'] = chunk_count
-        e2e_latency = metrics.end_time - metrics.start_time
-        throughput = chunk_count / e2e_latency if e2e_latency > 0 else 0
-        metrics.resource_snapshots['request_end'] = metrics.get_resource_usage()
-        logger.info("--- REQUEST METRICS ---")
-        logger.info(f"[Latency] End-to-End: {e2e_latency:.2f} seconds")
-        logger.info(f"[Throughput] Chunks per Second: {throughput:.2f}")
-        logger.info(f"[Throughput] Total Chunks: {chunk_count}")
-        start_usage = metrics.resource_snapshots['request_start']
-        end_usage = metrics.resource_snapshots['request_end']
-        logger.info(
-            f"[Resources] Start - CPU: {start_usage['cpu_percent']:.1f}%, "
-            f"RAM: {start_usage['ram_percent']:.1f}%"
-        )
-        logger.info(
-            f"[Resources] End   - CPU: {end_usage['cpu_percent']:.1f}%, "
-            f"RAM: {end_usage['ram_percent']:.1f}%"
-        )
-        logger.info("-----------------------")
-
-
 @app.post("/v1/chat/stream")
 async def chat_completions_stream(request: AgentChatRequest):
-    logger.info("Received request on /v1/chat/stream")
-    metrics = MetricsTracker(logger)
+    OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    # Instantiate the asynchronous client once
     client = ollama.AsyncClient(host=OLLAMA_HOST)
+    logger.info("Received request on /v1/chat/stream")
 
-    try:
-        ollama_options = {
-            "temperature": request.temperature,
-            "num_predict": 16384 ,
-        }
+    ollama_options = {
+        "temperature": request.temperature,
+        "num_predict": 16384,
+        "repeat_penalty": 1.1,  # Penalize repetition (1.0 = no penalty, >1.0 = penalty)
+        "repeat_last_n": 64,    # Look at last 64 tokens for repetition
+        "top_k": 40,           # Limit to top 40 tokens for sampling
+        "top_p": 0.9,          # Nucleus sampling with 90% probability mass
+        "frequency_penalty": 0.1,  # Additional frequency-based penalty
+        "presence_penalty": 0.1,   # Penalize tokens that have appeared
+    }
 
-        model_to_use = request.model
-        logger.info(f"Query: \n{request.messages}")
+    model_to_use = request.model
+    logger.info(f"Query: \n{request.messages}")
 
-        # Step 2: Use the determined model for the actual chat
-        actual_ollama_stream_generator = await client.chat(
-            model=model_to_use,
-            messages=request.messages,
-            stream=True,
-            options=ollama_options,
-        )
+    # Step 2: Use the determined model for the actual chat
+    actual_ollama_stream_generator = await client.chat(
+        model=model_to_use,
+        messages=request.messages,
+        stream=True,
+        options=ollama_options,
+    )
 
-    except ollama.ResponseError as e:
-        logger.error(f"Error from Ollama during routing or chat request: {e}")
-        raise HTTPException(status_code=500, detail=f"Ollama inference error: {e.error}")
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during routing or Ollama call setup: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error during Ollama call setup.")
+    async def ollama_json_streamer(generator):
+        async for chunk in generator:
+            json_string = chunk.model_dump_json()
+            yield f"{json_string}\n" 
+            await asyncio.sleep(0)
 
-    metrics_generator = metrics_collecting_stream_generator(actual_ollama_stream_generator, metrics)
 
-    return StreamingResponse(metrics_generator, media_type="text/event-stream")
+    # Pass the raw generator into our new streaming function.
+    streaming_generator = ollama_json_streamer(actual_ollama_stream_generator)
 
+    # Use the correct media type for a stream of JSON objects.
+    return StreamingResponse(streaming_generator, media_type="application/x-ndjson")
 
 router = APIRouter(prefix="/v1", tags=["auth"])
 init_db()  # ensure schema exists
