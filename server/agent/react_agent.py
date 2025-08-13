@@ -1,7 +1,7 @@
 """
 ReAct (Reason-Act) Agent: single-loop reasoning, tool use, and response streaming.
+Refactored to use structured state management following the make_state/react_run_with_state pattern.
 Integrates KnowledgeStore, LearningLoop, RAG, and per-user memory.
-Uses three-memory architecture with token budgeting.
 """
 import json
 import re
@@ -10,49 +10,21 @@ import logging, os, re, json, httpx
 from urllib import response
 import httpx
 from typing import AsyncGenerator, List, Dict, Any, Optional
-from dataclasses import dataclass
-
-from torch import chunk
 
 from server.agent.knowledge_store import KnowledgeStore, ContextType, ImportanceLevel
 from server.agent.tool_executor import process_tool_calls
 from server.agent.config import SYSTEM_ROLE, ASSISTANT_ROLE, USER_ROLE
 from server.agent.learning_loop import learning_loop
+from server.agent.state import State, make_state, enforce_budgets, Budgets, AgentStatus
+from server.agent.state_ops import (
+    build_working_memory, build_session_memory, build_context_summary,
+    format_thought_action_observation, update_state_from_tool_result,
+    parse_action_from_response, is_final_response, update_session_context_from_goal,
+    get_budget_status, summarize_execution, truncate_to_budget
+)
 
 logger = logging.getLogger(__name__)
 MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
-
-
-@dataclass
-class TokenBudget:
-    """Token budget allocation for different prompt sections"""
-    total_budget: int = 8192  # Conservative budget for most models
-    system_tools_pct: float = 0.15    # System + tool catalog: ~15%
-    domain_bundle_pct: float = 0.30    # Domain knowledge bundle: ~30%  
-    session_summary_pct: float = 0.15  # Session memory summary: ~15%
-    working_memory_pct: float = 0.35   # Recent messages: ~35%
-    scratchpad_pct: float = 0.05       # Reserve for think: ~5%
-    
-    @property
-    def system_tools_budget(self) -> int:
-        return int(self.total_budget * self.system_tools_pct)
-    
-    @property 
-    def domain_bundle_budget(self) -> int:
-        return int(self.total_budget * self.domain_bundle_pct)
-        
-    @property
-    def session_summary_budget(self) -> int:
-        return int(self.total_budget * self.session_summary_pct)
-        
-    @property
-    def working_memory_budget(self) -> int:
-        return int(self.total_budget * self.working_memory_pct)
-        
-    @property
-    def scratchpad_budget(self) -> int:
-        return int(self.total_budget * self.scratchpad_pct)
-
 
 class TokenLoopDetector:
     """Detects token-level repetition and loops in model output"""
@@ -119,107 +91,10 @@ class TokenLoopDetector:
         self.last_warning_position = -1
 
 
-class MemoryManager:
-    """Manages three types of memory with token budgeting"""
-    
-    def __init__(self, budget: TokenBudget):
-        self.budget = budget
-        self.session_decisions = []  # Track key decisions this session
-        self.session_todos = []      # Track open TODOs
-        self.session_context = ""   # Current session context
-        
-    def estimate_tokens(self, text: str) -> int:
-        """Rough token estimation (1 token ≈ 4 chars for English)"""
-        return len(text) // 4
-        
-    def truncate_to_budget(self, text: str, budget: int) -> str:
-        """Truncate text to fit within token budget"""
-        estimated_tokens = self.estimate_tokens(text)
-        if estimated_tokens <= budget:
-            return text
-        
-        # Truncate to approximately fit budget
-        target_chars = budget * 4
-        if len(text) <= target_chars:
-            return text
-            
-        # Truncate at word boundary
-        truncated = text[:target_chars]
-        last_space = truncated.rfind(' ')
-        if last_space > target_chars * 0.8:  # Don't cut too much
-            truncated = truncated[:last_space]
-        
-        return truncated + "..."
-        
-    def build_working_memory(self, messages: List[Dict[str, str]]) -> str:
-        """Build working memory from recent messages (WM)"""
-        # Take most recent messages that fit in budget
-        budget = self.budget.working_memory_budget
-        
-        # Start from most recent and work backwards
-        selected_messages = []
-        total_tokens = 0
-        
-        for msg in reversed(messages):
-            # Preserve original role, don't default to 'user' to avoid confusion
-            role = msg.get('role', 'unknown')
-            content = f"[{role}]: {msg.get('content', '')}"
-            msg_tokens = self.estimate_tokens(content)
-            
-            if total_tokens + msg_tokens <= budget:
-                selected_messages.insert(0, content)
-                total_tokens += msg_tokens
-            else:
-                break
-                
-        return "\n".join(selected_messages)
-        
-    def build_session_memory(self) -> str:
-        """Build session memory summary (SM)"""
-        parts = []
-        
-        if self.session_context:
-            parts.append(f"Context: {self.session_context}")
-            
-        if self.session_decisions:
-            decisions_text = "; ".join(self.session_decisions[-5:])  # Last 5 decisions
-            parts.append(f"Decisions: {decisions_text}")
-            
-        if self.session_todos:
-            todos_text = "; ".join(self.session_todos[-3:])  # Last 3 TODOs
-            parts.append(f"TODOs: {todos_text}")
-            
-        session_text = " | ".join(parts)
-        return self.truncate_to_budget(session_text, self.budget.session_summary_budget)
-        
-    def add_decision(self, decision: str):
-        """Add a decision to session memory"""
-        self.session_decisions.append(decision)
-        # Keep only recent decisions to prevent memory bloat
-        if len(self.session_decisions) > 10:
-            self.session_decisions = self.session_decisions[-10:]
-            
-    def add_todo(self, todo: str):
-        """Add a TODO to session memory"""
-        if todo not in self.session_todos:
-            self.session_todos.append(todo)
-            
-    def complete_todo(self, todo: str):
-        """Mark a TODO as complete"""
-        if todo in self.session_todos:
-            self.session_todos.remove(todo)
-            
-    def set_session_context(self, context: str):
-        """Set the current session context"""
-        self.session_context = context
-
-
 class ReActAgent:
     """
-    Single-agent ReAct implementation with three-memory architecture:
-    - Working Memory (WM): recent messages that fit in token budget
-    - Session Memory (SM): decisions, TODOs, context from this chat session  
-    - Long-term Memory (LTM): RAG + domain packs, retrieved as needed
+    Single-agent ReAct implementation with structured state management.
+    Follows the react_run_with_state pattern for clean separation of concerns.
     """
 
     def __init__(
@@ -230,26 +105,42 @@ class ReActAgent:
         max_iterations: int = 10,
         domain_pack_dir: str = "../../learning/packs",
         user_id: Optional[str] = None,
-        token_budget: Optional[TokenBudget] = None,
+        budgets: Optional[Budgets] = None,
     ) -> None:
         self.api_base_url = api_base_url
         self.tools = tools
         self.knowledge_store = knowledge_store
-        self.max_iterations = max_iterations
         self.domain_pack_dir = domain_pack_dir
         self.user_id = user_id or "anonymous"
         
-        # Initialize memory management
-        self.budget = token_budget or TokenBudget()
-        self.memory = MemoryManager(self.budget)
+        # Initialize default budgets if none provided
+        self.default_budgets = budgets or Budgets(max_iterations=max_iterations)
         
         # Initialize loop detection
         self.loop_detector = TokenLoopDetector()
         
-        logger.info(f"ReActAgent initialized with token budget: {self.budget.total_budget}")
+        logger.info(f"ReActAgent initialized with token budget: {self.default_budgets.total_tokens}")
 
-    async def get_react_system_prompt(self, user_prompt: str, working_memory: str, session_memory: str) -> str:
-        """Compose system prompt with strict token budgeting"""
+    def react_run_with_state(self, goal: str, budgets: Optional[Budgets] = None) -> State:
+        """
+        Main entry point following the structured state pattern.
+        This is a synchronous wrapper that will be called by the async process_request.
+        """
+        S = make_state(goal, budgets or self.default_budgets, self.user_id)
+        update_session_context_from_goal(S)
+        
+        # Initialize learning loop
+        if goal:
+            learning_loop.start_task(goal)
+        
+        return S
+
+    async def get_react_system_prompt(self, state: State, user_prompt: str) -> str:
+        """Compose system prompt with structured state and strict token budgeting"""
+        
+        # Build working and session memory from state
+        working_memory = build_working_memory(state)
+        session_memory = build_session_memory(state)
         
         # Build core system prompt (budgeted)
         base_system = f"""
@@ -262,7 +153,7 @@ Your primary directive is to always perform research before providing an answer.
 If you cannot find a definitive answer after thorough research, you will confidently explain what you have investigated and why a conclusive answer isn't possible. You will never invent, guess, or hallucinate information. Your responses should demonstrate the care and depth of your research.
 
 MEMORY CONSTRAINTS:
-- Keep <think> blocks concise (max {self.budget.scratchpad_budget} tokens)
+- Keep <think> blocks concise (max {state.budgets.scratchpad_budget} tokens)
 - Focus on the immediate task, rely on provided context
 
 FORMAT:
@@ -278,7 +169,7 @@ CAPABILITIES:
 - Anything else mentioned in the following tools
 
 TOOLS:
-{self._format_tools_compact()}
+{self._format_tools_compact(state)}
 
 TOOL USAGE:
 &lt;tool_call&gt;{{"name": "tool_name", "arguments": {{"param": "value"}}}}&lt;/tool_call&gt;
@@ -298,7 +189,7 @@ print("Hello, World!") **Ensure there is a new line here!**
 """
 
         # Truncate base system to fit budget
-        system_prompt = self.memory.truncate_to_budget(base_system, self.budget.system_tools_budget)
+        system_prompt = truncate_to_budget(base_system, state.budgets.system_tools_budget)
         
         # Add domain knowledge bundle (LTM retrieval with budget)
         domain_bundle = ""
@@ -315,12 +206,12 @@ print("Hello, World!") **Ensure there is a new line here!**
                 max_examples_per_node=1
             )
             if bundle:
-                domain_bundle = self.memory.truncate_to_budget(bundle, self.budget.domain_bundle_budget)
+                domain_bundle = truncate_to_budget(bundle, state.budgets.domain_bundle_budget)
                 
         # Add user profile (part of LTM)
         user_context = None #build_user_context(self.user_id) if self.user_id else ""
         if user_context:
-            user_context = self.memory.truncate_to_budget(user_context, 200)  # Small budget for user context
+            user_context = truncate_to_budget(user_context, 200)  # Small budget for user context
         
         # Assemble final prompt
         prompt_parts = [system_prompt]
@@ -336,7 +227,7 @@ print("Hello, World!") **Ensure there is a new line here!**
             
         return "\n".join(prompt_parts)
 
-    def _format_tools_compact(self) -> str:
+    def _format_tools_compact(self, state: State) -> str:
         """Format tools in a compact way to reduce prompt bloat"""
         if not self.tools:
             return "No tools available"
@@ -359,7 +250,7 @@ print("Hello, World!") **Ensure there is a new line here!**
         
         tools_text = "; ".join(tool_summaries)
         # Ensure tools fit within allocated budget (part of system budget)
-        return self.memory.truncate_to_budget(tools_text, self.budget.system_tools_budget // 3)
+        return truncate_to_budget(tools_text, state.budgets.system_tools_budget // 3)
 
     async def process_request(
         self,
@@ -367,78 +258,82 @@ print("Hello, World!") **Ensure there is a new line here!**
         logger: Any
     ) -> AsyncGenerator[str, None]:
         """
-        Process request using three-memory architecture with token budgeting
+        Process request using structured state management following react_run_with_state pattern
         """
-        logger.info("Starting ReAct agent with three-memory system...")
+        logger.info("Starting ReAct agent with structured state system...")
 
-        # Extract user prompt and update per-user memory (LTM)
+        # Extract user prompt (goal)
         user_prompt: str = ""
         for msg in reversed(initial_messages):
             if msg.get("role") == USER_ROLE:
                 user_prompt = msg.get("content", "")
                 break
         
-        if user_prompt:
-            learning_loop.start_task(user_prompt)
+        if not user_prompt:
+            logger.error("No user prompt found in messages")
+            yield "Error: No user prompt provided"
+            return
 
-        # Update session context based on user prompt
-        if "implement" in user_prompt.lower() or "create" in user_prompt.lower():
-            self.memory.set_session_context("Implementation task")
-            self.memory.add_todo("Ensure code compiles")
-        elif "analyze" in user_prompt.lower() or "review" in user_prompt.lower():
-            self.memory.set_session_context("Analysis task") 
-        elif "fix" in user_prompt.lower() or "debug" in user_prompt.lower():
-            self.memory.set_session_context("Debugging task")
-            self.memory.add_todo("Identify root cause")
-
-        # Build three memories with budgets
-        working_memory = self.memory.build_working_memory(initial_messages)
-        session_memory = self.memory.build_session_memory()
+        # Initialize structured state
+        S = self.react_run_with_state(user_prompt, self.default_budgets)
         
-        # Initialize conversation in knowledge store for context tracking
+        # Add initial messages to state working memory
         for msg in initial_messages:
             role = msg.get("role")
-            if role:  # Only add messages with explicit roles to avoid confusion
+            if role:
+                S.working_memory.append(msg)
                 self.knowledge_store.add_message(role, msg.get("content", ""))
 
-        # Build LLM messages with memory architecture
-        system_prompt = await self.get_react_system_prompt(user_prompt, working_memory, session_memory)
+        # Build LLM messages with memory architecture from state
+        system_prompt = await self.get_react_system_prompt(S, user_prompt)
         react_messages: List[Dict[str, str]] = [{"role": SYSTEM_ROLE, "content": system_prompt}]
         
-        # Add working memory as user context (instead of full history)
+        # Add working memory as user context
+        working_memory = build_working_memory(S)
         if working_memory:
             react_messages.append({"role": SYSTEM_ROLE, "content": f"RECENT CONTEXT:\n{working_memory}"})
 
         # Add current user message
-        if user_prompt:
-            react_messages.append({"role": USER_ROLE, "content": user_prompt})
+        react_messages.append({"role": USER_ROLE, "content": user_prompt})
 
-        # Log token usage
-        total_tokens = sum(self.memory.estimate_tokens(msg["content"]) for msg in react_messages)
-        logger.info(f"Token usage: {total_tokens}/{self.budget.total_budget} "
-                   f"({(total_tokens/self.budget.total_budget)*100:.1f}%)")
-
-        # Main ReAct loop
-        iteration = 0
+        # Log token usage and budget status
+        from server.agent.state_ops import estimate_tokens
+        total_tokens = sum(estimate_tokens(msg["content"]) for msg in react_messages)
+        logger.info(f"Token usage: {total_tokens}/{S.budgets.total_tokens} "
+                   f"({(total_tokens/S.budgets.total_tokens)*100:.1f}%)")
         
-        while iteration < self.max_iterations:
-            iteration += 1
-            logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
+        budget_status = get_budget_status(S)
+        logger.info(f"Budget status: {budget_status}")
+
+        # Main ReAct loop following the structured state pattern
+        while S.status not in [AgentStatus.DONE, AgentStatus.FAILED]:
+            S.increment_turn()
+            logger.info(f"ReAct iteration {S.turns}/{S.budgets.max_iterations}")
             
-            self.knowledge_store.add_context(
-                f"Starting ReAct iteration {iteration}",
-                ContextType.THOUGHT,
-                ImportanceLevel.LOW,
-                "react_agent"
+            # Check budgets before continuing
+            if not enforce_budgets(S):
+                logger.warning(f"Budget exceeded: {get_budget_status(S)}")
+                final_msg = "\n\n[Task incomplete - budget exceeded]"
+                learning_loop.complete_task(False, "Budget exceeded")
+                yield final_msg
+                break
+            
+            # Add context about current iteration
+            S.add_context(
+                f"Starting ReAct iteration {S.turns}",
+                "react_agent",
+                1.0,
+                "iteration_start"
             )
             
+            S.set_status(AgentStatus.PLANNING)
+            
+            # Execute LLM request and process response
             response_buffer = ""
             thinking_content = ""
-            thinking_started = True
+            thinking_started = False
             thinking_ended = False
             answering = False
-            content_after_thinking = ""
-            pre_think_buffer = ""
             
             async for token in self._execute_llm_request(react_messages, logger):
                 response_buffer += token
@@ -448,11 +343,9 @@ print("Hello, World!") **Ensure there is a new line here!**
                     # Check for start of thinking block
                     if not thinking_started and "<think>" in response_buffer:
                         thinking_started = True
-                        # Extract any content before <think>
-                        before_think = response_buffer.split("<think>")[0]
-                        if before_think:
-                            pre_think_buffer += before_think
-                        yield f'<thought>{response_buffer.split("<think>")[1]}</thought>'
+                        pre_think = response_buffer.split("<think>")[0]
+                        think_part = response_buffer.split("<think>")[1]
+                        yield f'<thought>{think_part}</thought>'
                     
                     # Check for end of thinking block
                     if thinking_started and "</think>" in response_buffer:
@@ -460,89 +353,78 @@ print("Hello, World!") **Ensure there is a new line here!**
                         # Extract thinking content
                         think_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
                         if think_match:
-                            thinking_content = (pre_think_buffer + think_match.group(1)).strip()
+                            thinking_content = think_match.group(1).strip()
                             if thinking_content:
-                                # Yield structured thinking event for Chainlit UI
+                                # Add thinking to state and scratchpad
+                                S.add_context(thinking_content, "llm_thinking", 2.0, "thought")
+                                S.add_to_scratchpad(f"Thought: {thinking_content}")
+                                
                                 logger.info(f"Agent thinking: {thinking_content}")
-                                self.knowledge_store.add_context(
-                                    thinking_content,
-                                    ContextType.THOUGHT,
-                                    ImportanceLevel.MEDIUM,
-                                    "react_agent"
-                                )
-                                # Record thinking in learning loop
                                 learning_loop.record_action("thinking", {"content": thinking_content[:200] + "..."})
                         
                         # Get content after thinking block
                         content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
                         yield f'<token>{content_after_thinking}</token>'
-                    else:
+                    elif thinking_started:
                         yield f'<thought>{token}</thought>'
-                else:
-                    # We're past thinking, accumulate remaining content
-                    content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
-                    if answering:
+                    else:
                         yield f'<token>{token}</token>'
-                    if 'Final Answer:' in content_after_thinking and not answering:
+                else:
+                    # We're past thinking, stream remaining content
+                    yield f'<token>{token}</token>'
+                    if 'Final Answer:' in response_buffer and not answering:
                         answering = True
-            
+
             # Process the complete response
             logger.info(f"ReAct agent response: {response_buffer}")
             
-            # Use extracted thinking content if available, otherwise try to extract it
-            if not thinking_content:
-                thinking_match = re.search(r'<think>(.*?)</think>', response_buffer, re.DOTALL)
-                if thinking_match:
-                    thinking_content = thinking_match.group(1).strip()
-                    self.knowledge_store.add_context(
-                        thinking_content,
-                        ContextType.THOUGHT,
-                        ImportanceLevel.MEDIUM,
-                        "react_agent"
-                    )
-                    logger.info(f"Agent thinking: {thinking_content}")
-                    # Record thinking in learning loop
-                    learning_loop.record_action("thinking", {"content": thinking_content[:200] + "..."})
-                    # Yield structured thinking event for Chainlit UI
-                    yield f"<thought>{thinking_content}</thought>"
-            
-            # Extract content after thinking markers and tool code blocks
+            # Extract content after thinking markers
             content = re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
             logger.info(f"Content after thinking: {content}")
-            # Check if agent made tool calls before yielding the content
-            from server.agent import config
             
-            # Collect tool results for streaming to UI
+            # Check for tool calls
+            S.set_status(AgentStatus.EXECUTING)
+            
+            # Tool result callback to update state
             tool_results_for_ui = []
             
-            # Create callback to capture actual tool results
             async def tool_result_callback(tool_result_summary):
-                """Capture actual tool results for UI streaming"""
+                """Capture tool results and update state"""
                 tool_results_for_ui.append(tool_result_summary)
+                
+                # Update state with tool result
+                tool_name = tool_result_summary.get("name", "")
+                tool_args = tool_result_summary.get("arguments", {})
+                result = tool_result_summary.get("result", "")
+                success = tool_result_summary.get("status") == "success"
+                error = tool_result_summary.get("error")
+                
+                # Find and complete the tool call trace
+                update_state_from_tool_result(S, tool_name, tool_args, result, success, 0.0, error)
+                
+                # Record in learning loop
                 learning_loop.record_action("tool_use", {
-                    "tool_name": tool_result_summary.get("name"),
-                    "arguments": tool_result_summary.get("arguments"),
-                    "success": tool_result_summary.get("status") == "success",
+                    "tool_name": tool_name,
+                    "arguments": tool_args,
+                    "success": success,
                 })
                 
-                # Update session memory based on tool results
-                tool_name = tool_result_summary.get("name", "")
-                if tool_name == "create_file" and tool_result_summary.get("status") == "success":
-                    self.memory.add_decision(f"Created file: {tool_result_summary.get('arguments', {}).get('file_path', 'unknown')}")
-                elif tool_name == "run_git_command" and "checkout -b" in str(tool_result_summary.get("arguments", {})):
-                    self.memory.add_decision("Created new git branch")
-                    self.memory.complete_todo("Create feature branch")
+                # Add observation to scratchpad
+                observation = f"Tool {tool_name} {'succeeded' if success else 'failed'}: {str(result)[:200]}"
+                S.add_to_scratchpad(f"Action: {tool_name}\nObservation: {observation}")
 
+            # Process tool calls
+            from server.agent import config
             made_tool_calls = await process_tool_calls(
                 content, 
-                config.TOOL_CALL_REGEX,  # Use existing tool call regex
+                config.TOOL_CALL_REGEX,
                 react_messages,
                 logger,
                 self.knowledge_store,
                 tool_result_callback
             )
             
-            # Stream captured tool results to UI
+            # Stream tool results to UI
             for tool_result_summary in tool_results_for_ui:
                 import json
                 yield f"<tool_result>{json.dumps(tool_result_summary)}</tool_result>"
@@ -551,29 +433,43 @@ print("Hello, World!") **Ensure there is a new line here!**
             react_messages.append({"role": ASSISTANT_ROLE, "content": content})
             
             if made_tool_calls:
+                # Continue the loop for next iteration
                 continue
             else:
-                if answering:
+                # No tool calls - check if this is a final answer
+                if is_final_response(content) or answering:
+                    S.set_status(AgentStatus.DONE)
                     success = "error" not in content.lower() and "failed" not in content.lower()
                     learning_loop.complete_task(success, content[:200])
                     
-                    # Update session memory with completion
+                    # Update state with completion
                     if success:
-                        self.memory.add_decision("Task completed successfully")
+                        S.add_decision("Task completed successfully")
                     else:
-                        self.memory.add_decision("Task completed with errors")
+                        S.add_decision("Task completed with errors")
+                    
+                    # Add final response to state
+                    S.add_context(content, "final_response", 3.0, "final_answer")
                     break
                 else:
-                    # Agent might need another iteration to complete the task
+                    # Response doesn't appear final, continue
                     logger.info("Response doesn't appear final, continuing...")
                     continue
         
-        if iteration >= self.max_iterations:
-            logger.warning(f"ReAct agent reached max iterations ({self.max_iterations})")
-            final_msg = "\n\n[Task completed - reached maximum iterations]"
-            learning_loop.complete_task(False, "Reached maximum iterations")
-            self.memory.add_decision("Task incomplete - reached max iterations")
+        # Handle completion or failure
+        if S.status == AgentStatus.FAILED or S.turns >= S.budgets.max_iterations:
+            if S.turns >= S.budgets.max_iterations:
+                logger.warning(f"ReAct agent reached max iterations ({S.budgets.max_iterations})")
+                final_msg = "\n\n[Task completed - reached maximum iterations]"
+                learning_loop.complete_task(False, "Reached maximum iterations")
+                S.add_decision("Task incomplete - reached max iterations")
+            else:
+                final_msg = "\n\n[Task failed - budget exceeded]"
             yield final_msg
+        
+        # Log final state summary
+        final_summary = summarize_execution(S)
+        logger.info(f"Final execution summary:\n{final_summary}")
     
     async def _execute_llm_request(
         self,
