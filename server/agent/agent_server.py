@@ -169,28 +169,36 @@ async def metrics_collecting_stream_generator(
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
     """
-    Handles incoming chat requests using the refactored ReAct agent with KnowledgeStore.
-    Eliminates the complex Planner-Doer-Evaluator loop for simplified control flow.
+    Handles incoming chat requests using the ReAct agent with three-memory architecture.
+    Uses token budgeting to prevent context overflow.
     """
-    logger.info("Agent Server received request. Processing with ReAct agent...")
+    logger.info("Agent Server received request. Processing with three-memory ReAct agent...")
 
     # Reset conversation state for new request
     knowledge_store = KnowledgeStore()
     
-    # Create ReAct agent with knowledge store and tool schemas
-    from server.agent.react_agent import ReActAgent
+    # Create ReAct agent with knowledge store, tool schemas, and token budget
+    from server.agent.react_agent import ReActAgent, TokenBudget
     available_tools = tool_manager.get_tool_schemas()
+    
+    # Configure token budget based on request complexity
+    budget = TokenBudget(total_budget=8192)  # Conservative default
+    if hasattr(request, 'complex') and request.complex:
+        budget.total_budget = 16384  # Larger budget for complex tasks
+        
     react_agent = ReActAgent(
         api_base_url=MODEL_SERVER_URL,
         tools=available_tools,
         knowledge_store=knowledge_store,
-        max_iterations=30
+        max_iterations=30,
+        user_id=request.user_id,
+        token_budget=budget
     )
     
     # Extract initial messages from request
     initial_messages = [msg.model_dump() for msg in request.messages]
     
-    # Process with ReAct agent (replaces the complex organizer loop)
+    # Process with ReAct agent with metrics
     metrics = MetricsTracker(logger)
     
     async def react_with_metrics():
