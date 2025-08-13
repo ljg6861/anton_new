@@ -169,41 +169,28 @@ async def metrics_collecting_stream_generator(
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
     """
-    Handles incoming chat requests using the ReAct agent with three-memory architecture.
-    Uses token budgeting to prevent context overflow.
+    Handles incoming chat requests using the refactored ReAct agent with KnowledgeStore.
+    Eliminates the complex Planner-Doer-Evaluator loop for simplified control flow.
     """
-    logger.info("Agent Server received request. Processing with three-memory ReAct agent...")
+    logger.info("Agent Server received request. Processing with ReAct agent...")
 
     # Reset conversation state for new request
     knowledge_store = KnowledgeStore()
     
-    # Create ReAct agent with knowledge store, tool schemas, and token budget
-    from server.agent.react_agent import ReActAgent, TokenBudget
+    # Create ReAct agent with knowledge store and tool schemas
+    from server.agent.react_agent import ReActAgent
     available_tools = tool_manager.get_tool_schemas()
-    
-    # Set up expand_content tool with knowledge store dependency
-    expand_tool = tool_manager.get_tool_by_name("expand_content")
-    if expand_tool and hasattr(expand_tool, 'set_knowledge_store'):
-        expand_tool.set_knowledge_store(knowledge_store)
-    
-    # Configure token budget based on request complexity
-    budget = TokenBudget(total_budget=8192)  # Conservative default
-    if hasattr(request, 'complex') and request.complex:
-        budget.total_budget = 16384  # Larger budget for complex tasks
-        
     react_agent = ReActAgent(
         api_base_url=MODEL_SERVER_URL,
         tools=available_tools,
         knowledge_store=knowledge_store,
-        max_iterations=30,
-        user_id=request.user_id,
-        token_budget=budget
+        max_iterations=30
     )
     
     # Extract initial messages from request
     initial_messages = [msg.model_dump() for msg in request.messages]
     
-    # Process with ReAct agent with metrics
+    # Process with ReAct agent (replaces the complex organizer loop)
     metrics = MetricsTracker(logger)
     
     async def react_with_metrics():

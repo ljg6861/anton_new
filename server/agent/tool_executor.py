@@ -40,6 +40,7 @@ async def process_tool_calls(
     # Collect all tool calls first
     tool_calls = []
     for match in matches:
+        tool_calls_made = True
         tool_call_content = match.group(1).strip()
 
         try:
@@ -58,13 +59,12 @@ async def process_tool_calls(
             error_msg = f"Error: Invalid tool call format. Reason: {e}"
             logger.error(f"{error_msg}\nContent: {tool_call_content}")
             # Convert tool error to user role for Ollama compatibility
-            messages.append({"role": "assistant", "content": f"Tool error: {error_msg}"})
+            messages.append({"role": "user", "content": f"Tool error: {error_msg}"})
 
     # Execute all valid tool calls - but enforce single tool per turn for safety
     logger.info('Detected tool calls:\n' + str(tool_calls))
     if tool_calls:
         # Limit to single tool per turn to avoid dependency issues
-        tool_calls_made = True
         if len(tool_calls) > 1:
             logger.warning(f"Multiple tool calls detected ({len(tool_calls)}), executing only the first one to avoid dependencies")
             tool_calls = [tool_calls[0]]
@@ -105,15 +105,15 @@ async def process_tool_calls(
                 await result_callback(tool_result_summary)
 
             # Append the structured tool result to messages as system role for better model understanding
-            # Use "assistant" role instead of "user" to clearly indicate this is an observation
+            # Use "system" role instead of "user" to clearly indicate this is an observation
             messages.append({
-                "role": "assistant",
+                "role": "system",
                 "content": f"OBSERVATION: Tool '{tool_name}' result: {tool_result}"
             })
                 
         except Exception as e:
             logger.error(f"Error during tool execution: {e}", exc_info=True)
-            messages.append({"role": "assistant", "content": f"TOOL_ERROR: {tool_name} failed: {str(e)}"})
+            messages.append({"role": "system", "content": f"TOOL_ERROR: {tool_name} failed: {str(e)}"})
             
             # Stream error to UI if callback provided
             if result_callback:

@@ -5,9 +5,7 @@ Provides persistent storage, context prioritization, and knowledge transfer capa
 from pathlib import Path
 import time
 import logging
-import hashlib
-import re
-from typing import Dict, Set, List, Any, Optional, Tuple
+from typing import Dict, Set, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 
@@ -50,157 +48,6 @@ class ContextItem:
     timestamp: float
     source: str
     metadata: Dict[str, Any] = None
-
-
-@dataclass
-class CompressedObservation:
-    """Compressed summary of large tool outputs"""
-    findings: List[str]  # 3-7 bullet point facts
-    pointers: List[Dict[str, Any]]  # file paths, byte ranges, line numbers
-    confidence: float  # 0-1 confidence score
-    raw_hash: str  # hash of original content for retrieval
-    metadata: Dict[str, Any] = None
-
-
-class ObservationCompressor:
-    """Compresses large tool outputs into concise summaries"""
-    
-    @staticmethod
-    def compress_file_content(file_path: str, content: str, start_line: int = 1, end_line: int = None) -> CompressedObservation:
-        """Compress file content into key findings"""
-        lines = content.split('\n')
-        total_lines = len(lines)
-        end_line = end_line or total_lines
-        
-        findings = []
-        pointers = []
-        
-        # Basic file analysis
-        findings.append(f"File: {Path(file_path).name} ({total_lines} lines, {len(content)} bytes)")
-        
-        # Language/type detection
-        ext = Path(file_path).suffix.lower()
-        if ext in ['.py', '.js', '.ts', '.java', '.cpp', '.c']:
-            findings.append(f"Code file ({ext[1:]})")
-            # Look for key patterns
-            if 'def ' in content or 'class ' in content:
-                functions = len(re.findall(r'^def\s+\w+', content, re.MULTILINE))
-                classes = len(re.findall(r'^class\s+\w+', content, re.MULTILINE))
-                if functions: findings.append(f"Contains {functions} function(s)")
-                if classes: findings.append(f"Contains {classes} class(es)")
-        elif ext in ['.md', '.txt', '.rst']:
-            findings.append(f"Documentation file ({ext[1:]})")
-        elif ext in ['.json', '.yaml', '.yml']:
-            findings.append(f"Configuration file ({ext[1:]})")
-        
-        # Content structure
-        if total_lines > 100:
-            findings.append(f"Large file: {total_lines} lines")
-        elif total_lines < 10:
-            findings.append(f"Small file: {total_lines} lines")
-            
-        # Important patterns
-        if 'TODO' in content or 'FIXME' in content:
-            findings.append("Contains TODO/FIXME markers")
-        if 'import ' in content:
-            findings.append("Contains imports/dependencies")
-            
-        # Create pointer to specific range
-        pointers.append({
-            "type": "file_range",
-            "path": file_path,
-            "start_line": start_line,
-            "end_line": end_line,
-            "size_bytes": len(content)
-        })
-        
-        # Calculate confidence based on content analysis depth
-        confidence = min(0.9, 0.5 + (len(findings) - 1) * 0.1)
-        
-        return CompressedObservation(
-            findings=findings[:7],  # Cap at 7 findings
-            pointers=pointers,
-            confidence=confidence,
-            raw_hash=hashlib.md5(content.encode()).hexdigest()[:16],
-            metadata={"original_size": len(content), "compression_ratio": len('\n'.join(findings)) / len(content)}
-        )
-    
-    @staticmethod 
-    def compress_directory_listing(path: str, content: str) -> CompressedObservation:
-        """Compress directory listing into key findings"""
-        lines = [l.strip() for l in content.split('\n') if l.strip()]
-        
-        findings = []
-        findings.append(f"Directory: {path} ({len(lines)} items)")
-        
-        # Categorize items
-        files = [l for l in lines if '.' in l and not l.endswith('/')]
-        dirs = [l for l in lines if l.endswith('/')]
-        
-        if dirs:
-            findings.append(f"Subdirectories: {len(dirs)}")
-        if files:
-            findings.append(f"Files: {len(files)}")
-            
-        # File type analysis
-        extensions = {}
-        for f in files:
-            ext = Path(f).suffix.lower()
-            if ext:
-                extensions[ext] = extensions.get(ext, 0) + 1
-                
-        if extensions:
-            top_exts = sorted(extensions.items(), key=lambda x: x[1], reverse=True)[:3]
-            ext_summary = ", ".join([f"{ext}({count})" for ext, count in top_exts])
-            findings.append(f"File types: {ext_summary}")
-            
-        pointers = [{
-            "type": "directory",
-            "path": path,
-            "item_count": len(lines)
-        }]
-        
-        return CompressedObservation(
-            findings=findings,
-            pointers=pointers,
-            confidence=0.8,
-            raw_hash=hashlib.md5(content.encode()).hexdigest()[:16],
-            metadata={"item_count": len(lines)}
-        )
-    
-    @staticmethod
-    def compress_tool_output(tool_name: str, tool_args: dict, result: str) -> CompressedObservation:
-        """Compress generic tool output"""
-        findings = []
-        findings.append(f"Tool: {tool_name}")
-        
-        if len(result) > 1000:
-            findings.append(f"Large output: {len(result)} characters")
-        elif len(result) == 0:
-            findings.append("Empty output")
-        else:
-            findings.append(f"Output: {len(result)} characters")
-            
-        # Look for error patterns
-        if any(word in result.lower() for word in ['error', 'failed', 'exception']):
-            findings.append("Contains error/failure indicators")
-        elif any(word in result.lower() for word in ['success', 'completed', 'done']):
-            findings.append("Indicates successful completion")
-            
-        pointers = [{
-            "type": "tool_output", 
-            "tool_name": tool_name,
-            "args": tool_args,
-            "size": len(result)
-        }]
-        
-        return CompressedObservation(
-            findings=findings,
-            pointers=pointers,
-            confidence=0.6,
-            raw_hash=hashlib.md5(result.encode()).hexdigest()[:16],
-            metadata={"tool_name": tool_name, "output_size": len(result)}
-        )
     
     def __post_init__(self):
         if self.metadata is None:
@@ -227,10 +74,6 @@ class KnowledgeStore:
             ImportanceLevel.HIGH: 4.0,
             ImportanceLevel.CRITICAL: 8.0
         }
-        
-        # Raw data storage for large outputs (off-prompt)
-        self.raw_storage: Dict[str, str] = {}  # hash -> raw content
-        self.compressed_observations: Dict[str, CompressedObservation] = {}  # hash -> compressed
         
         # Conversation state management (replaces ConversationState)
         self.messages: List[Dict[str, str]] = []
@@ -273,83 +116,39 @@ class KnowledgeStore:
             self._persist_to_rag(context_item)
     
     def update_from_tool_execution(self, tool_name: str, tool_args: dict, result: str) -> None:
-        """Update knowledge store from tool execution results with compression"""
-        # Always store raw result for potential retrieval
-        raw_hash = hashlib.md5(result.encode()).hexdigest()[:16]
-        self.raw_storage[raw_hash] = result
-        
+        """Update knowledge store from tool execution results"""
         if tool_name == "read_file":
             file_path = tool_args.get("file_path")
             if file_path:
-                # Compress large file content
-                start_line = tool_args.get("start_line", 1)
-                end_line = tool_args.get("end_line")
-                compressed = ObservationCompressor.compress_file_content(file_path, result, start_line, end_line)
-                self.compressed_observations[raw_hash] = compressed
-                
-                # Store compressed findings instead of raw content
-                findings_text = "\n".join([f"• {finding}" for finding in compressed.findings])
+                # Determine importance based on file type and size
                 importance = self._determine_file_importance(file_path, result)
-                
                 self.add_context(
-                    content=findings_text,
+                    content=result[:10000] if len(result) > 10000 else result,
                     context_type=ContextType.FILE_CONTENT,
                     importance=importance,
                     source=f"tool_execution_{tool_name}",
-                    metadata={
-                        "file_path": file_path, 
-                        "full_size": len(result),
-                        "raw_hash": raw_hash,
-                        "compression_ratio": compressed.metadata.get("compression_ratio", 0),
-                        "pointers": compressed.pointers
-                    }
+                    metadata={"file_path": file_path, "full_size": len(result)}
                 )
-                
-                # Persist high-value compressed summaries to RAG
-                if importance in [ImportanceLevel.HIGH, ImportanceLevel.CRITICAL]:
-                    self._persist_compressed_to_rag(compressed, file_path)
         
         elif tool_name == "list_directory":
             path = tool_args.get("path", ".")
-            self.explored_files.add(path)
-            
-            # Compress directory listing
-            compressed = ObservationCompressor.compress_directory_listing(path, result)
-            self.compressed_observations[raw_hash] = compressed
-            
-            findings_text = "\n".join([f"• {finding}" for finding in compressed.findings])
+            self.explored_files.add(path)  # Add directory to explored files
             self.add_context(
-                content=findings_text,
+                content=result,
                 context_type=ContextType.DIRECTORY_LISTING,
                 importance=ImportanceLevel.LOW,
                 source=f"tool_execution_{tool_name}",
-                metadata={
-                    "directory_path": path,
-                    "raw_hash": raw_hash,
-                    "pointers": compressed.pointers
-                }
+                metadata={"directory_path": path}
             )
             
         else:
-            # Generic tool execution - compress if large
-            if len(result) > 500:
-                compressed = ObservationCompressor.compress_tool_output(tool_name, tool_args, result)
-                self.compressed_observations[raw_hash] = compressed
-                
-                findings_text = "\n".join([f"• {finding}" for finding in compressed.findings])
-                content = f"Tool {tool_name}:\n{findings_text}"
-            else:
-                content = f"Tool {tool_name} executed with result: {result}"
-                
+            # Generic tool execution tracking
             self.add_context(
-                content=content,
+                content=f"Tool {tool_name} executed with result: {result[:500]}",
                 context_type=ContextType.TOOL_EXECUTION,
                 importance=ImportanceLevel.LOW,
                 source=f"tool_execution_{tool_name}",
-                metadata={
-                    "tool_args": tool_args,
-                    "raw_hash": raw_hash if len(result) > 500 else None
-                }
+                metadata={"tool_args": tool_args}
             )
     
     def add_planner_insight(self, insight: str, importance: ImportanceLevel = ImportanceLevel.MEDIUM) -> None:
@@ -466,59 +265,6 @@ class KnowledgeStore:
         except Exception as e:
             # Log the error but don't fail - RAG persistence is not critical
             logger.error(f"Failed to persist context to RAG: {e}", exc_info=True)
-    
-    def _persist_compressed_to_rag(self, compressed: CompressedObservation, file_path: str) -> None:
-        """Persist compressed observation to RAG with stable key"""
-        try:
-            # Create a stable key for RAG persistence
-            stable_key = f"repo://{file_path}@{compressed.raw_hash}"
-            
-            # Format compressed findings for RAG
-            findings_text = "\n".join([f"• {finding}" for finding in compressed.findings])
-            rag_content = f"[COMPRESSED] {file_path}\n{findings_text}"
-            
-            # Add metadata about pointers for retrieval
-            metadata_text = f"\nPointers: {compressed.pointers}"
-            
-            rag_manager.add_knowledge(
-                text=rag_content + metadata_text,
-                source=stable_key
-            )
-            logger.debug(f"Persisted compressed observation to RAG: {stable_key}")
-        except Exception as e:
-            logger.error(f"Failed to persist compressed observation to RAG: {e}", exc_info=True)
-    
-    def retrieve_raw_content(self, raw_hash: str) -> Optional[str]:
-        """Retrieve raw content by hash"""
-        return self.raw_storage.get(raw_hash)
-    
-    def get_compressed_observation(self, raw_hash: str) -> Optional[CompressedObservation]:
-        """Get compressed observation by hash"""
-        return self.compressed_observations.get(raw_hash)
-    
-    def expand_compressed_content(self, raw_hash: str, max_lines: int = 50) -> str:
-        """Expand compressed content for detailed analysis"""
-        raw_content = self.retrieve_raw_content(raw_hash)
-        if not raw_content:
-            return "Raw content not found"
-            
-        compressed = self.get_compressed_observation(raw_hash)
-        if not compressed:
-            return raw_content[:2000]  # Fallback to truncation
-            
-        # Return findings + limited raw excerpt
-        findings_text = "\n".join([f"• {finding}" for finding in compressed.findings])
-        
-        lines = raw_content.split('\n')
-        if len(lines) <= max_lines:
-            raw_excerpt = raw_content
-        else:
-            # Show beginning and end
-            start_lines = lines[:max_lines//2]
-            end_lines = lines[-(max_lines//2):]
-            raw_excerpt = '\n'.join(start_lines) + f"\n... ({len(lines) - max_lines} lines omitted) ...\n" + '\n'.join(end_lines)
-            
-        return f"SUMMARY:\n{findings_text}\n\nCONTENT EXCERPT:\n{raw_excerpt}"
 
     def build_domain_knowledge_context(
         self,

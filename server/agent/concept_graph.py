@@ -80,87 +80,33 @@ def expand_nodes(node_ids: List[str],
 
 def format_context(nodes_by_id: Dict[str, Dict[str, Any]],
                    node_ids: List[str],
-                   max_nodes: int = 6,  # Reduced from 8
-                   max_examples_per_node: int = 1,
-                   max_chars_per_node: int = 400) -> str:  # New parameter
+                   max_nodes: int = 8,
+                   max_examples_per_node: int = 1) -> str:
     """
     Produce a compact, LLM-friendly knowledge bundle:
     - Name (Type)
     - Formal rule (when present)
     - 1–2 sentence summary
-    - 0–1 example I/O or example ID for expansion
+    - 0–1 example I/O
     """
     chunks: List[str] = []
-    seen_titles = set()  # De-duplicate by normalized title
-    
-    def norm_title(name: str) -> str:
-        """Normalize title for deduplication"""
-        return name.lower().strip().replace(' ', '').replace('-', '').replace('_', '')
-    
     for nid in node_ids[:max_nodes]:
         n = nodes_by_id.get(nid)
         if not n:
             continue
-            
-        name = n.get('name', '').strip()
-        norm_name = norm_title(name)
-        
-        # Skip duplicates by normalized title
-        if norm_name in seen_titles:
-            continue
-        seen_titles.add(norm_name)
-        
-        header = f"{name} ({n.get('type','concept')})"
+        header = f"{n.get('name','').strip()} ({n.get('type','concept')})"
         formal = n.get("formal")
         summary = (n.get("summary") or "").strip()
-        
         part = [f"### {header}"]
-        
         if formal:
-            # Keep formal concise
-            if len(formal) > 150:
-                formal = formal[:147] + "..."
             part.append(f"Formal: {formal}")
-            
         if summary:
-            # Prefer summary field, keep to 2 sentences max
-            sentences = summary.split('. ')
-            if len(sentences) > 2:
-                summary = '. '.join(sentences[:2]) + '.'
             part.append(summary)
-        
-        # Handle examples - prefer IDs for large examples
         exs = [e for e in (n.get("examples") or []) if isinstance(e, dict)]
         if exs:
             inp = (exs[0].get("input") or "").strip()
             out = (exs[0].get("output") or "").strip()
-            
-            # If example is long, replace with ID
-            example_text = f"{inp} -> {out}".strip()
-            if len(example_text) > 100:
-                example_id = f"{nid}#ex1"
-                part.append(f"Example: ... (see example: {example_id})")
-            elif inp or out:
-                part.append(f"Example: {example_text}")
-        
-        node_content = "\n".join(part)
-        
-        # Enforce max_chars_per_node limit
-        if len(node_content) > max_chars_per_node:
-            # Truncate content intelligently
-            lines = node_content.split('\n')
-            truncated_lines = [lines[0]]  # Always keep header
-            current_length = len(lines[0])
-            
-            for line in lines[1:]:
-                if current_length + len(line) + 1 <= max_chars_per_node - 20:  # Leave room for "..."
-                    truncated_lines.append(line)
-                    current_length += len(line) + 1
-                else:
-                    truncated_lines.append("...")
-                    break
-            node_content = "\n".join(truncated_lines)
-        
-        chunks.append(node_content)
-    
+            if inp or out:
+                part.append(f"Example: {inp} -> {out}".strip())
+        chunks.append("\n".join(part))
     return "\n\n".join(chunks)
