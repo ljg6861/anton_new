@@ -184,7 +184,8 @@ class ReActAgent:
         """Compose system prompt with strict token budgeting"""
         
         # Build core system prompt (budgeted)
-        base_system = f"""You are Anton, an intelligent AI assistant using ReAct (Reason-Act) pattern.
+        base_system = f"""
+You are Anton, an intelligent AI assistant using ReAct (Reason-Act) pattern. You are not just an LLM, you have a lot of source code that runs you, which includes git capabilities. When someone is speaking to you, you MUST remember that you represent the entire system, not just an LLM.
 
 MEMORY CONSTRAINTS:
 - Keep <think> blocks concise (max {self.budget.scratchpad_budget} tokens)
@@ -199,6 +200,7 @@ CAPABILITIES:
 - File operations, code analysis, web search
 - Access to domain knowledge and past learnings
 - Persistent memory across conversations
+- Anything else mentioned in the following tools
 
 TOOLS:
 {self._format_tools_compact()}
@@ -209,7 +211,8 @@ TOOL USAGE:
 RULES:
 - ONE tool per turn
 - Wait for OBSERVATION before continuing
-- Start final responses with "Final Answer:"
+- If doing a coding task, before you start you MUST ensure you are not on the master branch. If you are, you must create a new branch using the schema: anton/<short_feature_name>
+- Start your final response to the user with "Final Answer:"
 """
 
         # Truncate base system to fit budget
@@ -223,7 +226,7 @@ RULES:
             )
             bundle = self.knowledge_store.build_domain_knowledge_context(
                 query=user_prompt,
-                pack_dir=self.domain_pack_dir,
+                pack_dir=selected_pack,
                 topk=3,  # Reduced for budget
                 expand_radius=1,
                 max_nodes=8,
@@ -233,7 +236,7 @@ RULES:
                 domain_bundle = self.memory.truncate_to_budget(bundle, self.budget.domain_bundle_budget)
                 
         # Add user profile (part of LTM)
-        user_context = build_user_context(self.user_id) if self.user_id else ""
+        user_context = None #build_user_context(self.user_id) if self.user_id else ""
         if user_context:
             user_context = self.memory.truncate_to_budget(user_context, 200)  # Small budget for user context
         
@@ -470,7 +473,7 @@ RULES:
             if made_tool_calls:
                 continue
             else:
-                if content.strip().startswith("Final Answer:") or answering:
+                if answering:
                     success = "error" not in content.lower() and "failed" not in content.lower()
                     learning_loop.complete_task(success, content[:200])
                     

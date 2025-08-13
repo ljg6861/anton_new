@@ -30,6 +30,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+chainlit-datalayer/
+logs/
+documents.pkl
+knowledge.index
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
