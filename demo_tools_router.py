@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
 Demo script showing the new ToolsRouter with allowlists, timeouts, and retries.
-Demonstrates safety and observability features.
+Demonstrates safety and observabili    print("DYNAMIC DISCOVERY BENEFITS:")
+    print("🔄 Auto-sync: Tools are automatically discovered from tools/ directory")
+    print("🔒 Security: Only actual available tools are allowed")
+    print("⚡ Flexibility: New tools are automatically available")
+    print("🧹 Clean: No stale tool references in allowlist")
+    print("🔧 Maintainable: No manual allowlist management required")
+    print("📊 Observable: Track available vs allowed tools")
+    print("🎯 Accurate: Allowlist always matches reality")res.
 """
 
 import asyncio
@@ -10,53 +17,77 @@ from server.agent.tools_router import tools_router, ExecutionStatus
 
 
 async def demo_tools_router():
-    """Demonstrate ToolsRouter capabilities"""
-    print("=== Demo: ToolsRouter with Safety Features ===\n")
+    """Demonstrate ToolsRouter capabilities with dynamic tool discovery"""
+    print("=== Demo: ToolsRouter with Dynamic Tool Discovery ===\n")
     
-    # Show initial allowlist
-    print("1. Initial allowlist:")
+    # Show dynamically discovered allowlist
+    print("1. Dynamically discovered allowlist:")
     allowlist = sorted(tools_router.allowlist)
-    print(f"   {len(allowlist)} allowed tools: {', '.join(allowlist[:10])}...")
+    print(f"   {len(allowlist)} tools discovered from tools/ directory")
+    print(f"   Sample tools: {', '.join(allowlist[:10])}...")
+    if len(allowlist) > 10:
+        print(f"   And {len(allowlist) - 10} more...")
+    print()
+    
+    # Show available vs allowed tools
+    print("2. Available vs Allowed tools:")
+    available_tools = tools_router.get_available_tools()
+    allowed_tools = tools_router.get_allowlist()
+    print(f"   Available tools: {len(available_tools)}")
+    print(f"   Allowed tools: {len(allowed_tools)}")
+    print(f"   Match: {available_tools == allowed_tools}")
     print()
     
     # Test successful tool call
-    print("2. Testing allowed tool (list_directory):")
-    result = await tools_router.call("list_directory", {"path": "."})
-    print(f"   Status: {result.status.value}")
-    print(f"   Execution time: {result.execution_time_ms:.1f}ms")
-    print(f"   Attempts: {result.attempts}")
-    if result.ok:
-        print(f"   Result: {str(result.result)[:100]}...")
+    print("3. Testing dynamically allowed tool:")
+    if "list_directory" in allowlist:
+        result = await tools_router.call("list_directory", {"path": "."})
+        print(f"   Tool: list_directory")
+        print(f"   Status: {result.status.value}")
+        print(f"   Execution time: {result.execution_time_ms:.1f}ms")
+        print(f"   Attempts: {result.attempts}")
+        if result.ok:
+            print(f"   Result: {str(result.result)[:100]}...")
+        else:
+            print(f"   Error: {result.error_message}")
     else:
-        print(f"   Error: {result.error_message}")
+        print("   list_directory not available, trying first available tool...")
+        if allowlist:
+            first_tool = allowlist[0]
+            result = await tools_router.call(first_tool, {})
+            print(f"   Tool: {first_tool}")
+            print(f"   Status: {result.status.value}")
+            if not result.ok:
+                print(f"   Error: {result.error_message}")
     print()
     
-    # Test blocked tool call
-    print("3. Testing blocked tool (fake_dangerous_tool):")
+    # Test blocked tool call (should not exist in discovered tools)
+    print("4. Testing blocked tool (not in discovered tools):")
     result = await tools_router.call("fake_dangerous_tool", {"do_bad_stuff": True})
     print(f"   Status: {result.status.value}")
     print(f"   Error: {result.error_message}")
     print()
     
-    # Test timeout (using a tool that might take long)
-    print("4. Testing timeout with very short timeout:")
-    result = await tools_router.call("search_web", {"query": "test"}, timeout_ms=1)  # 1ms timeout
-    print(f"   Status: {result.status.value}")
-    print(f"   Execution time: {result.execution_time_ms:.1f}ms")
-    if not result.ok:
-        print(f"   Error: {result.error_message}")
+    # Test allowlist refresh
+    print("5. Testing allowlist refresh:")
+    old_count = len(tools_router.allowlist)
+    tools_router.refresh_allowlist()
+    new_count = len(tools_router.allowlist)
+    print(f"   Tools before refresh: {old_count}")
+    print(f"   Tools after refresh: {new_count}")
+    print(f"   Allowlist updated: {old_count != new_count}")
     print()
     
-    # Test nonexistent tool (should trigger retries)
-    print("5. Testing nonexistent tool (should retry and fail):")
-    result = await tools_router.call("nonexistent_tool", {"param": "value"})
-    print(f"   Status: {result.status.value}")
-    print(f"   Attempts: {result.attempts}")
-    print(f"   Error: {result.error_message}")
+    # Test sync with available tools
+    print("6. Testing sync with available tools:")
+    sync_result = tools_router.sync_with_available_tools()
+    print(f"   Added tools: {sync_result['added']}")
+    print(f"   Removed tools: {sync_result['removed']}")
+    print(f"   Sync needed: {bool(sync_result['added'] or sync_result['removed'])}")
     print()
     
     # Show execution statistics
-    print("6. Execution statistics:")
+    print("7. Execution statistics:")
     stats = tools_router.get_stats()
     for key, value in stats.items():
         if isinstance(value, float):
@@ -65,43 +96,32 @@ async def demo_tools_router():
             print(f"   {key}: {value}")
     print()
     
-    # Test allowlist modification
-    print("7. Testing allowlist modification:")
+    # Test allowlist modification with dynamic tools
+    print("8. Testing allowlist modification:")
     original_size = len(tools_router.allowlist)
-    tools_router.add_to_allowlist(["custom_tool_1", "custom_tool_2"])
-    new_size = len(tools_router.allowlist)
-    print(f"   Added 2 tools, allowlist size: {original_size} -> {new_size}")
     
-    # Test if new tool is allowed
-    print(f"   custom_tool_1 allowed: {tools_router.is_allowed('custom_tool_1')}")
-    
-    # Remove the test tools
-    tools_router.remove_from_allowlist(["custom_tool_1", "custom_tool_2"])
-    final_size = len(tools_router.allowlist)
-    print(f"   Removed test tools, final size: {final_size}")
-    print()
-    
-    # Test a more realistic scenario
-    print("8. Realistic scenario - reading a file:")
-    result = await tools_router.call("read_file", {
-        "file_path": "/home/lucas/anton_new/server/agent/tools_router.py",
-        "start_line": 1,
-        "end_line": 10
-    })
-    print(f"   Status: {result.status.value}")
-    print(f"   Execution time: {result.execution_time_ms:.1f}ms")
-    if result.ok:
-        lines = str(result.result).split('\n')
-        print(f"   Read {len(lines)} lines successfully")
-        print(f"   First line: {lines[0] if lines else 'N/A'}")
+    # Try removing and re-adding a real tool
+    if "read_file" in tools_router.allowlist:
+        tools_router.remove_from_allowlist(["read_file"])
+        removed_size = len(tools_router.allowlist)
+        print(f"   Removed read_file: {original_size} -> {removed_size}")
+        
+        # Test that it's now blocked
+        result = await tools_router.call("read_file", {"file_path": "test.txt"})
+        print(f"   read_file now blocked: {result.status.value}")
+        
+        # Add it back
+        tools_router.add_to_allowlist(["read_file"])
+        final_size = len(tools_router.allowlist)
+        print(f"   Re-added read_file: {removed_size} -> {final_size}")
     else:
-        print(f"   Error: {result.error_message}")
+        print("   read_file not available for modification test")
     print()
 
 
 def demo_comparison():
     """Show the difference between old and new tool execution"""
-    print("=== Comparison: Old vs New Tool Execution ===\n")
+    print("\n=== Comparison: Old vs New Tool Execution ===\n")
     
     print("OLD APPROACH (direct tool_manager):")
     print("- Direct calls to tool_manager.run_tool()")
@@ -110,26 +130,31 @@ def demo_comparison():
     print("- No automatic retries")
     print("- Limited error handling")
     print("- No execution metrics")
-    print("- Difficult to add safety features")
+    print("- Manual tool management")
+    print("- Static tool configuration")
     print()
     
-    print("NEW APPROACH (ToolsRouter):")
+    print("NEW APPROACH (ToolsRouter with Dynamic Discovery):")
     print("✓ Centralized tool execution through tools_router.call()")
+    print("✓ Dynamic allowlist from tools/ directory discovery")
+    print("✓ Automatic tool registration and availability checking")
     print("✓ Configurable allowlist for security")
     print("✓ Timeout protection with configurable limits")
     print("✓ Automatic retry with exponential backoff")
     print("✓ Comprehensive error handling and status reporting")
     print("✓ Execution metrics and observability")
+    print("✓ Runtime tool refresh and synchronization")
     print("✓ Easy to extend with new safety features")
     print()
     
-    print("BENEFITS:")
-    print("🔒 Security: Allowlist prevents execution of dangerous tools")
-    print("⏱️  Reliability: Timeouts prevent hanging operations")
-    print("🔄 Resilience: Retries handle transient failures")
-    print("📊 Observability: Detailed execution metrics and timing")
-    print("🛡️  Safety: Centralized control over all tool execution")
-    print("🎯 Consistency: Same interface for all tools")
+    print("DYNAMIC DISCOVERY BENEFITS:")
+    print("� Auto-sync: Tools are automatically discovered from tools/ directory")
+    print("🔒 Security: Only actual available tools are allowed")
+    print("⚡ Flexibility: New tools are automatically available")
+    print("🧹 Clean: No stale tool references in allowlist")
+    print("� Maintainable: No manual allowlist management required")
+    print("� Observable: Track available vs allowed tools")
+    print("🎯 Accurate: Allowlist always matches reality")
 
 
 async def demo_integration():

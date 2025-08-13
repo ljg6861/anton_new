@@ -52,27 +52,36 @@ class ToolsRouter:
     def __init__(self, 
                  allowlist: Optional[Set[str]] = None,
                  max_retries: int = 2,
-                 default_timeout_ms: float = 30000):
+                 default_timeout_ms: float = 30000,
+                 auto_discover_tools: bool = True):
         """
         Initialize the ToolsRouter.
         
         Args:
-            allowlist: Set of allowed tool names. If None, uses default allowlist.
+            allowlist: Set of allowed tool names. If None and auto_discover_tools=True, 
+                      uses all tools from the tools/ directory.
             max_retries: Maximum number of retry attempts per tool call
             default_timeout_ms: Default timeout in milliseconds
+            auto_discover_tools: If True, automatically discover tools from tool_manager
         """
-        # Default allowlist based on your specification
-        self.allowlist = allowlist or {
-            "search", "http", "bash", "python", "browser_click",
-            # Add common tools from the existing system
-            "read_file", "write_file", "list_directory", "create_file",
-            "edit_file", "delete_file", "run_shell_command", 
-            "run_git_command", "search_web", "search_code",
-            "get_code_stats", "expand_content", "rebuild_index"
-        }
-        
         self.max_retries = max_retries
         self.default_timeout_ms = default_timeout_ms
+        self.auto_discover_tools = auto_discover_tools
+        
+        # Initialize allowlist
+        if allowlist is not None:
+            self.allowlist = allowlist.copy()
+        elif auto_discover_tools:
+            self.allowlist = self._discover_available_tools()
+        else:
+            # Fallback to basic safe tools if no discovery
+            self.allowlist = {
+                "search", "http", "bash", "python", "browser_click",
+                "read_file", "write_file", "list_directory", "create_file",
+                "edit_file", "delete_file", "run_shell_command", 
+                "run_git_command", "search_web", "search_code",
+                "get_code_stats", "expand_content", "rebuild_index"
+            }
         
         # Statistics tracking
         self.execution_stats = {
@@ -84,7 +93,48 @@ class ToolsRouter:
             "retry_calls": 0
         }
         
-        logger.info(f"ToolsRouter initialized with allowlist: {sorted(self.allowlist)}")
+        logger.info(f"ToolsRouter initialized with {len(self.allowlist)} tools from dynamic discovery")
+        logger.debug(f"Allowed tools: {sorted(self.allowlist)}")
+    
+    def _discover_available_tools(self) -> Set[str]:
+        """
+        Dynamically discover available tools from the tool_manager.
+        
+        Returns:
+            Set of available tool names
+        """
+        try:
+            from server.agent.tools.tool_manager import tool_manager
+            
+            # Get all registered tool names
+            available_tools = set(tool_manager.get_tool_names())
+            
+            logger.info(f"Discovered {len(available_tools)} tools from tools/ directory")
+            logger.debug(f"Available tools: {sorted(available_tools)}")
+            
+            return available_tools
+            
+        except ImportError as e:
+            logger.error(f"Failed to import tool_manager for tool discovery: {e}")
+            # Fallback to empty set - will need manual allowlist
+            return set()
+        except Exception as e:
+            logger.error(f"Error during tool discovery: {e}")
+            # Fallback to empty set - will need manual allowlist  
+            return set()
+    
+    def refresh_allowlist(self) -> None:
+        """
+        Refresh the allowlist by re-discovering available tools.
+        Useful when tools are added/removed at runtime.
+        """
+        if self.auto_discover_tools:
+            old_count = len(self.allowlist)
+            self.allowlist = self._discover_available_tools()
+            new_count = len(self.allowlist)
+            logger.info(f"Refreshed allowlist: {old_count} -> {new_count} tools")
+        else:
+            logger.warning("Auto-discovery disabled, cannot refresh allowlist automatically")
     
     async def call(self, name: str, args: Dict[str, Any], 
                    timeout_ms: Optional[float] = None) -> ExecutionResult:
@@ -236,6 +286,44 @@ class ToolsRouter:
         """Check if a tool is in the allowlist"""
         return tool_name in self.allowlist
     
+    def get_available_tools(self) -> Set[str]:
+        """Get all currently available tools from tool_manager"""
+        return self._discover_available_tools()
+    
+    def get_allowlist(self) -> Set[str]:
+        """Get the current allowlist"""
+        return self.allowlist.copy()
+    
+    def sync_with_available_tools(self) -> Dict[str, List[str]]:
+        """
+        Synchronize allowlist with currently available tools.
+        
+        Returns:
+            Dictionary with 'added' and 'removed' tool lists
+        """
+        if not self.auto_discover_tools:
+            logger.warning("Auto-discovery disabled, cannot sync with available tools")
+            return {"added": [], "removed": []}
+        
+        current_allowlist = self.allowlist.copy()
+        available_tools = self._discover_available_tools()
+        
+        # Find tools that should be added (available but not in allowlist)
+        added_tools = list(available_tools - current_allowlist)
+        
+        # Find tools that should be removed (in allowlist but not available)
+        removed_tools = list(current_allowlist - available_tools)
+        
+        # Update allowlist
+        self.allowlist = available_tools
+        
+        if added_tools:
+            logger.info(f"Added newly discovered tools: {added_tools}")
+        if removed_tools:
+            logger.info(f"Removed unavailable tools: {removed_tools}")
+        
+        return {"added": added_tools, "removed": removed_tools}
+    
     def get_stats(self) -> Dict[str, Any]:
         """Get execution statistics"""
         total = self.execution_stats["total_calls"]
@@ -257,5 +345,5 @@ class ToolsRouter:
         logger.info("Tool execution statistics reset")
 
 
-# Global instance for the application
-tools_router = ToolsRouter()
+# Global instance for the application with dynamic tool discovery
+tools_router = ToolsRouter(auto_discover_tools=True)
