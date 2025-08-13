@@ -135,8 +135,9 @@ def format_thought_action_observation(state: State, thought: str, action: Option
 
 def update_state_from_tool_result(state: State, tool_name: str, tool_args: Dict[str, Any], 
                                  result: Any, success: bool = True, cost: float = 0.0, 
-                                 error: Optional[str] = None) -> ToolCallTrace:
-    """Update state after tool execution"""
+                                 error: Optional[str] = None, execution_time_ms: float = 0.0,
+                                 attempts: int = 1) -> ToolCallTrace:
+    """Update state after tool execution using ToolsRouter results"""
     # Find the most recent incomplete tool call for this tool
     trace = None
     for call in reversed(state.tool_calls):
@@ -148,8 +149,14 @@ def update_state_from_tool_result(state: State, tool_name: str, tool_args: Dict[
         # Create a new trace if none found (shouldn't happen in normal flow)
         trace = state.start_tool_call(tool_name, tool_args)
     
-    # Complete the tool call
+    # Complete the tool call with execution metadata
     state.complete_tool_call(trace, result, success, cost, error)
+    
+    # Add execution timing information
+    if hasattr(trace, 'execution_time_ms'):
+        trace.execution_time_ms = execution_time_ms
+    if hasattr(trace, 'attempts'):
+        trace.attempts = attempts
     
     # Add specific context based on tool type
     if tool_name == "read_file" and success:
@@ -159,7 +166,7 @@ def update_state_from_tool_result(state: State, tool_name: str, tool_args: Dict[
             source=f"file:{file_path}",
             importance=2.0,
             context_type="file_content",
-            metadata={"file_path": file_path}
+            metadata={"file_path": file_path, "execution_time_ms": execution_time_ms}
         )
     elif tool_name == "list_directory" and success:
         path = tool_args.get("path", ".")
@@ -168,7 +175,7 @@ def update_state_from_tool_result(state: State, tool_name: str, tool_args: Dict[
             source=f"directory:{path}",
             importance=1.0,
             context_type="directory_listing",
-            metadata={"path": path}
+            metadata={"path": path, "execution_time_ms": execution_time_ms}
         )
     elif tool_name in ["run_git_command", "run_shell_command"] and success:
         command = str(tool_args.get("command", ""))
@@ -177,7 +184,7 @@ def update_state_from_tool_result(state: State, tool_name: str, tool_args: Dict[
             source=f"command:{tool_name}",
             importance=1.5,
             context_type="command_output",
-            metadata={"command": command}
+            metadata={"command": command, "execution_time_ms": execution_time_ms}
         )
     
     # Update session memory based on successful tool results

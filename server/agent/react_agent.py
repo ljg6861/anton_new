@@ -392,25 +392,35 @@ print("Hello, World!") **Ensure there is a new line here!**
                 """Capture tool results and update state"""
                 tool_results_for_ui.append(tool_result_summary)
                 
-                # Update state with tool result
+                # Update state with tool result including ToolsRouter metadata
                 tool_name = tool_result_summary.get("name", "")
                 tool_args = tool_result_summary.get("arguments", {})
                 result = tool_result_summary.get("result", "")
                 success = tool_result_summary.get("status") == "success"
                 error = tool_result_summary.get("error")
+                execution_time_ms = tool_result_summary.get("execution_time_ms", 0.0)
+                attempts = tool_result_summary.get("attempts", 1)
                 
-                # Find and complete the tool call trace
-                update_state_from_tool_result(S, tool_name, tool_args, result, success, 0.0, error)
+                # Find and complete the tool call trace with enhanced metadata
+                update_state_from_tool_result(
+                    S, tool_name, tool_args, result, success, 0.0, error, 
+                    execution_time_ms, attempts
+                )
                 
                 # Record in learning loop
                 learning_loop.record_action("tool_use", {
                     "tool_name": tool_name,
                     "arguments": tool_args,
                     "success": success,
+                    "execution_time_ms": execution_time_ms,
+                    "attempts": attempts
                 })
                 
                 # Add observation to scratchpad
-                observation = f"Tool {tool_name} {'succeeded' if success else 'failed'}: {str(result)[:200]}"
+                if success:
+                    observation = f"Tool {tool_name} succeeded in {execution_time_ms:.1f}ms: {str(result)[:200]}"
+                else:
+                    observation = f"Tool {tool_name} failed after {attempts} attempts: {error}"
                 S.add_to_scratchpad(f"Action: {tool_name}\nObservation: {observation}")
 
             # Process tool calls
