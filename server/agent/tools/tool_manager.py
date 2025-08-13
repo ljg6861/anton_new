@@ -283,6 +283,10 @@ class ToolManager:
         """Check if a tool is registered."""
         return tool_name in self.tools
 
+    def get_tool_by_name(self, tool_name: str) -> Optional[Dict[str, Any]]:
+        """Get a tool by its name."""
+        return self.tools.get(tool_name)
+
 
 # Create a single, global instance that the entire application will share.
 tool_manager = ToolManager()

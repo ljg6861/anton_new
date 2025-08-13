@@ -201,6 +201,7 @@ CAPABILITIES:
 - File operations, code analysis, web search
 - Access to domain knowledge and past learnings
 - Persistent memory across conversations
+- Anything else specified within the following tools
 
 TOOLS:
 {self._format_tools_compact()}
@@ -211,6 +212,7 @@ TOOL USAGE:
 RULES:
 - ONE tool per turn
 - Wait for OBSERVATION before continuing
+- DO NOT provide your own observations. Observations will be added automatically to the context. If you do not see an observation, its possible the tool call failed.
 - Start final responses with "Final Answer:"
 """
 
