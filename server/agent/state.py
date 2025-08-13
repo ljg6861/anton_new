@@ -131,6 +131,10 @@ class State:
     session_todos: List[str] = field(default_factory=list)
     session_context: str = ""
     
+    # Orchestration fields
+    subgoals: List[str] = field(default_factory=list)
+    route: Optional[str] = None
+    
     def add_context(self, content: str, source: str, importance: float = 1.0, 
                    context_type: str = "general", metadata: Optional[Dict[str, Any]] = None):
         """Add context to state"""
