@@ -11,6 +11,8 @@ from typing import AsyncGenerator
 from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
     nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
 from server.agent.pack_builder import build_pack_centroids
+from server.agent.react.react_agent import ReActAgent
+from server.agent.react.token_budget import TokenBudget
 build_pack_centroids()
 from server.agent.config import AGENT_SERVER_HOST, AGENT_SERVER_PORT, MODEL_SERVER_URL
 from server.agent.rag_manager import rag_manager
@@ -183,7 +185,6 @@ async def agent_chat(request: AgentChatRequest):
     knowledge_store = KnowledgeStore()
     
     # Create ReAct agent with knowledge store, tool schemas, and token budget
-    from server.agent.react_agent import ReActAgent, TokenBudget
     available_tools = tool_manager.get_tool_schemas()
     
     # Configure token budget based on request complexity
