@@ -185,6 +185,8 @@ class ReActAgent:
                                         logger: Any) -> AsyncGenerator[str, None]:
         """Handle response processing and tool execution"""
         content = re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
+
+        react_messages.append({"role": ASSISTANT_ROLE, "content": content})
         
         # Import here to avoid circular imports
         from server.agent import config
@@ -210,8 +212,6 @@ class ReActAgent:
         for tool_result_summary in tool_results_for_ui:
             yield f"<tool_result>{json.dumps(tool_result_summary)}</tool_result>"
 
-        react_messages.append({"role": ASSISTANT_ROLE, "content": content})
-        
         if made_tool_calls:
             yield "continue"  # Continue loop
         else:
@@ -263,17 +263,38 @@ class ReActAgent:
         self.memory.add_decision("Task incomplete - reached max iterations")
         yield final_msg
     
+    def _sanitize_messages_for_ollama(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Convert function role messages to user role for Ollama compatibility"""
+        sanitized_messages = []
+        for msg in messages:
+            msg_copy = msg.copy()
+            # Ollama doesn't support 'function' role, convert to 'user' with tool result prefix
+            if msg_copy.get("role") == "function":
+                tool_name = msg_copy.get("name", "tool")
+                content = msg_copy.get("content", "")
+                msg_copy["role"] = "user"
+                msg_copy["content"] = f"[Tool Result from {tool_name}]: {content}"
+                # Remove the 'name' field as it's not needed for user messages
+                msg_copy.pop("name", None)
+            sanitized_messages.append(msg_copy)
+        return sanitized_messages
+
     async def _execute_llm_request(
         self,
         messages: List[Dict[str, str]],
         logger: Any
     ) -> AsyncGenerator[str, None]:
         """Execute LLM request and stream response"""
+        # Sanitize messages for Ollama compatibility
+        sanitized_messages = self._sanitize_messages_for_ollama(messages)
+        
         request_payload = {
-            "messages": messages,
+            "messages": sanitized_messages,
             "temperature": 0.6,
             'complex': True,
         }
+
+        logger.info(f"Sending request payload: {json.dumps(request_payload, indent=2)}")
 
         async with httpx.AsyncClient(timeout=None) as client:
             try:
@@ -285,6 +306,17 @@ class ReActAgent:
                         content = chunk_data.get("message", {}).get("content", "")
                         yield content
 
+            except httpx.HTTPStatusError as e:
+                # Log the specific HTTP error details
+                error_details = f"HTTP {e.response.status_code}: {e.response.reason_phrase}"
+                try:
+                    error_body = await e.response.aread()
+                    error_details += f"\nResponse body: {error_body.decode()}"
+                except:
+                    error_details += "\nCould not read response body"
+                
+                logger.error(f"ReActAgent: HTTP error from model server: {error_details}")
+                yield f"\n[ERROR: HTTP {e.response.status_code} from model server: {e.response.reason_phrase}]\n"
             except httpx.RequestError as e:
                 logger.error(f"ReActAgent: API request to model server failed: {e}")
                 yield f"\n[ERROR: Could not connect to the model server: {e}]\n"

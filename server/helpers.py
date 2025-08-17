@@ -18,10 +18,9 @@ class ToolCall(BaseModel):
 
 # A more accurate and type-safe representation of a chat message.
 class OpenAIChatMessage(BaseModel):
-    role: Literal["system", "user", "assistant", "tool"]
+    role: Literal["system", "user", "assistant", "function"]
     content: str | None = None
-    tool_calls: list[ToolCall] | None = None # For assistant messages that use tools.
-    tool_call_id: str | None = None          # For 'tool' role messages with results.
+    name: str | None = None  # For tool calls, the name of the tool
 
 
 # Defines the name, description, and JSON schema for a function's parameters.

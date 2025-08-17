@@ -105,10 +105,11 @@ async def process_tool_calls(
                 await result_callback(tool_result_summary)
 
             # Append the structured tool result to messages as system role for better model understanding
-            # Use "system" role instead of "user" to clearly indicate this is an observation
+            # Use "function" role instead of "user" to clearly indicate this is an observation
             messages.append({
-                "role": "system",
-                "content": f"OBSERVATION: Tool '{tool_name}' result: {tool_result}"
+                "role": "function",
+                'name' : tool_name,
+                "content": tool_result
             })
                 
         except Exception as e:
