@@ -242,6 +242,9 @@ class ToolManager:
             
         Returns:
             String result of the tool execution
+            
+        Raises:
+            Exception: If tool is not found, arguments are invalid, or tool execution fails
         """
         if tool_name not in self.tools:
             # Try to find a close match
@@ -250,19 +253,17 @@ class ToolManager:
                 suggestion = f" Did you mean: {', '.join(similar_tools[:3])}?"
             else:
                 suggestion = f" Available tools: {', '.join(list(self.tools.keys())[:5])}"
-            return f"❌ Error: Tool '{tool_name}' not found.{suggestion}"
+            raise Exception(f"Tool '{tool_name}' not found.{suggestion}")
 
         tool_instance = self.tools[tool_name]
         
         # Validate arguments if possible
         if isinstance(tool_instance, BaseTool):
             if not tool_instance.validate_arguments(tool_args):
-                return f"❌ Error: Invalid arguments for tool '{tool_name}'"
+                raise Exception(f"Invalid arguments for tool '{tool_name}'")
         
-        try:
-            return tool_instance.run(tool_args)
-        except Exception as e:
-            return f"❌ Error executing tool '{tool_name}': {str(e)}"
+        # Let exceptions bubble up naturally - they indicate real tool failures
+        return tool_instance.run(tool_args)
 
     def reload_tools(self):
         """Reload all tools from the filesystem."""

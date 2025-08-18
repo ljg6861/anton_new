@@ -65,8 +65,8 @@ async def process_tool_calls(
         except (json.JSONDecodeError, KeyError) as e:
             error_msg = f"Error: Invalid tool call format. Reason: {e}"
             logger.error(f"{error_msg}\nContent: {tool_call_content}")
-            # Convert tool error to user role for Ollama compatibility
-            messages.append({"role": "user", "content": f"Tool error: {error_msg}"})
+            # Convert tool error to system role for Ollama compatibility
+            messages.append({"role": "system", "content": f"Tool error: {error_msg}"})
 
     # Execute all valid tool calls - but enforce single tool per turn for safety
     logger.info('Detected tool calls:\n' + str(tool_calls))
@@ -104,65 +104,35 @@ async def process_tool_calls(
                 })
         
         try:
+            # Execute tool without catching exceptions - let real failures bubble up
             result = await execute_tool_async(tool_name, tool_call["arguments"], logger)
             
-            # Determine success/failure based on result content
-            is_success, error_details = _analyze_tool_result(result)
-            outcome = ToolOutcome.SUCCESS if is_success else ToolOutcome.FAILURE
+            # If we get here, the tool succeeded (no exception was thrown)
+            logger.info(f"Tool {tool_name} completed successfully")
+            status = "success"
             
-            # Record execution immediately with proper outcome detection
+            # Record successful execution
             execution_id, suggested_alternatives = tool_learning_store.record_tool_execution(
                 tool_name=tool_name,
                 arguments=tool_call["arguments"],
                 result=str(result),
-                outcome=outcome,
+                outcome=ToolOutcome.SUCCESS,
                 execution_id=execution_id,
-                error_details=error_details
+                error_details=None
             )
             
-            if is_success:
-                logger.info(f"Tool {tool_name} completed successfully")
-                status = "success"
-                tool_result = result
-                
-                # Check for failure-success learning opportunities
-                if llm_analysis_callback:
-                    _check_for_learning_opportunities(execution_id, llm_analysis_callback)
-                    
-            else:
-                logger.error(f"Tool {tool_name} failed: {error_details}")
-                status = "error" 
-                
-                # Check if we have high-confidence alternatives for immediate corrective action
-                if suggested_alternatives:
-                    logger.info(f"Found {len(suggested_alternatives)} suggested alternatives for failed {tool_name}")
-                    
-                    # Create corrective action message with suggestions
-                    alternatives_text = "\n".join([
-                        f"• {alt.successful_alternative} (confidence: {alt.confidence:.1%})"
-                        for alt in suggested_alternatives[:3]  # Top 3 alternatives
-                    ])
-                    
-                    tool_result = f"❌ Error: {error_details}\n\n🤖 **CORRECTIVE ACTION SUGGESTED:**\nBased on past learnings, try these alternatives:\n{alternatives_text}\n\nThe original {tool_name} approach failed, but these alternatives have worked in similar situations."
-                    
-                    # Add a system message with the learning-based suggestion
-                    corrective_message = {
-                        "role": "system",
-                        "content": f"🚨 TOOL FAILURE RECOVERY: {tool_name} failed. High-confidence alternatives available:\n{alternatives_text}\n\nConsider using these learned alternatives instead of retrying the same approach."
-                    }
-                    messages.append(corrective_message)
-                    
-                else:
-                    tool_result = f"Error: {error_details}"
+            # Check for failure-success learning opportunities
+            if llm_analysis_callback:
+                _check_for_learning_opportunities(execution_id, llm_analysis_callback)
 
             # Update knowledge store for file operations
             if knowledge_store is not None:
-                knowledge_store.update_from_tool_execution(tool_name, tool_call["arguments"], tool_result)
+                knowledge_store.update_from_tool_execution(tool_name, tool_call["arguments"], result)
 
             # Stream tool result to UI if callback provided
             if result_callback:
                 # Create a concise, user-facing summary of the tool result
-                brief_result = str(tool_result)[:200] + "..." if len(str(tool_result)) > 200 else str(tool_result)
+                brief_result = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
                 
                 tool_result_summary = {
                     "name": tool_name,
@@ -172,89 +142,65 @@ async def process_tool_calls(
                 }
                 await result_callback(tool_result_summary)
 
-            # Append the structured tool result to messages as system role for better model understanding
-            # Use "function" role instead of "user" to clearly indicate this is an observation
+            # Present tool result clearly to avoid agent confusion
+            # Use a clear format that distinguishes observation from instruction
+            tool_result_message = f"TOOL_RESULT from {tool_name}:\n{result}"
+            
             messages.append({
                 "role": "function",
-                'name' : tool_name,
-                "content": tool_result
+                'name': tool_name,
+                "content": tool_result_message
             })
                 
         except Exception as e:
-            logger.error(f"Error during tool execution: {e}", exc_info=True)
-            messages.append({"role": "system", "content": f"TOOL_ERROR: {tool_name} failed: {str(e)}"})
+            # Only exceptions are treated as failures
+            logger.error(f"Tool {tool_name} failed with exception: {e}", exc_info=True)
+            
+            # Record failed execution
+            execution_id, suggested_alternatives = tool_learning_store.record_tool_execution(
+                tool_name=tool_name,
+                arguments=tool_call["arguments"],
+                result=f"Exception: {str(e)}",
+                outcome=ToolOutcome.FAILURE,
+                execution_id=execution_id,
+                error_details=str(e)
+            )
+            
+            # Check if we have corrective action suggestions
+            if suggested_alternatives:
+                logger.info(f"Found {len(suggested_alternatives)} suggested alternatives for failed {tool_name}")
+                
+                # Create corrective action message with suggestions
+                alternatives_text = "\n".join([
+                    f"• {alt.successful_alternative} (confidence: {alt.confidence:.1%})"
+                    for alt in suggested_alternatives[:3]  # Top 3 alternatives
+                ])
+                
+                error_message = f"TOOL_ERROR: {tool_name} failed with exception: {str(e)}\n\nCORRECTIVE ACTION SUGGESTED:\nBased on past learnings, try these alternatives:\n{alternatives_text}"
+                
+                # Add a system message with the learning-based suggestion
+                corrective_message = {
+                    "role": "system",
+                    "content": f"TOOL FAILURE RECOVERY: {tool_name} failed. High-confidence alternatives available:\n{alternatives_text}\n\nConsider using these learned alternatives instead of retrying the same approach."
+                }
+                messages.append(corrective_message)
+                
+            else:
+                error_message = f"TOOL_ERROR: {tool_name} failed with exception: {str(e)}"
+            
+            messages.append({"role": "system", "content": error_message})
             
             # Stream error to UI if callback provided
             if result_callback:
                 error_summary = {
                     "name": tool_name,
                     "status": "error", 
-                    "brief_result": f"Error: {str(e)}",
+                    "brief_result": f"Exception: {str(e)}",
                     "arguments": tool_call["arguments"]
                 }
                 await result_callback(error_summary)
 
     return tool_calls_made
-
-
-def _analyze_tool_result(result: Any) -> tuple[bool, str]:
-    """
-    Analyze tool result to determine if it was actually successful or failed.
-    This fixes the issue where tools return success=True even when they error out.
-    
-    Returns:
-        Tuple of (is_success, error_details)
-    """
-    result_str = str(result)
-    
-    # Check for explicit error indicators
-    error_indicators = [
-        "❌ Error",
-        "❌ Failed", 
-        "Error:",
-        "Exception:",
-        "command not found",
-        "permission denied",
-        "file not found",
-        "no such file",
-        "connection refused",
-        "timeout",
-        "failed to",
-        "cannot",
-        "unable to",
-        "fatal:",
-        "error:"
-    ]
-    
-    for indicator in error_indicators:
-        if indicator.lower() in result_str.lower():
-            return False, result_str
-    
-    # Check for success indicators
-    success_indicators = [
-        "✅ Success",
-        "successfully",
-        "completed",
-        "done",
-        "ok"
-    ]
-    
-    has_success_indicator = any(indicator.lower() in result_str.lower() for indicator in success_indicators)
-    
-    # If result is very short and no clear indicators, consider it potentially successful
-    if len(result_str.strip()) < 10 and not any(indicator.lower() in result_str.lower() for indicator in error_indicators):
-        return True, None
-    
-    # If we have explicit success indicators, it's successful
-    if has_success_indicator:
-        return True, None
-    
-    # If result contains structured data (JSON, lists, etc.), likely successful
-    if result_str.strip().startswith(('{', '[', '"')) or 'data' in result_str.lower():
-        return True, None
-    
-    # Default to success if no clear error indicators
-    return True, None
 
 
 def _check_for_learning_opportunities(success_execution_id: str, llm_analysis_callback):
@@ -308,33 +254,24 @@ async def execute_tool_async(tool_name: str, tool_args: dict, logger) -> str:
     """
     Looks up a tool by name in the registry and executes it with the given arguments.
     Uses asyncio.to_thread to run blocking IO-bound tools in a thread pool.
-    Enhanced to properly detect and return actual tool results vs errors.
+    Let exceptions bubble up naturally - they indicate real tool failures.
     """
-    try:
-        logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
-        # Run the potentially blocking tool in a thread pool
-        result = await asyncio.to_thread(tool_manager.run_tool, tool_name, tool_args)
-        
-        # tool_manager.run_tool returns the actual result from the tool
-        # No need to wrap in additional JSON here since the tool should return its own formatted result
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error executing tool '{tool_name}': {e}", exc_info=True)
-        # Return the error in a format that _analyze_tool_result can detect
-        return f"❌ Error executing tool '{tool_name}': {str(e)}"
+    logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
+    # Run the potentially blocking tool in a thread pool
+    # Do NOT catch exceptions here - let them bubble up to indicate real failures
+    result = await asyncio.to_thread(tool_manager.run_tool, tool_name, tool_args)
+    
+    # tool_manager.run_tool returns the actual result from the tool
+    return result
 
 
 def execute_tool(tool_name: str, tool_args: dict, logger) -> str:
     """
     Synchronous version for backward compatibility.
     Looks up a tool by name in the registry and executes it with the given arguments.
+    Let exceptions bubble up naturally - they indicate real tool failures.
     """
-    try:
-        logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
-        # Assumes the tool's value is a dict with a 'run' callable
-        result = tool_manager.run_tool(tool_name, tool_args)
-        return json.dumps(result)
-    except Exception as e:
-        logger.error(f"Error executing tool '{tool_name}': {e}", exc_info=True)
-        return f'{{"error": "Failed to execute tool: {str(e)}"}}'
+    logger.info(f"Executing tool '{tool_name}' with args: {tool_args}")
+    # Do NOT catch exceptions here - let them bubble up to indicate real failures
+    result = tool_manager.run_tool(tool_name, tool_args)
+    return json.dumps(result)

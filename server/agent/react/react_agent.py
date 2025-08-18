@@ -76,17 +76,23 @@ class ReActAgent:
             learning_loop.start_task(user_prompt)
 
         self._update_session_context_from_prompt(user_prompt)
-        
-        # Build memories
-        working_memory = self.memory.build_working_memory(initial_messages)
-        session_memory = self.memory.build_session_memory()
-        
-        # Initialize conversation tracking
+
+        # Initialize conversation tracking (adds messages to knowledge store with dedup)
         self._initialize_conversation_tracking(initial_messages)
+
+        # Build memories from full stored conversation (persistent across requests)
+        full_history = self.knowledge_store.get_messages_for_llm()
+        # Ensure LLM-based summarization for overflow before building working memory
+        try:
+            await self.memory.update_llm_conversation_summary(full_history, self.api_base_url)
+        except Exception as e:
+            logger.error(f"LLM summarization failed (will fallback to heuristic): {e}")
+        working_memory = self.memory.build_working_memory(full_history)
+        session_memory = self.memory.build_session_memory()
 
         # Build messages for LLM
         react_messages = await self._build_react_messages(user_prompt, working_memory, session_memory)
-        
+
         # Main ReAct loop
         async for response in self._execute_react_loop(react_messages, logger):
             yield response
@@ -258,11 +264,8 @@ class ReActAgent:
         for tool_result_summary in tool_results_for_ui:
             yield f"<tool_result>{json.dumps(tool_result_summary)}</tool_result>"
 
-        if made_tool_calls:
-            yield "continue"  # Continue loop
-        else:
-            final_result = self._handle_final_response(content)
-            yield "stop" if not final_result else "continue"
+        final_result = self._handle_final_response(content)
+        yield "stop" if not final_result else "continue"
     
     def _record_tool_use(self, tool_result_summary: Dict):
         """Record tool use in learning loop"""
@@ -318,7 +321,7 @@ class ReActAgent:
             if msg_copy.get("role") == "function":
                 tool_name = msg_copy.get("name", "tool")
                 content = msg_copy.get("content", "")
-                msg_copy["role"] = "user"
+                msg_copy["role"] = "system"
                 msg_copy["content"] = f"[Tool Result from {tool_name}]: {content}"
                 # Remove the 'name' field as it's not needed for user messages
                 msg_copy.pop("name", None)

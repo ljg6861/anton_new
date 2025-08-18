@@ -188,9 +188,7 @@ async def agent_chat(request: AgentChatRequest):
     available_tools = tool_manager.get_tool_schemas()
     
     # Configure token budget based on request complexity
-    budget = TokenBudget(total_budget=8192)  # Conservative default
-    if hasattr(request, 'complex') and request.complex:
-        budget.total_budget = 16384  # Larger budget for complex tasks
+    budget = TokenBudget(total_budget=135000)  # Conservative default
         
     react_agent = ReActAgent(
         api_base_url=MODEL_SERVER_URL,

@@ -5,7 +5,7 @@ Tool for retrieving statistics about the agent's codebase.
 
 class CodebaseStatsTool:
     """
-    A tool that provides statistics and information about the indexed codebase.
+    A tool that provides statistics and information about the indexed codebase. This is NOT a codebase search.
     """
 
     function = {

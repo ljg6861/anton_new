@@ -16,22 +16,12 @@ GIT_ROOT_DIR = find_git_root()
 
 def _run_command(command: list[str]) -> str:
     """A helper function to run shell commands from the Git root directory."""
-    try:
-        result = subprocess.run(
-            command, capture_output=True, text=True, check=True,
-            encoding='utf-8', cwd=GIT_ROOT_DIR
-        )
-        output = result.stdout.strip()
-        return f"✅ Success:\n---\n{output}\n---" if output else f"✅ Command '{' '.join(command)}' executed successfully."
-    except FileNotFoundError as e:
-        return f"❌ Error: Command not found: {e.filename}. Please ensure 'git' or 'gh' is installed and in the system's PATH."
-    except subprocess.CalledProcessError as e:
-        error_output = f"Stderr:\n---\n{e.stderr.strip()}"
-        if e.stdout.strip():
-            error_output += f"\nStdout:\n---\n{e.stdout.strip()}"
-        return f"❌ Error executing command: {' '.join(command)}\nReturn Code: {e.returncode}\n{error_output}"
-    except Exception as e:
-        return f"❌ An unexpected error occurred: {type(e).__name__}: {e}"
+    result = subprocess.run(
+        command, capture_output=True, text=True, check=True,
+        encoding='utf-8', cwd=GIT_ROOT_DIR
+    )
+    output = result.stdout.strip()
+    return f"✅ Success:\n---\n{output}\n---" if output else f"✅ Command '{' '.join(command)}' executed successfully."
 
 # --- Individual Tool Classes ---
 

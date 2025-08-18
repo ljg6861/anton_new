@@ -65,16 +65,18 @@ class KnowledgeStore:
         self.explored_files: Set[str] = set()
         self.code_content: Dict[str, str] = {}
         self.task_progress: List[str] = []
-        
+        # For deduplicating messages (avoid re-adding identical history across requests)
+        self._message_hashes: Set[str] = set()
+
         # Enhanced context management
         self.context_items: List[ContextItem] = []
         self.importance_weights = {
             ImportanceLevel.LOW: 1.0,
-            ImportanceLevel.MEDIUM: 2.0, 
+            ImportanceLevel.MEDIUM: 2.0,
             ImportanceLevel.HIGH: 4.0,
             ImportanceLevel.CRITICAL: 8.0
         }
-        
+
         # Conversation state management (replaces ConversationState)
         self.messages: List[Dict[str, str]] = []
         self.tool_outputs: Dict[str, Any] = {}
@@ -366,6 +368,10 @@ class KnowledgeStore:
         message = {"role": role, "content": content}
         if metadata:
             message.update(metadata)
+        key = f"{role}:{content}"
+        if key in self._message_hashes:
+            return  # Already stored
+        self._message_hashes.add(key)
         self.messages.append(message)
         
         # Also track as context item for advanced prioritization

@@ -81,7 +81,7 @@ class WriteFileTool:
         content = arguments.get('content')
 
         if not file_path_arg or content is None:
-            return "❌ Error: Both 'file_path' and 'content' are required."
+            raise ValueError("Both 'file_path' and 'content' are required.")
 
         # Use the helper to get a safe, absolute path
         safe_file_path = _resolve_path(file_path_arg)
@@ -105,29 +105,40 @@ class ReadFileTool:
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Reads the entire content of a specified file relative to the project root.",
+            "description": "Reads the entire content of a specified file relative to the project root. Accepts either 'file_path' or 'path' parameter.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_path": {
                         "type": "string",
                         "description": "The path to the file to be read, relative to the project root."
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Alternative parameter name for file_path."
                     }
                 },
-                "required": ["file_path"]
+                "anyOf": [
+                    {"required": ["file_path"]},
+                    {"required": ["path"]}
+                ]
             }
         }
     }
 
     def run(self, arguments: dict) -> str:
         """Executes the tool's logic."""
-        file_path_arg = arguments.get('file_path')
+        # Support both 'file_path' and 'path' parameter names for compatibility
+        file_path_arg = arguments.get('file_path') or arguments.get('path')
+        
+        if not file_path_arg:
+            raise ValueError("Missing required parameter: either 'file_path' or 'path' must be provided")
 
         # Use the helper to get a safe, absolute path
         safe_file_path = _resolve_path(file_path_arg)
 
         if not os.path.exists(safe_file_path):
-            return f"❌ Error: The file '{file_path_arg}' was not found."
+            raise FileNotFoundError(f"The file '{file_path_arg}' was not found.")
 
         with open(safe_file_path, 'r', encoding='utf-8') as f:
             content = f.read()
