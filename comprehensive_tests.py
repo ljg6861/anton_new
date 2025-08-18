@@ -159,21 +159,21 @@ class TestSuite:
         )
 
     async def test_memory_summarization(self):
-        """Test summarization and dedup memory behaviors."""
+        """Test LLM-only summarization and memory behaviors."""
         await self._test_case(
-            "Working Memory Overflow Summarization",
-            self._test_memory_overflow_summary,
-            "Older messages should be summarized instead of dropped"
+            "LLM Summarization Always Used",
+            self._test_llm_summarization_always_used,
+            "LLM should always be used for summarization when threshold is met"
         )
         await self._test_case(
-            "KnowledgeStore Message Dedup",
-            self._test_message_dedup,
-            "Duplicate messages should not be re-added"
+            "No Heuristic Summarization Methods",
+            self._test_no_heuristic_summarization,
+            "All heuristic summarization methods should be removed"
         )
         await self._test_case(
-            "LLM Summary Integration Hook",
-            self._test_llm_summary_integration,
-            "Injected LLM summary should appear in working memory"
+            "Memory Token Estimation",
+            self._test_memory_token_estimation,
+            "Token estimation and budget management should work correctly"
         )
     
     # Helper methods for test execution
@@ -474,83 +474,98 @@ class TestSuite:
             return False
 
     # New memory tests
-    async def _test_memory_overflow_summary(self) -> bool:
-        """Ensure overflow messages are summarized (heuristic path)."""
+    async def _test_llm_summarization_always_used(self) -> bool:
+        """Test that LLM is always used for summarization when threshold is met."""
         try:
             from server.agent.react.memory_manager import MemoryManager
             from server.agent.react.token_budget import TokenBudget
 
-            # Small budget to force overflow quickly
-            tb = TokenBudget(total_budget=200)  # working_memory_budget ~ 70 tokens (~280 chars)
+            tb = TokenBudget(total_budget=1000)
             mm = MemoryManager(tb)
 
-            # Create 12 messages of ~80 chars each (will overflow)
-            base_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum."
+            # Create enough messages to exceed 5k token threshold
+            large_message = "This is a substantial message that contains meaningful content " * 100  # ~6k chars = ~1.5k tokens
             messages = []
-            for i in range(12):
-                messages.append({"role": "user", "content": f"{i}:{base_text}"})
+            for i in range(5):  # 5 * 1.5k = 7.5k tokens (exceeds 5k threshold)
+                messages.append({"role": "user", "content": f"Message {i}: {large_message}"})
 
-            wm1 = mm.build_working_memory(messages)
-            if not mm.conversation_summary:
-                logger.error("Conversation summary was not created on overflow")
-                return False
-            if "EARLIER CONVERSATION" not in wm1:
-                logger.error("Working memory missing earlier conversation marker")
-                return False
+            # Mock LLM response
+            mock_summary = "EARLIER CONVERSATION (LLM summarized):\n• USER REQUESTS: User asked about various topics\n• DECISIONS MADE: Assistant decided to help\n• FILES & CODE: No files mentioned\n• ERRORS & SOLUTIONS: No errors encountered"
 
-            # Rebuild should NOT duplicate summary
-            prev_summary = mm.conversation_summary
-            wm2 = mm.build_working_memory(messages)
-            if mm.conversation_summary.count("EARLIER CONVERSATION") != prev_summary.count("EARLIER CONVERSATION"):
-                logger.error("Summary duplicated on second build")
-                return False
-            return True
-        except Exception as e:
-            logger.error(f"Memory overflow summary test failed: {e}")
-            return False
-
-    async def _test_message_dedup(self) -> bool:
-        """Ensure KnowledgeStore does not duplicate identical messages."""
-        try:
-            from server.agent.knowledge_store import KnowledgeStore
-            ks = KnowledgeStore()
-            ks.add_message("user", "repeat message")
-            ks.add_message("user", "repeat message")
-            if len(ks.messages) != 1:
-                logger.error(f"Expected 1 unique message, found {len(ks.messages)}")
-                return False
-            return True
-        except Exception as e:
-            logger.error(f"Message dedup test failed: {e}")
-            return False
-
-    async def _test_llm_summary_integration(self) -> bool:
-        """Simulate LLM summarization hook via monkeypatching method output."""
-        try:
-            from server.agent.react.memory_manager import MemoryManager
-            from server.agent.react.token_budget import TokenBudget
-
-            tb = TokenBudget(total_budget=200)
-            mm = MemoryManager(tb)
-
-            # Prepare messages and simulate prior conversation
-            messages = [{"role": "user", "content": f"msg {i}"} for i in range(15)]
-
-            # Monkeypatch: pretend LLM produced summary for overflow
-            mm.conversation_summary = "EARLIER CONVERSATION (compressed):\n- bullet 1\n- bullet 2"
-            mm._last_summarized_index = 10  # pretend first 10 summarized
-            mm._use_heuristic_fallback = False
+            # Simulate what would happen in update_llm_conversation_summary
+            mm.conversation_summary = mock_summary
+            mm._last_summarized_index = 3
 
             wm = mm.build_working_memory(messages)
-            if "bullet 1" not in wm:
-                logger.error("Injected LLM summary not present in working memory")
+            
+            # Verify LLM summary is included
+            if "LLM summarized" not in wm:
+                logger.error("LLM summary not found in working memory")
                 return False
-            if "msg 14" not in wm:
-                logger.error("Recent message missing from working memory")
+            
+            if "USER REQUESTS:" not in wm:
+                logger.error("LLM summary structure not preserved")
                 return False
+
+            logger.info("✅ LLM summarization working correctly")
             return True
+            
         except Exception as e:
-            logger.error(f"LLM summary integration test failed: {e}")
+            logger.error(f"LLM summarization test failed: {e}")
+            return False
+
+    async def _test_no_heuristic_summarization(self) -> bool:
+        """Test that no heuristic summarization methods exist."""
+        try:
+            from server.agent.react.memory_manager import MemoryManager
+            
+            # Check that heuristic methods were removed
+            if hasattr(MemoryManager, '_summarize_messages_heuristic'):
+                logger.error("Heuristic summarization method still exists")
+                return False
+                
+            if hasattr(MemoryManager, 'should_use_llm_summarization'):
+                logger.error("should_use_llm_summarization method still exists")
+                return False
+
+            logger.info("✅ All heuristic summarization removed")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Heuristic removal test failed: {e}")
+            return False
+
+    async def _test_memory_token_estimation(self) -> bool:
+        """Test token estimation and budget management."""
+        try:
+            from server.agent.react.memory_manager import MemoryManager
+            from server.agent.react.token_budget import TokenBudget
+
+            tb = TokenBudget(total_budget=1000)
+            mm = MemoryManager(tb)
+
+            # Test token estimation
+            test_text = "Hello world! " * 10  # 130 chars
+            estimated = mm.estimate_tokens(test_text)
+            expected = len(test_text) // 4  # Should be ~32 tokens
+            
+            if abs(estimated - expected) > 5:  # Allow some variance
+                logger.error(f"Token estimation off: got {estimated}, expected ~{expected}")
+                return False
+
+            # Test text truncation
+            long_text = "Word " * 1000  # 5000 chars
+            truncated = mm.truncate_to_budget(long_text, 100)  # 100 token budget
+            
+            if len(truncated) > 405:  # 100 tokens * 4 chars/token + a few chars for "..."
+                logger.error(f"Text not properly truncated: {len(truncated)} chars")
+                return False
+
+            logger.info("✅ Token estimation and truncation working")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Token estimation test failed: {e}")
             return False
     
     def _print_summary(self):

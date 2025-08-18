@@ -20,7 +20,7 @@ class MemoryManager:
         # Conversation summarization state
         self.conversation_summary: str = ""  # Rolling summary of overflow messages
         self._last_summarized_index: int = 0  # Index in message list up to which we've summarized
-        self._use_heuristic_fallback: bool = True  # Switch off when LLM summarization engaged
+        self.llm_summary_threshold: int = 5000  # Use LLM when total history exceeds 5k tokens
         
     def estimate_tokens(self, text: str) -> int:
         """Rough token estimation (1 token ≈ 4 chars for English)"""
@@ -40,23 +40,22 @@ class MemoryManager:
         if len(text) <= target_chars:
             return text
             
-        truncated = text[:target_chars]
+        # Account for the ellipsis we'll add
+        truncated = text[:target_chars - 3]  # Reserve 3 chars for "..."
         last_space = truncated.rfind(' ')
         
         # Don't cut too much
-        if last_space > target_chars * 0.8:
+        if last_space > (target_chars - 3) * 0.8:
             truncated = truncated[:last_space]
         
         return truncated + "..."
         
     def build_working_memory(self, messages: List[Dict[str, str]]) -> str:
-        """Build working memory from recent messages with graceful summarization of overflow.
+        """Build working memory from recent messages with overflow summarization.
 
         Strategy:
         - Keep most recent messages until near budget.
-        - Any earlier (overflow) messages not yet summarized are compressed into a rolling
-          conversation_summary so nothing is lost logically.
-        - The summary itself is budgeted; if it grows too large, we recursively compress it.
+        - Use LLM summarization for older messages that overflow
         """
         budget = self.budget.working_memory_budget
 
@@ -85,18 +84,10 @@ class MemoryManager:
 
         # Determine overflow range: messages before cut_index
         overflow_end = max(0, cut_index)  # exclusive
-        if self._use_heuristic_fallback and overflow_end > self._last_summarized_index:
-            # New overflowed messages that haven't been summarized yet (heuristic path)
-            new_overflow_segment = messages[self._last_summarized_index:overflow_end]
-            if new_overflow_segment:
-                segment_summary = self._summarize_messages(new_overflow_segment)
-                if segment_summary:
-                    if self.conversation_summary:
-                        self.conversation_summary += "\n" + segment_summary
-                    else:
-                        self.conversation_summary = segment_summary
-                self._last_summarized_index = overflow_end
-                self._compress_conversation_summary(target_tokens=int(budget * 0.35))
+        if overflow_end > self._last_summarized_index:
+            # New overflowed messages that haven't been summarized yet
+            # Note: LLM summarization will be handled by async update_llm_conversation_summary call
+            pass
 
         # If summary exists but we didn't reserve earlier (e.g., first time) adjust
         summary_text = ""
@@ -109,46 +100,6 @@ class MemoryManager:
         if selected_messages:
             parts.append("\n".join(selected_messages))
         return "\n".join([p for p in parts if p])
-
-    def _summarize_messages(self, messages: List[Dict[str, str]]) -> str:
-        """Heuristically summarize a list of messages (older overflow segment).
-
-        Approach: group consecutive messages by role, truncate each content, and note counts.
-        This is a lightweight, no-LLM approach to avoid network calls; can be upgraded later.
-        """
-        if not messages:
-            return ""
-        groups: List[Dict[str, Any]] = []  # type: ignore
-        current_role = None
-        current_msgs: List[str] = []
-        for m in messages:
-            role = m.get('role', 'unknown')
-            content = (m.get('content') or '').strip()
-            if current_role is None:
-                current_role = role
-            if role != current_role:
-                groups.append({'role': current_role, 'messages': current_msgs})
-                current_role = role
-                current_msgs = []
-            # Compress each message content
-            snippet = content.replace('\n', ' ')[:200]
-            current_msgs.append(snippet)
-        if current_role is not None:
-            groups.append({'role': current_role, 'messages': current_msgs})
-
-        summary_lines = ["EARLIER CONVERSATION (compressed):"]
-        for g in groups:
-            msgs = g['messages']
-            if not msgs:
-                continue
-            # If many messages, show first and last
-            if len(msgs) > 3:
-                line = f"[{g['role']}] {msgs[0]} ... ({len(msgs)-2} more) ... {msgs[-1]}"
-            else:
-                line = f"[{g['role']}] " + " | ".join(msgs)
-            summary_lines.append(line)
-        summary_text = "\n".join(summary_lines)
-        return self._truncate_at_word_boundary(summary_text, int(self.budget.working_memory_budget * 0.35))
 
     def _compress_conversation_summary(self, target_tokens: int):
         """Compress the rolling summary if it exceeds target token budget.
@@ -174,18 +125,24 @@ class MemoryManager:
         return trimmed if trimmed.startswith('EARLIER CONVERSATION') else f"EARLIER CONVERSATION SUMMARY (rolling):\n{trimmed}"
 
     async def update_llm_conversation_summary(self, messages: List[Dict[str, str]], api_base_url: str):
-        """Use LLM to summarize newly overflowed messages beyond working memory budget.
+        """Use LLM to summarize conversation history that overflows working memory.
 
-        Only summarizes messages that won't fit and have not been previously summarized.
+        This method should be called when there are overflow messages that need summarization.
         """
-        budget = self.budget.working_memory_budget
         if not messages:
             return
 
-        # Determine how many recent messages fit (ignoring existing summary space)
+        # Check if we have enough conversation to summarize (5k+ tokens)
+        total_conversation_tokens = sum(self.estimate_tokens(self._format_message(m)) for m in messages)
+        if total_conversation_tokens < self.llm_summary_threshold:
+            return  # Don't summarize very small conversations
+
+        # Determine which messages need summarization
+        budget = self.budget.working_memory_budget
         remaining_budget = budget
         total_tokens = 0
         fit_start_index = len(messages)  # index of first message that fits in window
+        
         for i in range(len(messages) - 1, -1, -1):
             formatted = self._format_message(messages[i])
             t = self.estimate_tokens(formatted)
@@ -204,7 +161,7 @@ class MemoryManager:
         if not overflow_segment:
             return
 
-        # Build summarization prompt
+        # Build comprehensive summarization prompt
         formatted_msgs = []
         for m in overflow_segment:
             role = m.get('role', 'unknown')
@@ -213,12 +170,21 @@ class MemoryManager:
         joined = "\n".join(formatted_msgs)
 
         system_prompt = (
-            "You are a conversation summarizer. Produce a concise bullet summary of the older "
-            "messages preserving: decisions made, user intents/questions, TODOs, action items, "
-            "file names, code symbols. 300 words max. Output only the summary bullets."
+            "You are an expert conversation summarizer for AI assistant interactions. "
+            "Create a comprehensive structured summary that preserves critical information:\n\n"
+            "REQUIRED SECTIONS:\n"
+            "• USER REQUESTS: Key questions, tasks, and goals requested\n"
+            "• DECISIONS MADE: Important choices and approaches taken\n"
+            "• FILES & CODE: File names, code changes, technical details\n"
+            "• ERRORS & SOLUTIONS: Problems encountered and how they were resolved\n"
+            "• ACTION ITEMS: Outstanding tasks or next steps\n"
+            "• CONTEXT: Important background information that affects future decisions\n\n"
+            "Keep each section concise but informative. Focus on information that would be "
+            "valuable for continuing the conversation. Maximum 500 words total."
         )
         user_prompt = (
-            "Summarize the following earlier messages (do NOT include recent ones).\n\n" + joined
+            "Summarize this conversation segment into the structured format above. "
+            "This is from an earlier part of the conversation:\n\n" + joined
         )
 
         req_payload = {
@@ -226,12 +192,12 @@ class MemoryManager:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.2,
+            "temperature": 0.1,  # Lower temperature for more consistent summaries
         }
 
         summary_text = ""
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=90.0) as client:  # Longer timeout for large summaries
                 url = f"{api_base_url}/v1/chat/stream"
                 async with client.stream("POST", url, json=req_payload) as resp:
                     resp.raise_for_status()
@@ -246,27 +212,18 @@ class MemoryManager:
                         if content:
                             summary_text += content
         except Exception as e:
-            # Fallback to heuristic summarization if LLM fails
-            segment_summary = self._summarize_messages(overflow_segment)
-            if segment_summary:
-                if self.conversation_summary:
-                    self.conversation_summary += "\n" + segment_summary
-                else:
-                    self.conversation_summary = segment_summary
-                self._last_summarized_index = overflow_end
-                self._compress_conversation_summary(target_tokens=int(budget * 0.35))
+            # For now, just skip summarization if LLM fails
             return
 
         if summary_text.strip():
             cleaned = summary_text.strip()
-            prefixed = "EARLIER CONVERSATION (compressed):\n" + cleaned
+            prefixed = "EARLIER CONVERSATION (LLM summarized):\n" + cleaned
             if self.conversation_summary:
                 self.conversation_summary += "\n" + prefixed
             else:
                 self.conversation_summary = prefixed
             self._last_summarized_index = overflow_end
-            self._use_heuristic_fallback = False
-            self._compress_conversation_summary(target_tokens=int(budget * 0.35))
+            self._compress_conversation_summary(target_tokens=int(self.budget.working_memory_budget * 0.35))
     
     def _format_message(self, msg: Dict[str, str]) -> str:
         """Format a message for working memory"""
