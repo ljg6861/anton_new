@@ -1,6 +1,7 @@
 """
 ReAct (Reason-Act) Agent: single-loop reasoning, tool use, and response streaming.
 Main agent class that coordinates all ReAct components.
+Enhanced with tool learning capabilities.
 """
 import json
 import logging
@@ -11,7 +12,9 @@ import httpx
 
 from server.agent.knowledge_store import KnowledgeStore, ContextType, ImportanceLevel
 from server.agent.tool_executor import process_tool_calls
+from server.agent.tool_learning_store import tool_learning_store
 from server.agent.config import ASSISTANT_ROLE, SYSTEM_ROLE, USER_ROLE
+from server.agent import config
 from server.agent.learning_loop import learning_loop
 
 from .token_budget import TokenBudget
@@ -109,11 +112,53 @@ class ReActAgent:
             self.memory.add_todo("Identify root cause")
     
     def _initialize_conversation_tracking(self, messages: List[Dict[str, str]]):
-        """Initialize conversation in knowledge store for context tracking"""
+        """Initialize conversation in knowledge store and tool learning store for context tracking"""
+        # Initialize tool learning conversation tracking
+        conversation_id = f"react_{self.user_id}_{int(__import__('time').time())}"
+        tool_learning_store.start_conversation(conversation_id)
+        
         for msg in messages:
             role = msg.get("role")
             if role:
                 self.knowledge_store.add_message(role, msg.get("content", ""))
+
+    async def _llm_analysis_callback(self, analysis_prompt: str) -> str:
+        """
+        Callback function for LLM analysis of tool learning patterns.
+        Uses the same LLM that powers the agent for consistency.
+        """
+        try:
+            logger.info("Performing LLM analysis for tool learning pattern")
+            
+            analysis_messages = [
+                {"role": "system", "content": "You are an expert at analyzing tool execution patterns to extract useful learnings."},
+                {"role": "user", "content": analysis_prompt}
+            ]
+            
+            # Use the same API endpoint as the main agent
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.api_base_url}/v1/chat/completions",
+                    json={
+                        "model": "gpt-4",  # Or whatever model the agent uses
+                        "messages": analysis_messages,
+                        "temperature": 0.1,  # Low temperature for analytical tasks
+                        "max_tokens": 1000
+                    }
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    logger.info("LLM learning analysis completed successfully")
+                    return content
+                else:
+                    logger.error(f"LLM analysis request failed: {response.status_code}")
+                    return "Analysis failed: HTTP error"
+                    
+        except Exception as e:
+            logger.error(f"Error in LLM analysis callback: {e}", exc_info=True)
+            return f"Analysis failed: {str(e)}"
     
     async def _build_react_messages(self, user_prompt: str, working_memory: str, 
                                    session_memory: str) -> List[Dict[str, str]]:
@@ -205,7 +250,8 @@ class ReActAgent:
             react_messages,
             logger,
             self.knowledge_store,
-            tool_result_callback
+            tool_result_callback,
+            self._llm_analysis_callback
         )
         
         # Stream tool results to UI

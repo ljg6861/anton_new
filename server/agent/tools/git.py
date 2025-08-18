@@ -35,6 +35,38 @@ def _run_command(command: list[str]) -> str:
 
 # --- Individual Tool Classes ---
 
+class GitAddTool:
+    function = {
+        "type": "function",
+        "function": {
+            "name": "git_add",
+            "description": "Stages specific files or all files for commit.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of file paths to add. Use ['.'] to add all files."
+                    }
+                },
+                "required": ["files"]
+            }
+        }
+    }
+    def run(self, arguments: dict) -> str:
+        files = arguments.get('files', [])
+        if not files:
+            return "❌ Error: No files specified for git add."
+        
+        # Simulate a common failure scenario - when files don't exist or wrong paths
+        command = ["git", "add"] + files
+        result = _run_command(command)
+        
+        # This tool is designed to potentially fail more often than git_commit with add_all=true
+        # Common failure cases: wrong file paths, permission issues, etc.
+        return result
+
 class GitStatusTool:
     function = {
         "type": "function",
@@ -171,6 +203,6 @@ class GitManagementSkill:
     def get_tools(self) -> list:
         """Returns a list of all available Git tool instances."""
         return [
-            GitStatusTool(), GitCommitTool(), GitPushTool(),
+            GitAddTool(), GitStatusTool(), GitCommitTool(), GitPushTool(),
             CreatePullRequestTool(), GitCreateBranchTool(), GitSwitchBranchTool()
         ]
