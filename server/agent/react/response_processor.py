@@ -43,10 +43,7 @@ class ResponseProcessor:
                     yield f'<thought>{token}</thought>'
             else:
                 content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
-                if answering:
-                    yield f'<token>{token}</token>'
-                if 'Final Answer:' in content_after_thinking and not answering:
-                    answering = True
+                yield f'<token>{token}</token>'
         
         yield f"response_buffer:{response_buffer}"
             

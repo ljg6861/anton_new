@@ -290,7 +290,7 @@ class ReActAgent:
     
     def _handle_final_response(self, content: str) -> bool:
         """Handle final response and complete task"""
-        if 'Final Answer:' in content:
+        if '[Done]' in content:
             success = "error" not in content.lower() and "failed" not in content.lower()
             learning_loop.complete_task(success, content[:200])
             
