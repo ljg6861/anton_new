@@ -111,7 +111,7 @@ async def process_tool_calls(
             outcome = ToolOutcome.SUCCESS if is_success else ToolOutcome.FAILURE
             
             # Record execution immediately with proper outcome detection
-            tool_learning_store.record_tool_execution(
+            execution_id, suggested_alternatives = tool_learning_store.record_tool_execution(
                 tool_name=tool_name,
                 arguments=tool_call["arguments"],
                 result=str(result),
@@ -132,7 +132,28 @@ async def process_tool_calls(
             else:
                 logger.error(f"Tool {tool_name} failed: {error_details}")
                 status = "error" 
-                tool_result = f"Error: {error_details}"
+                
+                # Check if we have high-confidence alternatives for immediate corrective action
+                if suggested_alternatives:
+                    logger.info(f"Found {len(suggested_alternatives)} suggested alternatives for failed {tool_name}")
+                    
+                    # Create corrective action message with suggestions
+                    alternatives_text = "\n".join([
+                        f"• {alt.successful_alternative} (confidence: {alt.confidence:.1%})"
+                        for alt in suggested_alternatives[:3]  # Top 3 alternatives
+                    ])
+                    
+                    tool_result = f"❌ Error: {error_details}\n\n🤖 **CORRECTIVE ACTION SUGGESTED:**\nBased on past learnings, try these alternatives:\n{alternatives_text}\n\nThe original {tool_name} approach failed, but these alternatives have worked in similar situations."
+                    
+                    # Add a system message with the learning-based suggestion
+                    corrective_message = {
+                        "role": "system",
+                        "content": f"🚨 TOOL FAILURE RECOVERY: {tool_name} failed. High-confidence alternatives available:\n{alternatives_text}\n\nConsider using these learned alternatives instead of retrying the same approach."
+                    }
+                    messages.append(corrective_message)
+                    
+                else:
+                    tool_result = f"Error: {error_details}"
 
             # Update knowledge store for file operations
             if knowledge_store is not None:

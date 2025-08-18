@@ -167,10 +167,10 @@ class ToolLearningStore:
         outcome: ToolOutcome,
         execution_id: str,
         error_details: Optional[str] = None
-    ) -> str:
+    ) -> Tuple[str, List[ToolLearning]]:
         """
         Record a tool execution immediately when it happens.
-        Returns the execution record ID for potential linking.
+        Returns the execution record ID and suggested alternatives if it's a failure.
         """
         if not self.current_conversation_id:
             # Auto-generate conversation ID if not set
@@ -193,11 +193,12 @@ class ToolLearningStore:
         # Store to database immediately
         self._store_execution_record(record)
         
-        # If this is a failure, immediately analyze for quick learning
+        # If this is a failure, immediately analyze for quick learning AND corrective action
+        suggested_alternatives = []
         if outcome == ToolOutcome.FAILURE:
-            self._trigger_immediate_failure_analysis(record)
+            suggested_alternatives = self._trigger_immediate_failure_analysis(record)
         
-        return execution_id
+        return execution_id, suggested_alternatives
     
     def _store_execution_record(self, record: ToolExecutionRecord):
         """Store execution record to database"""
@@ -225,7 +226,7 @@ class ToolLearningStore:
             logger.error(f"Failed to store execution record: {e}", exc_info=True)
     
     def _trigger_immediate_failure_analysis(self, failure_record: ToolExecutionRecord):
-        """Trigger immediate analysis when a tool fails"""
+        """Trigger immediate analysis when a tool fails and suggest corrective actions"""
         logger.info(f"Tool failure detected: {failure_record.tool_name} - triggering immediate analysis")
         
         # Check if we have any similar past successes that could be alternatives
@@ -233,8 +234,25 @@ class ToolLearningStore:
         
         if similar_successes:
             logger.info(f"Found {len(similar_successes)} similar successful executions for analysis")
-            # This could trigger an async LLM analysis task if needed
-            # For now, we just log the opportunity for learning
+        
+        # More importantly, check for existing high-confidence learnings for immediate corrective action
+        existing_learnings = self.query_relevant_learnings(
+            failure_record.tool_name, 
+            failure_record.arguments,
+            context=f"Tool {failure_record.tool_name} just failed: {failure_record.error_details}"
+        )
+        
+        # Return suggested alternatives for immediate action
+        high_confidence_alternatives = [
+            learning for learning in existing_learnings 
+            if learning.confidence > 0.8
+        ]
+        
+        if high_confidence_alternatives:
+            logger.info(f"Found {len(high_confidence_alternatives)} high-confidence alternatives for immediate corrective action")
+            return high_confidence_alternatives
+        
+        return []
     
     def analyze_failure_success_pattern(
         self,

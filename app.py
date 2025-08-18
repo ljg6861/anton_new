@@ -72,6 +72,8 @@ async def on_message(message: cl.Message):
                 await answer_msg.stream_token("Unkown chunk: " + chunk["type"])
         
         if answer_msg:
+            clean_content = re.sub(r"<tool_call>.*?</tool_call>", "", html.unescape(answer_msg.content), flags=re.DOTALL)
+            answer_msg.content = clean_content.strip()
             await answer_msg.send()
 
     # Update the session's chat history.
