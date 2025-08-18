@@ -279,9 +279,14 @@ class ToolLearningStore:
             learning = self._parse_llm_learning_response(llm_response, failure_record, success_record)
             
             if learning:
-                self._store_learning(learning)
-                logger.info(f"New tool learning created: {learning.learning_id}")
-                return learning
+                # Check if a similar learning already exists before storing
+                if not self._learning_already_exists(learning):
+                    self._store_learning(learning)
+                    logger.info(f"New tool learning created: {learning.learning_id}")
+                    return learning
+                else:
+                    logger.info(f"Similar learning already exists, skipping duplicate storage")
+                    return None  # Return None to indicate no new learning was created
             
         except Exception as e:
             logger.error(f"Failed to analyze failure-success pattern: {e}", exc_info=True)
@@ -556,16 +561,76 @@ If is_learnable is false, briefly explain why this pattern isn't worth learning.
         arguments: Dict[str, Any], 
         context: str
     ) -> List[ToolLearning]:
-        """Filter learnings for relevance to current execution context"""
-        # For now, simple filtering by tool name and confidence
-        # This could be enhanced with semantic similarity
+        """Filter learnings for relevance to current execution context and deduplicate"""
         relevant = []
+        seen_patterns = set()  # Track patterns we've already seen
         
         for learning in learnings:
             if tool_name in learning.tool_names_involved and learning.confidence > 0.5:
-                relevant.append(learning)
+                # Create a unique key based on failure pattern and alternative
+                pattern_key = f"{learning.failure_pattern}|{learning.successful_alternative}"
+                
+                # Only add if we haven't seen this exact pattern before
+                if pattern_key not in seen_patterns:
+                    relevant.append(learning)
+                    seen_patterns.add(pattern_key)
         
         return sorted(relevant, key=lambda x: x.confidence, reverse=True)
+
+    def _learning_already_exists(self, new_learning: ToolLearning) -> bool:
+        """Check if a similar learning already exists in the database"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Query for learnings with similar patterns involving the same tools
+                tools_json = json.dumps(new_learning.tool_names_involved)
+                cursor.execute("""
+                    SELECT failure_pattern, successful_alternative FROM tool_learnings 
+                    WHERE tool_names_involved = ?
+                """, (tools_json,))
+                
+                for row in cursor.fetchall():
+                    existing_failure = row[0]
+                    existing_alternative = row[1]
+                    
+                    # Check for semantic similarity (simple string comparison for now)
+                    if (self._patterns_are_similar(new_learning.failure_pattern, existing_failure) and
+                        self._patterns_are_similar(new_learning.successful_alternative, existing_alternative)):
+                        return True
+                
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to check for existing learning: {e}", exc_info=True)
+            return False
+    
+    def _learnings_are_similar(self, learning1: ToolLearning, learning2: ToolLearning) -> bool:
+        """Check if two learnings are similar enough to be considered duplicates"""
+        return (
+            self._patterns_are_similar(learning1.failure_pattern, learning2.failure_pattern) and
+            self._patterns_are_similar(learning1.successful_alternative, learning2.successful_alternative) and
+            set(learning1.tool_names_involved) == set(learning2.tool_names_involved)
+        )
+    
+    def _patterns_are_similar(self, pattern1: str, pattern2: str, threshold: float = 0.8) -> bool:
+        """
+        Check if two patterns are similar using simple string similarity.
+        This could be enhanced with more sophisticated NLP techniques.
+        """
+        # Simple approach: check if the patterns have significant word overlap
+        words1 = set(pattern1.lower().split())
+        words2 = set(pattern2.lower().split())
+        
+        if not words1 or not words2:
+            return pattern1.strip() == pattern2.strip()
+        
+        # Calculate Jaccard similarity
+        intersection = len(words1 & words2)
+        union = len(words1 | words2)
+        
+        similarity = intersection / union if union > 0 else 0
+        return similarity >= threshold
 
 # Global instance
 tool_learning_store = ToolLearningStore()

@@ -200,7 +200,9 @@ def _analyze_tool_result(result: Any) -> tuple[bool, str]:
         "timeout",
         "failed to",
         "cannot",
-        "unable to"
+        "unable to",
+        "fatal:",
+        "error:"
     ]
     
     for indicator in error_indicators:
