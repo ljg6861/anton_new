@@ -212,10 +212,7 @@ class ReActAgent:
                     yield event
                 elif event.startswith('response_buffer:'):
                     response_buffer = event.split('response_buffer:', 1)[1]
-            
-            # Process complete response
-            logger.info(f"ReAct agent response: {response_buffer}")
-            
+                        
             # Handle tool calls and determine next action
             async for result in self._handle_response_and_tools(
                 response_buffer, react_messages, logger
@@ -312,7 +309,7 @@ class ReActAgent:
         self.memory.add_decision("Task incomplete - reached max iterations")
         yield final_msg
     
-    def _sanitize_messages_for_ollama(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    def _sanitize_messages_for_vllm(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Convert function role messages to user role for Ollama compatibility"""
         sanitized_messages = []
         for msg in messages:
@@ -333,14 +330,15 @@ class ReActAgent:
         messages: List[Dict[str, str]],
         logger: Any
     ) -> AsyncGenerator[str, None]:
-        """Execute LLM request and stream response"""
-        # Sanitize messages for Ollama compatibility
-        sanitized_messages = self._sanitize_messages_for_ollama(messages)
+        """Execute LLM request and stream response with tool support"""
+        # Sanitize messages for vLLM compatibility
+        sanitized_messages = self._sanitize_messages_for_vllm(messages)
         
         request_payload = {
             "messages": sanitized_messages,
             "temperature": 0.6,
-            'complex': True,
+            "tools": self.tools if self.tools else None,
+            "tool_choice": "auto" if self.tools else None
         }
 
         logger.info(f"Sending request payload: {json.dumps(request_payload, indent=2)}")
@@ -352,8 +350,18 @@ class ReActAgent:
                     response.raise_for_status()
                     async for chunk in response.aiter_text():
                         chunk_data = json.loads(chunk)
-                        content = chunk_data.get("message", {}).get("content", "")
-                        yield content
+                        
+                        # Handle both content and tool calls from vLLM
+                        message = chunk_data.get("message", {})
+                        content = message.get("content", "")
+                        tool_calls = message.get("tool_calls", [])
+                        
+                        if content:
+                            yield content
+                        
+                        # If we have tool calls, process them
+                        if tool_calls:
+                            yield f"\n<tool_calls>{json.dumps(tool_calls)}</tool_calls>\n"
 
             except httpx.HTTPStatusError as e:
                 # Log the specific HTTP error details

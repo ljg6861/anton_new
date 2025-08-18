@@ -7,8 +7,9 @@ fastapi==0.116.1
 fitz==0.0.1.dev2
 httpx==0.28.1
 numpy==2.3.2
-ollama==0.5.3
+openai>=1.0.0
 pathspec==0.12.1
+vllm>=0.4.0
 psutil==7.0.0
 pydantic==2.11.7
 pynvml==12.0.0

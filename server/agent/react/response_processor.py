@@ -20,7 +20,7 @@ class ResponseProcessor:
         """Process streaming response and yield appropriate events"""
         response_buffer = ""
         thinking_content = ""
-        thinking_started = False
+        thinking_started = True
         thinking_ended = False
         answering = False
         content_after_thinking = ""
