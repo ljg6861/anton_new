@@ -20,7 +20,7 @@ except ImportError:
     def nvmlDeviceGetMemoryInfo(handle): return type('obj', (object,), {'total': 0, 'used': 0})()
     class NVMLError(Exception): pass
 
-from server.agent.full_agentic_flow import execute_agentic_flow
+from server.agent.agentic_flow.full_agentic_flow import execute_agentic_flow
 from server.agent.pack_builder import build_pack_centroids
 from server.agent.react.react_agent import ReActAgent
 from server.agent.react.token_budget import TokenBudget

@@ -199,15 +199,6 @@ class ToolManager:
         return [tool.function for tool in self.tools.values()]
 
     def get_tools_by_capability(self, capability: ToolCapability) -> List[str]:
-        """
-        Get tool names that have a specific capability.
-        
-        Args:
-            capability: The capability to filter by
-            
-        Returns:
-            List of tool names with the specified capability
-        """
         matching_tools = []
         
         for name, metadata in self._metadata_cache.items():
@@ -217,15 +208,6 @@ class ToolManager:
         return matching_tools
 
     def get_tool_metadata(self, tool_name: str) -> Optional[Dict[str, Any]]:
-        """
-        Get metadata for a specific tool.
-        
-        Args:
-            tool_name: Name of the tool
-            
-        Returns:
-            Tool metadata dictionary or None if not found
-        """
         return self._metadata_cache.get(tool_name)
 
     def get_all_metadata(self) -> Dict[str, Dict[str, Any]]:
@@ -233,19 +215,6 @@ class ToolManager:
         return self._metadata_cache.copy()
 
     def run_tool(self, tool_name: str, tool_args: Dict[str, Any]) -> str:
-        """
-        Find a tool in the registry and execute it with the given arguments.
-        
-        Args:
-            tool_name: Name of the tool to execute
-            tool_args: Arguments to pass to the tool
-            
-        Returns:
-            String result of the tool execution
-            
-        Raises:
-            Exception: If tool is not found, arguments are invalid, or tool execution fails
-        """
         if tool_name not in self.tools:
             # Try to find a close match
             similar_tools = [name for name in self.tools.keys() if tool_name.lower() in name.lower()]
