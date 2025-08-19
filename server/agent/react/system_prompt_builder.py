@@ -17,28 +17,22 @@ class SystemPromptBuilder:
     async def build_system_prompt(self, user_prompt: str, working_memory: str, 
                                  session_memory: str, tools: List[Dict], 
                                  domain_pack_dir: str) -> str:
-        """Build complete system prompt with all components"""
-        base_system = self._get_base_system_prompt()
-        system_prompt = self.memory.truncate_to_budget(base_system, self.memory.budget.system_tools_budget)
+        """Build a minimal system prompt that fits within token budget"""
         
-        prompt_parts = [system_prompt]
-        
-        # Add domain knowledge
-        domain_bundle = await self._get_domain_bundle(user_prompt, domain_pack_dir)
-        if domain_bundle:
-            prompt_parts.append(f"\nDOMAIN KNOWLEDGE:\n{domain_bundle}")
-        
-        # Add user context (currently disabled)
-        user_context = None  # build_user_context(user_id) if user_id else ""
-        if user_context:
-            user_context = self.memory.truncate_to_budget(user_context, 200)
-            prompt_parts.append(f"\nUSER PROFILE:\n{user_context}")
-        
-        # Add session memory
-        if session_memory:
-            prompt_parts.append(f"\nSESSION CONTEXT:\n{session_memory}")
-        
-        return "\n".join(prompt_parts)
+        # Minimal ReAct prompt for vLLM with tight token constraints
+        base_prompt = """You are Anton, an AI assistant that uses tools to help users.
+
+Think step by step and use available tools when needed. Format tool calls as:
+<tool_call>{"name": "tool_name", "arguments": {"param": "value"}}</tool_call>
+
+End responses with [Done] when task is complete.
+
+{tools_placeholder}
+
+Be concise and direct."""
+
+        # Skip complex memory and domain retrieval to stay within token budget
+        return base_prompt
     
     def _get_base_system_prompt(self) -> str:
         """Get the base system prompt template"""

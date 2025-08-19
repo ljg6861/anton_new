@@ -8,8 +8,18 @@ from starlette.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from vllm.third_party.pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
-    nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
+try:
+    from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
+        nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
+except ImportError:
+    # Fallback if pynvml is not available
+    def nvmlInit(): pass
+    def nvmlDeviceGetCount(): return 0
+    def nvmlDeviceGetHandleByIndex(i): return None
+    def nvmlDeviceGetUtilizationRates(handle): return type('obj', (object,), {'gpu': 0, 'memory': 0})()
+    def nvmlDeviceGetMemoryInfo(handle): return type('obj', (object,), {'total': 0, 'used': 0})()
+    class NVMLError(Exception): pass
+
 from server.agent.pack_builder import build_pack_centroids
 from server.agent.react.react_agent import ReActAgent
 from server.agent.react.token_budget import TokenBudget
@@ -19,9 +29,16 @@ from server.agent.rag_manager import rag_manager
 from server.agent.knowledge_store import KnowledgeStore
 
 try:
-    from pynvml import *
+    from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, \
+        nvmlDeviceGetUtilizationRates, nvmlDeviceGetMemoryInfo, NVMLError
 except ImportError:
-    pass
+    # Fallback if pynvml is not available
+    def nvmlInit(): pass
+    def nvmlDeviceGetCount(): return 0
+    def nvmlDeviceGetHandleByIndex(i): return None
+    def nvmlDeviceGetUtilizationRates(handle): return type('obj', (object,), {'gpu': 0, 'memory': 0})()
+    def nvmlDeviceGetMemoryInfo(handle): return type('obj', (object,), {'total': 0, 'used': 0})()
+    class NVMLError(Exception): pass
 
 from metrics import MetricsTracker
 from server.agent.tools.tool_defs import get_all_tools

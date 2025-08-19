@@ -61,61 +61,6 @@ class ReActAgent:
         self.response_processor = ResponseProcessor(self.knowledge_store, self.memory)
         
         logger.info(f"ReActAgent initialized with token budget: {self.budget.total_budget}")
-
-    async def process_request(
-        self,
-        initial_messages: List[Dict[str, str]],
-        logger: Any
-    ) -> AsyncGenerator[str, None]:
-        """Process request using three-memory architecture with token budgeting"""
-        logger.info("Starting ReAct agent with three-memory system...")
-
-        user_prompt = self._extract_user_prompt(initial_messages)
-        
-        if user_prompt:
-            learning_loop.start_task(user_prompt)
-
-        self._update_session_context_from_prompt(user_prompt)
-
-        # Initialize conversation tracking (adds messages to knowledge store with dedup)
-        self._initialize_conversation_tracking(initial_messages)
-
-        # Build memories from full stored conversation (persistent across requests)
-        full_history = self.knowledge_store.get_messages_for_llm()
-        # Ensure LLM-based summarization for overflow before building working memory
-        try:
-            await self.memory.update_llm_conversation_summary(full_history, self.api_base_url)
-        except Exception as e:
-            logger.error(f"LLM summarization failed (will fallback to heuristic): {e}")
-        working_memory = self.memory.build_working_memory(full_history)
-        session_memory = self.memory.build_session_memory()
-
-        # Build messages for LLM
-        react_messages = await self._build_react_messages(user_prompt, working_memory, session_memory)
-
-        # Main ReAct loop
-        async for response in self._execute_react_loop(react_messages, logger):
-            yield response
-    
-    def _extract_user_prompt(self, messages: List[Dict[str, str]]) -> str:
-        """Extract the latest user prompt from messages"""
-        for msg in reversed(messages):
-            if msg.get("role") == USER_ROLE:
-                return msg.get("content", "")
-        return ""
-    
-    def _update_session_context_from_prompt(self, user_prompt: str):
-        """Update session context based on user prompt keywords"""
-        prompt_lower = user_prompt.lower()
-        
-        if "implement" in prompt_lower or "create" in prompt_lower:
-            self.memory.set_session_context("Implementation task")
-            self.memory.add_todo("Ensure code compiles")
-        elif "analyze" in prompt_lower or "review" in prompt_lower:
-            self.memory.set_session_context("Analysis task") 
-        elif "fix" in prompt_lower or "debug" in prompt_lower:
-            self.memory.set_session_context("Debugging task")
-            self.memory.add_todo("Identify root cause")
     
     def _initialize_conversation_tracking(self, messages: List[Dict[str, str]]):
         """Initialize conversation in knowledge store and tool learning store for context tracking"""
@@ -192,7 +137,7 @@ class ReActAgent:
         """Execute the main ReAct reasoning loop"""
         iteration = 0
         
-        while iteration < self.max_iterations:
+        while iteration < 1:#self.max_iterations:
             iteration += 1
             logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
             
@@ -310,17 +255,17 @@ class ReActAgent:
         yield final_msg
     
     def _sanitize_messages_for_vllm(self, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """Convert function role messages to user role for Ollama compatibility"""
+        """Convert function role messages to system role for vLLM compatibility"""
         sanitized_messages = []
         for msg in messages:
             msg_copy = msg.copy()
-            # Ollama doesn't support 'function' role, convert to 'user' with tool result prefix
+            # vLLM doesn't support 'function' role, convert to 'system' with tool result prefix
             if msg_copy.get("role") == "function":
                 tool_name = msg_copy.get("name", "tool")
                 content = msg_copy.get("content", "")
                 msg_copy["role"] = "system"
-                msg_copy["content"] = f"[Tool Result from {tool_name}]: {content}"
-                # Remove the 'name' field as it's not needed for user messages
+                msg_copy["content"] = f"TOOL_RESULT from {tool_name}: {content}"
+                # Remove the 'name' field as it's not needed for system messages
                 msg_copy.pop("name", None)
             sanitized_messages.append(msg_copy)
         return sanitized_messages
@@ -330,38 +275,70 @@ class ReActAgent:
         messages: List[Dict[str, str]],
         logger: Any
     ) -> AsyncGenerator[str, None]:
-        """Execute LLM request and stream response with tool support"""
+        """Execute LLM request and stream response with vLLM server"""
         # Sanitize messages for vLLM compatibility
         sanitized_messages = self._sanitize_messages_for_vllm(messages)
         
+        # Build request payload for vLLM OpenAI-compatible API
         request_payload = {
+            "model": "qwen3-30b-awq",  # Use the served model name from vLLM
             "messages": sanitized_messages,
             "temperature": 0.6,
-            "tools": self.tools if self.tools else None,
-            "tool_choice": "auto" if self.tools else None
+            "stream": True,
+            "max_tokens": 2048  # Reasonable response length for larger context
         }
+        
+        # Only add tools if we have them and they're supported
+        if self.tools:
+            request_payload["tools"] = self.tools
+            request_payload["tool_choice"] = "auto"
 
-        logger.info(f"Sending request payload: {json.dumps(request_payload, indent=2)}")
+        # Direct connection to vLLM server on port 8003
+        vllm_url = "http://localhost:8003"
+        logger.info(f"Sending vLLM request to {vllm_url}/v1/chat/completions")
+        logger.info(f"Request payload: {json.dumps(request_payload, indent=2)}")
 
-        async with httpx.AsyncClient(timeout=None) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             try:
-                url = f"{self.api_base_url}/v1/chat/stream"
-                async with client.stream("POST", url, json=request_payload) as response:
+                # Use OpenAI-compatible streaming endpoint
+                url = f"{vllm_url}/v1/chat/completions"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer anton-vllm-key"  # Match the API key from vLLM
+                }
+                
+                async with client.stream("POST", url, json=request_payload, headers=headers) as response:
+                    logger.info(f"vLLM response status: {response.status_code}")
                     response.raise_for_status()
-                    async for chunk in response.aiter_text():
-                        chunk_data = json.loads(chunk)
-                        
-                        # Handle both content and tool calls from vLLM
-                        message = chunk_data.get("message", {})
-                        content = message.get("content", "")
-                        tool_calls = message.get("tool_calls", [])
-                        
-                        if content:
-                            yield content
-                        
-                        # If we have tool calls, process them
-                        if tool_calls:
-                            yield f"\n<tool_calls>{json.dumps(tool_calls)}</tool_calls>\n"
+                    
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            line = line[6:]  # Remove "data: " prefix
+                            
+                        if line.strip() == "[DONE]":
+                            break
+                            
+                        if line.strip():
+                            try:
+                                chunk_data = json.loads(line)
+                                
+                                # Handle vLLM streaming response format
+                                choices = chunk_data.get("choices", [])
+                                if choices:
+                                    delta = choices[0].get("delta", {})
+                                    content = delta.get("content", "")
+                                    tool_calls = delta.get("tool_calls", [])
+                                    
+                                    if content:
+                                        yield content
+                                    
+                                    # Handle tool calls if present
+                                    if tool_calls:
+                                        yield f"\n<tool_calls>{json.dumps(tool_calls)}</tool_calls>\n"
+                                        
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"Failed to parse streaming chunk: {line} - {e}")
+                                continue
 
             except httpx.HTTPStatusError as e:
                 # Log the specific HTTP error details
@@ -372,11 +349,11 @@ class ReActAgent:
                 except:
                     error_details += "\nCould not read response body"
                 
-                logger.error(f"ReActAgent: HTTP error from model server: {error_details}")
-                yield f"\n[ERROR: HTTP {e.response.status_code} from model server: {e.response.reason_phrase}]\n"
+                logger.error(f"ReActAgent: HTTP error from vLLM server: {error_details}")
+                yield f"\n[ERROR: HTTP {e.response.status_code} from vLLM server: {e.response.reason_phrase}]\n"
             except httpx.RequestError as e:
-                logger.error(f"ReActAgent: API request to model server failed: {e}")
-                yield f"\n[ERROR: Could not connect to the model server: {e}]\n"
+                logger.error(f"ReActAgent: API request to vLLM server failed: {e}")
+                yield f"\n[ERROR: Could not connect to the vLLM server: {e}]\n"
             except Exception as e:
-                logger.error(f"ReActAgent: An unexpected error occurred during model streaming: {e}", exc_info=True)
+                logger.error(f"ReActAgent: An unexpected error occurred during vLLM streaming: {e}", exc_info=True)
                 yield f"\n[ERROR: An unexpected error occurred: {e}]\n"

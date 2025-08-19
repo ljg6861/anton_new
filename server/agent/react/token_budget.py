@@ -7,11 +7,11 @@ from dataclasses import dataclass
 @dataclass
 class TokenBudget:
     """Token budget allocation for different prompt sections"""
-    total_budget: int = 8192
+    total_budget: int = 16384  # Much larger budget for the larger context window
     system_tools_pct: float = 0.15
-    domain_bundle_pct: float = 0.30
+    domain_bundle_pct: float = 0.25
     session_summary_pct: float = 0.15
-    working_memory_pct: float = 0.35
+    working_memory_pct: float = 0.40
     scratchpad_pct: float = 0.05
     
     @property

@@ -13,19 +13,21 @@ class ToolFormatter:
         self.memory = memory_manager
     
     def format_tools_compact(self, tools: List[Dict]) -> str:
-        """Format tools in a compact way to reduce prompt bloat"""
+        """Format tools in a very compact way for tight token budget"""
         if not tools:
             return "No tools available"
         
-        tool_summaries = []
+        # Only show tool names and brief descriptions
+        tool_names = []
         for tool in tools:
-            summary = self._format_single_tool(tool)
-            tool_summaries.append(summary)
+            func = tool.get("function", {})
+            name = func.get("name", "unknown")
+            desc = func.get("description", "")[:50]  # Truncate descriptions
+            tool_names.append(f"{name}: {desc}")
         
-        tools_text = "; ".join(tool_summaries)
-        budget = self.memory.budget.system_tools_budget // 3
-        
-        return self.memory.truncate_to_budget(tools_text, budget)
+        # Limit to top 5 most essential tools
+        essential_tools = tool_names[:5]
+        return "; ".join(essential_tools)
     
     def _format_single_tool(self, tool: Dict) -> str:
         """Format a single tool for display"""

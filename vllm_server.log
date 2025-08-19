@@ -1,0 +1,166 @@
+nohup: ignoring input
+🚀 Starting vLLM server for Anton AI Assistant...
+Model: cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit
+Host: 0.0.0.0:8003
+Tensor Parallel Size: 1
+Max Context Length: 2048
+🔧 GPU Status:
+NVIDIA GeForce RTX 3090, 24576, 23599
+NVIDIA GeForce RTX 3060, 12288, 12027
+
+INFO 08-18 19:56:46 [__init__.py:235] Automatically detected platform cuda.
+WARNING 08-18 19:56:46 [cuda.py:567] Detected different devices in the system: NVIDIA GeForce RTX 3090, NVIDIA GeForce RTX 3060. Please make sure to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` to avoid unexpected behavior.
+INFO 08-18 19:56:47 [api_server.py:1755] vLLM API server version 0.10.0
+INFO 08-18 19:56:47 [cli_args.py:261] non-default args: {'model_tag': 'cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit', 'host': '0.0.0.0', 'port': 8003, 'api_key': 'anton-vllm-key', 'enable_auto_tool_choice': True, 'tool_call_parser': 'hermes', 'model': 'cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit', 'trust_remote_code': True, 'max_model_len': 2048, 'served_model_name': ['qwen-coder-32b'], 'gpu_memory_utilization': 0.8, 'enable_prefix_caching': True, 'disable_log_stats': True}
+INFO 08-18 19:56:51 [config.py:1604] Using max model len 2048
+INFO 08-18 19:56:51 [config.py:2434] Chunked prefill is enabled with max_num_batched_tokens=2048.
+INFO 08-18 19:56:54 [__init__.py:235] Automatically detected platform cuda.
+WARNING 08-18 19:56:54 [cuda.py:567] Detected different devices in the system: NVIDIA GeForce RTX 3090, NVIDIA GeForce RTX 3060. Please make sure to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` to avoid unexpected behavior.
+INFO 08-18 19:56:55 [core.py:572] Waiting for init message from front-end.
+INFO 08-18 19:56:55 [core.py:71] Initializing a V1 LLM engine (v0.10.0) with config: model='cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit', speculative_config=None, tokenizer='cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, override_neuron_config={}, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=2048, download_dir=None, load_format=LoadFormat.AUTO, tensor_parallel_size=1, pipeline_parallel_size=1, disable_custom_all_reduce=False, quantization=compressed-tensors, enforce_eager=False, kv_cache_dtype=auto,  device_config=cuda, decoding_config=DecodingConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_backend=''), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None), seed=0, served_model_name=qwen-coder-32b, num_scheduler_steps=1, multi_step_stream_outputs=True, enable_prefix_caching=True, chunked_prefill_enabled=True, use_async_output_proc=True, pooler_config=None, compilation_config={"level":3,"debug_dump_path":"","cache_dir":"","backend":"","custom_ops":[],"splitting_ops":["vllm.unified_attention","vllm.unified_attention_with_output","vllm.mamba_mixer2"],"use_inductor":true,"compile_sizes":[],"inductor_compile_config":{"enable_auto_functionalized_v2":false},"inductor_passes":{},"use_cudagraph":true,"cudagraph_num_of_warmups":1,"cudagraph_capture_sizes":[512,504,496,488,480,472,464,456,448,440,432,424,416,408,400,392,384,376,368,360,352,344,336,328,320,312,304,296,288,280,272,264,256,248,240,232,224,216,208,200,192,184,176,168,160,152,144,136,128,120,112,104,96,88,80,72,64,56,48,40,32,24,16,8,4,2,1],"cudagraph_copy_inputs":false,"full_cuda_graph":false,"max_capture_size":512,"local_cache_dir":null}
+INFO 08-18 19:56:55 [parallel_state.py:1102] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, TP rank 0, EP rank 0
+WARNING 08-18 19:56:55 [topk_topp_sampler.py:59] FlashInfer is not available. Falling back to the PyTorch-native implementation of top-p & top-k sampling. For the best performance, please install FlashInfer.
+INFO 08-18 19:56:55 [gpu_model_runner.py:1843] Starting to load model cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit...
+INFO 08-18 19:56:56 [gpu_model_runner.py:1875] Loading model from scratch...
+INFO 08-18 19:56:56 [compressed_tensors_wNa16.py:95] Using MarlinLinearKernel for CompressedTensorsWNA16
+INFO 08-18 19:56:56 [cuda.py:290] Using Flash Attention backend on V1 engine.
+INFO 08-18 19:56:56 [compressed_tensors_moe.py:82] Using CompressedTensorsWNA16MarlinMoEMethod
+INFO 08-18 19:56:56 [weight_utils.py:296] Using model weights format ['*.safetensors']
+Loading safetensors checkpoint shards:   0% Completed | 0/4 [00:00<?, ?it/s]
+Loading safetensors checkpoint shards:  25% Completed | 1/4 [00:02<00:06,  2.29s/it]
+Loading safetensors checkpoint shards:  50% Completed | 2/4 [00:02<00:02,  1.35s/it]
+Loading safetensors checkpoint shards:  75% Completed | 3/4 [00:05<00:01,  1.87s/it]
+Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:07<00:00,  2.13s/it]
+Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:07<00:00,  2.00s/it]
+
+INFO 08-18 19:57:04 [default_loader.py:262] Loading weights took 8.06 seconds
+INFO 08-18 19:57:05 [gpu_model_runner.py:1892] Model loading took 15.6116 GiB and 9.143796 seconds
+INFO 08-18 19:57:11 [backends.py:530] Using cache directory: /home/lucas/.cache/vllm/torch_compile_cache/8b3c9b5dfe/rank_0_0/backbone for vLLM's torch.compile
+INFO 08-18 19:57:11 [backends.py:541] Dynamo bytecode transform time: 5.11 s
+INFO 08-18 19:57:15 [backends.py:161] Directly load the compiled graph(s) for dynamic shape from the cache, took 3.308 s
+WARNING 08-18 19:57:15 [fused_moe.py:695] Using default MoE config. Performance might be sub-optimal! Config file not found at /home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/model_executor/layers/fused_moe/configs/E=128,N=4096,device_name=NVIDIA_GeForce_RTX_3090.json
+INFO 08-18 19:57:15 [marlin_utils.py:346] You are running Marlin kernel with bf16 on GPUs before SM90. You can consider change to fp16 to achieve better performance if possible.
+INFO 08-18 19:57:15 [monitor.py:34] torch.compile takes 5.11 s in total
+INFO 08-18 19:57:16 [gpu_worker.py:255] Available KV cache memory: 1.92 GiB
+INFO 08-18 19:57:17 [kv_cache_utils.py:833] GPU KV cache size: 20,960 tokens
+INFO 08-18 19:57:17 [kv_cache_utils.py:837] Maximum concurrency for 2,048 tokens per request: 10.23x
+Capturing CUDA graph shapes:   0%|          | 0/67 [00:00<?, ?it/s]Capturing CUDA graph shapes:   3%|▎         | 2/67 [00:00<00:04, 13.37it/s]Capturing CUDA graph shapes:   6%|▌         | 4/67 [00:00<00:04, 13.56it/s]Capturing CUDA graph shapes:   9%|▉         | 6/67 [00:00<00:04, 13.84it/s]Capturing CUDA graph shapes:  12%|█▏        | 8/67 [00:00<00:04, 14.22it/s]Capturing CUDA graph shapes:  15%|█▍        | 10/67 [00:00<00:03, 14.55it/s]Capturing CUDA graph shapes:  18%|█▊        | 12/67 [00:00<00:03, 14.76it/s]Capturing CUDA graph shapes:  21%|██        | 14/67 [00:00<00:03, 14.91it/s]Capturing CUDA graph shapes:  24%|██▍       | 16/67 [00:01<00:03, 14.62it/s]Capturing CUDA graph shapes:  27%|██▋       | 18/67 [00:01<00:03, 15.17it/s]Capturing CUDA graph shapes:  30%|██▉       | 20/67 [00:01<00:03, 15.54it/s]Capturing CUDA graph shapes:  33%|███▎      | 22/67 [00:01<00:02, 15.98it/s]Capturing CUDA graph shapes:  36%|███▌      | 24/67 [00:01<00:02, 16.41it/s]Capturing CUDA graph shapes:  39%|███▉      | 26/67 [00:01<00:02, 17.00it/s]Capturing CUDA graph shapes:  42%|████▏     | 28/67 [00:01<00:02, 17.41it/s]Capturing CUDA graph shapes:  45%|████▍     | 30/67 [00:01<00:02, 17.71it/s]Capturing CUDA graph shapes:  48%|████▊     | 32/67 [00:02<00:01, 18.20it/s]Capturing CUDA graph shapes:  51%|█████     | 34/67 [00:02<00:01, 18.67it/s]Capturing CUDA graph shapes:  54%|█████▎    | 36/67 [00:02<00:01, 18.98it/s]Capturing CUDA graph shapes:  57%|█████▋    | 38/67 [00:02<00:01, 19.20it/s]Capturing CUDA graph shapes:  60%|█████▉    | 40/67 [00:02<00:01, 19.43it/s]Capturing CUDA graph shapes:  64%|██████▍   | 43/67 [00:02<00:01, 20.04it/s]Capturing CUDA graph shapes:  69%|██████▊   | 46/67 [00:02<00:01, 20.67it/s]Capturing CUDA graph shapes:  73%|███████▎  | 49/67 [00:02<00:00, 21.59it/s]Capturing CUDA graph shapes:  78%|███████▊  | 52/67 [00:02<00:00, 21.72it/s]Capturing CUDA graph shapes:  82%|████████▏ | 55/67 [00:03<00:00, 22.44it/s]Capturing CUDA graph shapes:  87%|████████▋ | 58/67 [00:03<00:00, 23.31it/s]Capturing CUDA graph shapes:  93%|█████████▎| 62/67 [00:03<00:00, 25.62it/s]Capturing CUDA graph shapes:  99%|█████████▊| 66/67 [00:03<00:00, 28.00it/s]Capturing CUDA graph shapes: 100%|██████████| 67/67 [00:03<00:00, 19.24it/s]
+INFO 08-18 19:57:21 [gpu_model_runner.py:2485] Graph capturing finished in 4 secs, took 1.06 GiB
+INFO 08-18 19:57:21 [core.py:193] init engine (profile, create kv cache, warmup model) took 15.26 seconds
+WARNING 08-18 19:57:21 [config.py:1528] Default sampling parameters have been overridden by the model's Hugging Face generation config recommended from the model creator. If this is not intended, please relaunch vLLM instance with `--generation-config vllm`.
+INFO 08-18 19:57:21 [serving_responses.py:89] Using default chat sampling params from model: {'temperature': 0.6, 'top_k': 20, 'top_p': 0.95}
+INFO 08-18 19:57:21 [serving_chat.py:84] "auto" tool choice has been enabled please note that while the parallel_tool_calls client option is preset for compatibility reasons, it will be ignored.
+INFO 08-18 19:57:21 [serving_chat.py:122] Using default chat sampling params from model: {'temperature': 0.6, 'top_k': 20, 'top_p': 0.95}
+INFO 08-18 19:57:21 [serving_completion.py:77] Using default completion sampling params from model: {'temperature': 0.6, 'top_k': 20, 'top_p': 0.95}
+INFO 08-18 19:57:21 [api_server.py:1818] Starting vLLM API server 0 on http://0.0.0.0:8003
+INFO 08-18 19:57:21 [launcher.py:29] Available routes are:
+INFO 08-18 19:57:21 [launcher.py:37] Route: /openapi.json, Methods: GET, HEAD
+INFO 08-18 19:57:21 [launcher.py:37] Route: /docs, Methods: GET, HEAD
+INFO 08-18 19:57:21 [launcher.py:37] Route: /docs/oauth2-redirect, Methods: GET, HEAD
+INFO 08-18 19:57:21 [launcher.py:37] Route: /redoc, Methods: GET, HEAD
+INFO 08-18 19:57:21 [launcher.py:37] Route: /health, Methods: GET
+INFO 08-18 19:57:21 [launcher.py:37] Route: /load, Methods: GET
+INFO 08-18 19:57:21 [launcher.py:37] Route: /ping, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /ping, Methods: GET
+INFO 08-18 19:57:21 [launcher.py:37] Route: /tokenize, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /detokenize, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/models, Methods: GET
+INFO 08-18 19:57:21 [launcher.py:37] Route: /version, Methods: GET
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/responses, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/responses/{response_id}, Methods: GET
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/responses/{response_id}/cancel, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/chat/completions, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/completions, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/embeddings, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /pooling, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /classify, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /score, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/score, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/audio/transcriptions, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/audio/translations, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /rerank, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v1/rerank, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /v2/rerank, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /scale_elastic_ep, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /is_scaling_elastic_ep, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /invocations, Methods: POST
+INFO 08-18 19:57:21 [launcher.py:37] Route: /metrics, Methods: GET
+INFO:     Started server process [85565]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:50972 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47286 - "GET /v1/models HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:42460 - "GET /v1/models HTTP/1.1" 200 OK
+INFO 08-18 19:57:55 [chat_utils.py:473] Detected the chat template content format to be 'string'. You can set `--chat-template-content-format` to override this.
+INFO 08-18 19:57:55 [logger.py:41] Received request chatcmpl-b25ba002116249a29745d16c73c56e25: prompt: '<|im_start|>user\nHello! Can you tell me about TCP vs UDP?<|im_end|>\n<|im_start|>assistant\n<think>\n', params: SamplingParams(n=1, presence_penalty=0.0, frequency_penalty=0.0, repetition_penalty=1.0, temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, seed=None, stop=[], stop_token_ids=[], bad_words=[], include_stop_str_in_output=False, ignore_eos=False, max_tokens=100, min_tokens=0, logprobs=None, prompt_logprobs=None, skip_special_tokens=True, spaces_between_special_tokens=True, truncate_prompt_tokens=None, guided_decoding=None, extra_args=None), prompt_token_ids: None, prompt_embeds shape: None, lora_request: None.
+INFO 08-18 19:57:55 [async_llm.py:269] Added request chatcmpl-b25ba002116249a29745d16c73c56e25.
+INFO:     127.0.0.1:55766 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+ERROR 08-18 19:58:43 [serving_chat.py:203] Error in preprocessing prompt inputs
+ERROR 08-18 19:58:43 [serving_chat.py:203] Traceback (most recent call last):
+ERROR 08-18 19:58:43 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_chat.py", line 186, in create_chat_completion
+ERROR 08-18 19:58:43 [serving_chat.py:203]     ) = await self._preprocess_chat(
+ERROR 08-18 19:58:43 [serving_chat.py:203]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:58:43 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 914, in _preprocess_chat
+ERROR 08-18 19:58:43 [serving_chat.py:203]     prompt_inputs = await self._tokenize_prompt_input_async(
+ERROR 08-18 19:58:43 [serving_chat.py:203]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:58:43 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 649, in _tokenize_prompt_input_async
+ERROR 08-18 19:58:43 [serving_chat.py:203]     async for result in self._tokenize_prompt_inputs_async(
+ERROR 08-18 19:58:43 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 674, in _tokenize_prompt_inputs_async
+ERROR 08-18 19:58:43 [serving_chat.py:203]     yield await self._normalize_prompt_text_to_input(
+ERROR 08-18 19:58:43 [serving_chat.py:203]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:58:43 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 554, in _normalize_prompt_text_to_input
+ERROR 08-18 19:58:43 [serving_chat.py:203]     return self._validate_input(request, input_ids, input_text)
+ERROR 08-18 19:58:43 [serving_chat.py:203]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:58:43 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 626, in _validate_input
+ERROR 08-18 19:58:43 [serving_chat.py:203]     raise ValueError(
+ERROR 08-18 19:58:43 [serving_chat.py:203] ValueError: This model's maximum context length is 2048 tokens. However, you requested 5418 tokens (3918 in the messages, 1500 in the completion). Please reduce the length of the messages or completion.
+INFO:     127.0.0.1:59064 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+ERROR 08-18 19:59:26 [serving_chat.py:203] Error in preprocessing prompt inputs
+ERROR 08-18 19:59:26 [serving_chat.py:203] Traceback (most recent call last):
+ERROR 08-18 19:59:26 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_chat.py", line 186, in create_chat_completion
+ERROR 08-18 19:59:26 [serving_chat.py:203]     ) = await self._preprocess_chat(
+ERROR 08-18 19:59:26 [serving_chat.py:203]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:59:26 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 914, in _preprocess_chat
+ERROR 08-18 19:59:26 [serving_chat.py:203]     prompt_inputs = await self._tokenize_prompt_input_async(
+ERROR 08-18 19:59:26 [serving_chat.py:203]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:59:26 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 649, in _tokenize_prompt_input_async
+ERROR 08-18 19:59:26 [serving_chat.py:203]     async for result in self._tokenize_prompt_inputs_async(
+ERROR 08-18 19:59:26 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 674, in _tokenize_prompt_inputs_async
+ERROR 08-18 19:59:26 [serving_chat.py:203]     yield await self._normalize_prompt_text_to_input(
+ERROR 08-18 19:59:26 [serving_chat.py:203]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:59:26 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 554, in _normalize_prompt_text_to_input
+ERROR 08-18 19:59:26 [serving_chat.py:203]     return self._validate_input(request, input_ids, input_text)
+ERROR 08-18 19:59:26 [serving_chat.py:203]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 19:59:26 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 626, in _validate_input
+ERROR 08-18 19:59:26 [serving_chat.py:203]     raise ValueError(
+ERROR 08-18 19:59:26 [serving_chat.py:203] ValueError: This model's maximum context length is 2048 tokens. However, you requested 4400 tokens (3900 in the messages, 500 in the completion). Please reduce the length of the messages or completion.
+INFO:     127.0.0.1:40966 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+INFO 08-18 19:59:41 [logger.py:41] Received request chatcmpl-5249c857f485463198e42874a8740eee: prompt: '<|im_start|>user\nWhat is TCP?<|im_end|>\n<|im_start|>assistant\n<think>\n', params: SamplingParams(n=1, presence_penalty=0.0, frequency_penalty=0.0, repetition_penalty=1.0, temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, seed=None, stop=[], stop_token_ids=[], bad_words=[], include_stop_str_in_output=False, ignore_eos=False, max_tokens=100, min_tokens=0, logprobs=None, prompt_logprobs=None, skip_special_tokens=True, spaces_between_special_tokens=True, truncate_prompt_tokens=None, guided_decoding=None, extra_args=None), prompt_token_ids: None, prompt_embeds shape: None, lora_request: None.
+INFO 08-18 19:59:41 [async_llm.py:269] Added request chatcmpl-5249c857f485463198e42874a8740eee.
+INFO:     127.0.0.1:33760 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+ERROR 08-18 20:02:48 [serving_chat.py:203] Error in preprocessing prompt inputs
+ERROR 08-18 20:02:48 [serving_chat.py:203] Traceback (most recent call last):
+ERROR 08-18 20:02:48 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_chat.py", line 186, in create_chat_completion
+ERROR 08-18 20:02:48 [serving_chat.py:203]     ) = await self._preprocess_chat(
+ERROR 08-18 20:02:48 [serving_chat.py:203]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 20:02:48 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 914, in _preprocess_chat
+ERROR 08-18 20:02:48 [serving_chat.py:203]     prompt_inputs = await self._tokenize_prompt_input_async(
+ERROR 08-18 20:02:48 [serving_chat.py:203]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 20:02:48 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 649, in _tokenize_prompt_input_async
+ERROR 08-18 20:02:48 [serving_chat.py:203]     async for result in self._tokenize_prompt_inputs_async(
+ERROR 08-18 20:02:48 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 674, in _tokenize_prompt_inputs_async
+ERROR 08-18 20:02:48 [serving_chat.py:203]     yield await self._normalize_prompt_text_to_input(
+ERROR 08-18 20:02:48 [serving_chat.py:203]           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 20:02:48 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 554, in _normalize_prompt_text_to_input
+ERROR 08-18 20:02:48 [serving_chat.py:203]     return self._validate_input(request, input_ids, input_text)
+ERROR 08-18 20:02:48 [serving_chat.py:203]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ERROR 08-18 20:02:48 [serving_chat.py:203]   File "/home/lucas/anton_new/.venv/lib/python3.12/site-packages/vllm/entrypoints/openai/serving_engine.py", line 626, in _validate_input
+ERROR 08-18 20:02:48 [serving_chat.py:203]     raise ValueError(
+ERROR 08-18 20:02:48 [serving_chat.py:203] ValueError: This model's maximum context length is 2048 tokens. However, you requested 2297 tokens (1797 in the messages, 500 in the completion). Please reduce the length of the messages or completion.
+INFO:     127.0.0.1:41234 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:52196 - "GET /health HTTP/1.1" 200 OK
+INFO 08-18 20:26:38 [launcher.py:80] Shutting down FastAPI HTTP server.
+[rank0]:[W818 20:26:39.040348706 ProcessGroupNCCL.cpp:1479] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.

@@ -61,14 +61,22 @@ class LearningLoop:
         self._is_processing = False
         self._background_task = None
         
-        # Start background processing
-        self._start_background_processing()
+        # Start background processing only if there's an event loop
+        try:
+            self._start_background_processing()
+        except RuntimeError:
+            # No event loop running yet, will start when needed
+            logger.info("No event loop available, background processing will start later")
 
     def _start_background_processing(self):
         """Start background task for processing capabilities and reflections"""
-        loop = asyncio.get_event_loop()
-        self._background_task = asyncio.create_task(self._process_queue())
-        logger.info("Started background processing for learning loop")
+        try:
+            loop = asyncio.get_running_loop()
+            self._background_task = asyncio.create_task(self._process_queue())
+            logger.info("Started background processing for learning loop")
+        except RuntimeError:
+            # No event loop running, this will be called later
+            logger.debug("No event loop running, deferring background processing start")
         
     async def _process_queue(self):
         """Process tasks in the background"""
