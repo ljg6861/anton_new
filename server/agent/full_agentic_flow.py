@@ -6,8 +6,11 @@ import httpx
 
 from server.agent import learning_loop
 from server.agent import knowledge_store
-from server.agent.config import USER_ROLE
-from server.agent.knowledge_store import ImportanceLevel
+from server.agent.config import MODEL_SERVER_URL, USER_ROLE
+from server.agent.knowledge_store import ImportanceLevel, KnowledgeStore
+from server.agent.react.react_agent import ReActAgent
+from server.agent.react.token_budget import TokenBudget
+from server.agent.tools import tool_manager
 
 # Configure a basic logger for demonstration
 logging.basicConfig(level=logging.INFO)
@@ -104,7 +107,7 @@ async def execute_agentic_flow(initial_messages: List[Dict[str, str]]) -> AsyncG
         pass
 
     # --- Route to the appropriate handler ---
-    route = determine_route(initial_messages, logger)
+    route = await determine_route(initial_messages)
     logger.info(f"Routing to: {route}")
 
     if route == "chat":
@@ -117,22 +120,43 @@ async def execute_agentic_flow(initial_messages: List[Dict[str, str]]) -> AsyncG
         yield f"Error: Unknown route '{route}' provided by the router."
 
 async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
-    """Handles the chat route for simple conversation."""
-    logger.info("Executing chat route...")
-    chat_prompt = "You are a friendly and helpful assistant. Provide a concise answer to the user."
+    chat_prompt = "You are Anton, a friendly and helpful assistant. Provide a concise answer to the user."
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
     
+    buffer = ''
     async for token in call_model_server(chat_messages):
-        yield token
+        buffer += token
+        if not '</think>' in buffer:
+            yield f'<thought>{token}</thought>'
+        elif '</think>' in buffer:
+            yield token
 
 async def _handle_task_route(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """Placeholder for the complex task agent workflow."""
     logger.info("Executing task route...")
+    
+    # Reset conversation state for new request
+    knowledge_store = KnowledgeStore()
+    
+    # Create ReAct agent with knowledge store, tool schemas, and token budget
+    available_tools = tool_manager.get_tool_schemas()
+    
+    # Configure token budget based on request complexity
+    budget = TokenBudget(total_budget=135000)  # Conservative default
+        
+    react_agent = ReActAgent(
+        api_base_url=MODEL_SERVER_URL,
+        tools=available_tools,
+        knowledge_store=knowledge_store,
+        max_iterations=30,
+        user_id='',
+        token_budget=budget
+    )
+    
     yield "Understood. This is a complex task. I will begin planning the necessary steps."
 
 
 async def call_model_server(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
-        
         request_payload = {
             "model": "qwen3-30b-awq",  # Use the served model name from vLLM
             "messages": messages,

@@ -15,16 +15,7 @@ MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
 
 
 class ApiClient:
-    """A client for making requests to the Anton agent API."""
-
     def __init__(self, api_base_url: str, timeout: float):
-        """
-        Initializes the ApiClient.
-
-        Args:
-            api_base_url: The base URL of the API server.
-            timeout: The timeout for HTTP requests.
-        """
         self.api_base_url = api_base_url
         self.http_client = httpx.AsyncClient(timeout=timeout)
         logger.info(f"API client initialized for server at {api_base_url}")

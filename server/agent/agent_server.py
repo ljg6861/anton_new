@@ -20,6 +20,7 @@ except ImportError:
     def nvmlDeviceGetMemoryInfo(handle): return type('obj', (object,), {'total': 0, 'used': 0})()
     class NVMLError(Exception): pass
 
+from server.agent.full_agentic_flow import execute_agentic_flow
 from server.agent.pack_builder import build_pack_centroids
 from server.agent.react.react_agent import ReActAgent
 from server.agent.react.token_budget import TokenBudget
@@ -115,80 +116,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Agent Logic Server", lifespan=lifespan)
 
 
-async def metrics_collecting_stream_generator(
-        stream: AsyncGenerator[str, None],
-        metrics: MetricsTracker
-) -> AsyncGenerator[str, None]:
-    """
-    A wrapper for the agent's streaming response that captures and logs
-    high-level performance metrics for the entire request lifecycle.
-    """
-    chunk_count = 0
-    # Use the local get_all_resource_usage function
-    metrics.get_resource_usage = lambda: get_all_resource_usage(logger)
-    metrics.resource_snapshots['agent_request_start'] = metrics.get_resource_usage()
-    import os
-    MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
-    try:
-        async for chunk in stream:
-            chunk_count += 1
-            if MD_DEBUG:
-                _chunk_preview = chunk[:120].replace('\n', '\\n')
-                logger.info(f"[MDDBG:agent_server] outbound chunk len={len(chunk)} repr={_chunk_preview!r}")
-            yield chunk
-    finally:
-        metrics.end_time = time.monotonic()
-        metrics.resource_snapshots['agent_request_end'] = metrics.get_resource_usage()
-
-        e2e_latency = metrics.end_time - metrics.start_time
-        throughput = chunk_count / e2e_latency if e2e_latency > 0 else 0
-
-        logger.info("--- AGENT SERVER REQUEST METRICS ---")
-        logger.info(f"[Latency] Full Request End-to-End: {e2e_latency:.2f} seconds")
-        logger.info(f"[Throughput] Chunks per Second: {throughput:.2f}")
-        logger.info(f"[Throughput] Total Chunks Streamed: {chunk_count}")
-
-        start_usage = metrics.resource_snapshots['agent_request_start']
-        end_usage = metrics.resource_snapshots['agent_request_end']
-
-        start_gpu_util_str = ", ".join(
-            [f"GPU{i}:{gpu['util_percent']:.1f}%" for i, gpu in enumerate(start_usage['gpus'])]) or "N/A"
-        start_vram_str = ", ".join(
-            [f"GPU{i}:{gpu['vram_percent']:.1f}%" for i, gpu in enumerate(start_usage['gpus'])]) or "N/A"
-        logger.info(
-            f"[Resources] Start - CPU: {start_usage['cpu_percent']:.1f}%, RAM: {start_usage['ram_percent']:.1f}%, "
-            f"Util: {start_gpu_util_str}, VRAM: {start_vram_str}"
-        )
-
-        end_gpu_util_str = ", ".join(
-            [f"GPU{i}:{gpu['util_percent']:.1f}%" for i, gpu in enumerate(end_usage['gpus'])]) or "N/A"
-        end_vram_str = ", ".join(
-            [f"GPU{i}:{gpu['vram_percent']:.1f}%" for i, gpu in enumerate(end_usage['gpus'])]) or "N/A"
-        logger.info(
-            f"[Resources] End   - CPU: {end_usage['cpu_percent']:.1f}%, RAM: {end_usage['ram_percent']:.1f}%, "
-            f"Util: {end_gpu_util_str}, VRAM: {end_vram_str}"
-        )
-
-        cpu_diff = end_usage['cpu_percent'] - start_usage['cpu_percent']
-        ram_diff = end_usage['ram_percent'] - start_usage['ram_percent']
-
-        if start_usage['gpus'] and end_usage['gpus'] and len(start_usage['gpus']) == len(end_usage['gpus']):
-            gpu_util_diff_str = ", ".join(
-                [f"GPU{i}:{post['util_percent'] - pre['util_percent']:+.1f}%" for i, (pre, post) in
-                 enumerate(zip(start_usage['gpus'], end_usage['gpus']))])
-            vram_diff_str = ", ".join(
-                [f"GPU{i}:{post['vram_percent'] - pre['vram_percent']:+.1f}%" for i, (pre, post) in
-                 enumerate(zip(start_usage['gpus'], end_usage['gpus']))])
-        else:
-            gpu_util_diff_str = "N/A"
-            vram_diff_str = "N/A"
-
-        logger.info(
-            f"[Resources] Difference- CPU: {cpu_diff:+.1f}%, RAM: {ram_diff:+.1f}%, "
-            f"Util: {gpu_util_diff_str}, VRAM: {vram_diff_str}"
-        )
-        logger.info("------------------------------------")
-
 
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
@@ -197,38 +124,15 @@ async def agent_chat(request: AgentChatRequest):
     Uses token budgeting to prevent context overflow.
     """
     logger.info("Agent Server received request. Processing with three-memory ReAct agent...")
-
-    # Reset conversation state for new request
-    knowledge_store = KnowledgeStore()
-    
-    # Create ReAct agent with knowledge store, tool schemas, and token budget
-    available_tools = tool_manager.get_tool_schemas()
-    
-    # Configure token budget based on request complexity
-    budget = TokenBudget(total_budget=135000)  # Conservative default
-        
-    react_agent = ReActAgent(
-        api_base_url=MODEL_SERVER_URL,
-        tools=available_tools,
-        knowledge_store=knowledge_store,
-        max_iterations=30,
-        user_id=request.user_id,
-        token_budget=budget
-    )
-    
-    # Extract initial messages from request
     initial_messages = [msg.model_dump() for msg in request.messages]
-    
-    # Process with ReAct agent with metrics
-    metrics = MetricsTracker(logger)
-    
+        
     async def react_with_metrics():
-        async for token in react_agent.process_request(initial_messages, logger):
+        async for token in execute_agentic_flow(initial_messages):
             yield token
     
     return StreamingResponse(
-        metrics_collecting_stream_generator(react_with_metrics(), metrics),
-        media_type="text/plain"
+        react_with_metrics(),
+        media_type="text/event-stream"
     )
 
 from server.agent.code_index_refresher import code_refresher

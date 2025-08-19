@@ -20,7 +20,6 @@ class ToolCall(BaseModel):
 class OpenAIChatMessage(BaseModel):
     role: Literal["system", "user", "assistant", "tool"]
     content: str | None = None
-    name: str | None = None  # For tool calls, the name of the tool
 
 
 # Defines the name, description, and JSON schema for a function's parameters.
