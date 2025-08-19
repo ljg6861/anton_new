@@ -1,12 +1,19 @@
 import asyncio
+import time
 import traceback
 
-from server.agent.full_agentic_flow import determine_route
+from server.agent.full_agentic_flow import determine_route, execute_agentic_flow
 
 async def test_determine_route(messages, expected):
     """Asserts that the determine_route function returns the expected route."""
     route = await determine_route(messages)
     assert route == expected, f"Expected '{expected}', but got '{route}'"
+
+async def test_chat_route(messages):
+    start_time = time.time()
+    execute_agentic_flow(messages)
+    end_time = time.time()
+    assert start_time - end_time < 10, "Chat route took too long."
 
 
 class TestRunner:
@@ -67,6 +74,9 @@ async def main():
         ),
         "Task: Set reminder": test_determine_route(
             [{"role": "user", "content": "Set a reminder."}], "task"
+        ),
+        "Chat: Weather": test_chat_route(
+            [{"role": "user", "content": "What's the weather like today?"}]
         ),
     }
 

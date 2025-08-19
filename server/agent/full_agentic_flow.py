@@ -3,8 +3,6 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import httpx
-from transformers import AutoTokenizer
-
 from server.agent import learning_loop
 from server.agent import knowledge_store
 from server.agent.config import MODEL_SERVER_URL, USER_ROLE
@@ -61,10 +59,6 @@ def extract_user_prompt(messages: List[Dict[str, str]]) -> str:
     return ""
 
 async def determine_route(conversation_history: List[Dict]) -> Optional[str]:
-
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    print("--- Default Chat Template ---")
-    logger.info(tokenizer.chat_template)
     MAX_ROUTER_RETRIES = 2
     router_messages = [
         {"role": "system", "content": FEW_SHOT_ROUTER_PROMPT},
