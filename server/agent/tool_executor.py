@@ -32,14 +32,6 @@ async def process_tool_calls(
         result_callback = None,  # Callback to stream tool results to UI
         llm_analysis_callback = None  # Callback for LLM learning analysis
 ) -> bool:
-    """
-    Parses and executes all tool calls from the model's response buffer.
-    Now updates a knowledge store with information about accessed files and tool results.
-    Executes independent tool calls in parallel for better performance.
-
-    Returns:
-        True if at least one tool was called, False otherwise.
-    """
     tool_calls_made = False
     response_buffer = html.unescape(response_buffer)
     matches = tool_call_regex.finditer(response_buffer)

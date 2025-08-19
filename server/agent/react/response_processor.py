@@ -28,22 +28,23 @@ class ResponseProcessor:
         
         async for token in llm_stream:
             response_buffer += token
+            yield token
             
-            if not thinking_ended and thinking_started:
+            # if not thinking_ended and thinking_started:
 
-                if thinking_started and "</think>" in response_buffer:
-                    thinking_ended = True
-                    thinking_content = self._extract_thinking_content(response_buffer, pre_think_buffer)
-                    self._record_thinking(thinking_content)
+            #     if thinking_started and "</think>" in response_buffer:
+            #         thinking_ended = True
+            #         thinking_content = self._extract_thinking_content(response_buffer, pre_think_buffer)
+            #         self._record_thinking(thinking_content)
                     
-                    content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
-                    yield f'<token>{content_after_thinking}</token>'
+            #         content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
+            #         yield f'<token>{content_after_thinking}</token>'
                 
-                elif thinking_started:
-                    yield f'<thought>{token}</thought>'
-            else:
-                content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
-                yield f'<token>{token}</token>'
+            #     elif thinking_started:
+            #         yield f'<thought>{token}</thought>'
+            # else:
+            #     content_after_thinking = response_buffer.rsplit("</think>", 1)[-1]
+            #     yield f'<token>{token}</token>'
         
         yield f"response_buffer:{response_buffer}"
             

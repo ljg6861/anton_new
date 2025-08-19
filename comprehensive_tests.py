@@ -2,9 +2,10 @@ import asyncio
 import logging
 import time
 import traceback
+from typing import Dict, List
 from server.agent.agentic_flow.full_agentic_flow import determine_route, execute_agentic_flow
-from server.agent.agentic_flow.helpers import COMPLEX_PLANNER_PROMPT, SIMPLE_PLANNER_PROMPT
-from server.agent.agentic_flow.task_flow import initial_assessment, execute_planner
+from server.agent.agentic_flow.helpers_and_prompts import COMPLEX_PLANNER_PROMPT, SIMPLE_PLANNER_PROMPT
+from server.agent.agentic_flow.task_flow import execute_executor, handle_task_route, initial_assessment, execute_planner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,6 +38,17 @@ async def test_planner(prompt, messages):
             final_plan = True
     assert final_plan, "Plan must include a final step with the 'final_answer' tool."
 
+async def test_task_executor(prompt, messages, overall_goal):
+    plan = {'plan': [{'step': 1, 'thought': 'I need to retrieve the official text of the Pledge of Allegiance. Using web_search will provide the most accurate and current wording.', 'tool': 'web_search', 'args': {'query': 'official Pledge of Allegiance text'}}, {'step': 2, 'thought': "Now that I have the Pledge text from the web search, I'll write it to the specified file using the write_file tool.", 'tool': 'write_file', 'args': {'file_path': 'pledge.txt', 'content': '{{step_1_output}}'}}, {'step': 3, 'thought': "The Pledge of Allegiance has been successfully written to pledge.txt. I'll confirm completion to the user.", 'tool': 'final_answer', 'args': {'summary': "The Pledge of Allegiance has been written to 'pledge.txt' with the official text retrieved via web search."}}]}
+    plan = plan['plan']
+    results = []
+    result = await execute_executor(overall_goal, plan, results, plan[0])
+    assert result is not None, "Executor should return a result."
+
+async def test_task_route(messages):
+    async for token in handle_task_route(messages, "Test task"):
+        assert token is not None, "Task route should return a result."
+        print(f"Task route output: {token}")
 
 class TestRunner:
     """Manages test execution, concurrency, and result counting."""
@@ -115,8 +127,14 @@ async def main():
         # "Simple Plan: Output code to a file": test_planner(SIMPLE_PLANNER_PROMPT,
         #     [{"role": "user", "content": "Write python code to output 'Hello, World!' to a file."}]
         # ),
-        "Complex Plan: Create a new tool": test_planner(COMPLEX_PLANNER_PROMPT,
-            [{"role": "user", "content": "Determine if you have the ability to fetch web pages. If you dont, implement a new tool to do so."}]
+        # "Complex Plan: Create a new tool": test_planner(COMPLEX_PLANNER_PROMPT,
+        #     [{"role": "user", "content": "Determine if you have the ability to fetch web pages. If you dont, implement a new tool to do so."}]
+        # ),
+        # "Task Executor: Write the pledge": test_task_executor(SIMPLE_PLANNER_PROMPT,
+        #     [{"role": "user", "content": "Write the pledge of allegiance to pledge.txt"}], "Write the pledge of allegiance to pledge.txt"
+        # ),
+        "Task Route: Write the pledge": test_task_route(
+            [{"role": "user", "content": "Write the pledge of allegiance to pledge.txt"}]
         ),
     }
 

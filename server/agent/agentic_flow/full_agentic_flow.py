@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import AsyncGenerator, Dict, List, Optional
-from server.agent.agentic_flow.helpers import call_model_server
+from server.agent.agentic_flow.helpers_and_prompts import call_model_server
 from server.agent.config import USER_ROLE
 from server.agent.agentic_flow.task_flow import handle_task_route
 
@@ -107,7 +107,7 @@ async def execute_agentic_flow(initial_messages: List[Dict[str, str]]) -> AsyncG
         async for token in _handle_chat_route(initial_messages):
             yield token
     elif route == "task":
-        async for token in handle_task_route(initial_messages):
+        async for token in handle_task_route(initial_messages, user_prompt):
             yield token
     else:
         yield f"Error: Unknown route '{route}' provided by the router."

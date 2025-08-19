@@ -16,6 +16,7 @@ from server.agent.tool_learning_store import tool_learning_store
 from server.agent.config import ASSISTANT_ROLE, SYSTEM_ROLE, USER_ROLE
 from server.agent import config
 from server.agent.learning_loop import learning_loop
+from server.agent.tools.tool_manager import tool_manager
 
 from .token_budget import TokenBudget
 from .memory_manager import MemoryManager
@@ -111,29 +112,8 @@ class ReActAgent:
             logger.error(f"Error in LLM analysis callback: {e}", exc_info=True)
             return f"Analysis failed: {str(e)}"
     
-    async def _build_react_messages(self, user_prompt: str, working_memory: str, 
-                                   session_memory: str) -> List[Dict[str, str]]:
-        """Build messages list for ReAct processing"""
-        system_prompt = await self.prompt_builder.build_system_prompt(
-            user_prompt, working_memory, session_memory, self.tools, self.domain_pack_dir
-        )
-        
-        # Replace tools placeholder with formatted tools
-        tools_text = self.tool_formatter.format_tools_compact(self.tools)
-        system_prompt = system_prompt.replace("{tools_placeholder}", tools_text)
-        
-        react_messages = [{"role": SYSTEM_ROLE, "content": system_prompt}]
-        
-        if working_memory:
-            react_messages.append({"role": SYSTEM_ROLE, "content": f"RECENT CONTEXT:\n{working_memory}"})
-
-        if user_prompt:
-            react_messages.append({"role": USER_ROLE, "content": user_prompt})
-
-        return react_messages
-    
-    async def _execute_react_loop(self, react_messages: List[Dict[str, str]], 
-                                 logger: Any) -> AsyncGenerator[str, None]:
+    async def execute_react_loop(self, react_messages: List[Dict[str, str]], 
+                                 logger: Any) -> str:
         """Execute the main ReAct reasoning loop"""
         iteration = 0
         
@@ -148,74 +128,18 @@ class ReActAgent:
                 "react_agent"
             )
             
-            # Execute LLM request and process response
-            llm_stream = self._execute_llm_request(react_messages, logger)
-            response_buffer = ""
-            
-            async for event in self.response_processor.process_streaming_response(llm_stream):
-                if event.startswith('<token>') or event.startswith('<thought>'):
-                    yield event
-                elif event.startswith('response_buffer:'):
-                    response_buffer = event.split('response_buffer:', 1)[1]
-                        
-            # Handle tool calls and determine next action
-            async for result in self._handle_response_and_tools(
-                response_buffer, react_messages, logger
-            ):
-                if result in ["continue", "stop"]:
-                    if result == "stop":
-                        return
-                    # continue to next iteration
-                else:
-                    yield result  # Tool result or other output
-        
-        if iteration >= self.max_iterations:
-            async for msg in self._handle_max_iterations_reached():
-                yield msg
-    
-    async def _handle_response_and_tools(self, response_buffer: str, 
-                                        react_messages: List[Dict[str, str]], 
-                                        logger: Any) -> AsyncGenerator[str, None]:
-        """Handle response processing and tool execution"""
-        content = re.split(r'</think>', response_buffer, maxsplit=1)[-1].strip()
+            response = (self._execute_llm_request(react_messages, logger))
+            response = response['choices'][0]['message']
+            tool_calls = response['tool_calls']
+            if (tool_calls):
+                for i in range(len(tool_calls)):
+                    logger.info(f"Calling tool: {tool_calls[i]['function']['name']} with args: {tool_calls[i]['function']['arguments']}")
+                    result = tool_manager.run_tool(tool_calls[i]['function']['name'], tool_calls[i]['function']['arguments'],)
+                    return react_messages.append({'role' : 'function', 'name' : tool_calls[i]['function']['name'], 'content' : result}) 
+            else:
+                return react_messages.append({'role' : 'assistant', 'content' : response['content']})
 
-        react_messages.append({"role": ASSISTANT_ROLE, "content": content})
-        
-        # Import here to avoid circular imports
-        from server.agent import config
-        
-        tool_results_for_ui = []
-        
-        async def tool_result_callback(tool_result_summary):
-            """Capture tool results for UI streaming"""
-            tool_results_for_ui.append(tool_result_summary)
-            self._record_tool_use(tool_result_summary)
-            self._update_session_memory_from_tool_result(tool_result_summary)
 
-        made_tool_calls = await process_tool_calls(
-            content, 
-            config.TOOL_CALL_REGEX,
-            react_messages,
-            logger,
-            self.knowledge_store,
-            tool_result_callback,
-            self._llm_analysis_callback
-        )
-        
-        # Stream tool results to UI
-        for tool_result_summary in tool_results_for_ui:
-            yield f"<tool_result>{json.dumps(tool_result_summary)}</tool_result>"
-
-        final_result = self._handle_final_response(content)
-        yield "stop" if not final_result else "continue"
-    
-    def _record_tool_use(self, tool_result_summary: Dict):
-        """Record tool use in learning loop"""
-        learning_loop.record_action("tool_use", {
-            "tool_name": tool_result_summary.get("name"),
-            "arguments": tool_result_summary.get("arguments"),
-            "success": tool_result_summary.get("status") == "success",
-        })
     
     def _update_session_memory_from_tool_result(self, tool_result_summary: Dict):
         """Update session memory based on tool results"""
@@ -270,90 +194,50 @@ class ReActAgent:
             sanitized_messages.append(msg_copy)
         return sanitized_messages
 
-    async def _execute_llm_request(
+    def _execute_llm_request(
         self,
         messages: List[Dict[str, str]],
         logger: Any
-    ) -> AsyncGenerator[str, None]:
-        """Execute LLM request and stream response with vLLM server"""
-        # Sanitize messages for vLLM compatibility
+    ) -> Dict[str, Any]:
         sanitized_messages = self._sanitize_messages_for_vllm(messages)
         
-        # Build request payload for vLLM OpenAI-compatible API
         request_payload = {
-            "model": "qwen3-30b-awq",  # Use the served model name from vLLM
+            "model": "qwen3-30b-awq",
             "messages": sanitized_messages,
             "temperature": 0.6,
-            "stream": True,
-            "max_tokens": 2048  # Reasonable response length for larger context
+            "stream": False,
+            "max_tokens": 2048
         }
         
-        # Only add tools if we have them and they're supported
         if self.tools:
             request_payload["tools"] = self.tools
             request_payload["tool_choice"] = "auto"
 
-        # Direct connection to vLLM server on port 8003
         vllm_url = "http://localhost:8003"
-        logger.info(f"Sending vLLM request to {vllm_url}/v1/chat/completions")
-        logger.info(f"Request payload: {json.dumps(request_payload, indent=2)}")
-
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        url = f"{vllm_url}/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer anton-vllm-key"
+        }
+        
+        with httpx.Client(timeout=120.0) as client:
             try:
-                # Use OpenAI-compatible streaming endpoint
-                url = f"{vllm_url}/v1/chat/completions"
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer anton-vllm-key"  # Match the API key from vLLM
-                }
-                
-                async with client.stream("POST", url, json=request_payload, headers=headers) as response:
-                    logger.info(f"vLLM response status: {response.status_code}")
-                    response.raise_for_status()
-                    
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            line = line[6:]  # Remove "data: " prefix
-                            
-                        if line.strip() == "[DONE]":
-                            break
-                            
-                        if line.strip():
-                            try:
-                                chunk_data = json.loads(line)
-                                
-                                # Handle vLLM streaming response format
-                                choices = chunk_data.get("choices", [])
-                                if choices:
-                                    delta = choices[0].get("delta", {})
-                                    content = delta.get("content", "")
-                                    tool_calls = delta.get("tool_calls", [])
-                                    
-                                    if content:
-                                        yield content
-                                    
-                                    # Handle tool calls if present
-                                    if tool_calls:
-                                        yield f"\n<tool_calls>{json.dumps(tool_calls)}</tool_calls>\n"
-                                        
-                            except json.JSONDecodeError as e:
-                                logger.warning(f"Failed to parse streaming chunk: {line} - {e}")
-                                continue
-
+                response = client.post(url, json=request_payload, headers=headers)
+                response.raise_for_status()
+                return response.json()
             except httpx.HTTPStatusError as e:
-                # Log the specific HTTP error details
-                error_details = f"HTTP {e.response.status_code}: {e.response.reason_phrase}"
+                error_details = f"HTTP {e.response.status_code}: {e.response.reason_phrase}\n"
                 try:
-                    error_body = await e.response.aread()
-                    error_details += f"\nResponse body: {error_body.decode()}"
+                    error_body = e.response.read().decode()
+                    error_details += f"Response body: {error_body}"
                 except:
-                    error_details += "\nCould not read response body"
+                    error_details += "Could not read response body"
                 
                 logger.error(f"ReActAgent: HTTP error from vLLM server: {error_details}")
-                yield f"\n[ERROR: HTTP {e.response.status_code} from vLLM server: {e.response.reason_phrase}]\n"
+                raise RuntimeError(f"HTTP error from vLLM server: {error_details}") from e
             except httpx.RequestError as e:
                 logger.error(f"ReActAgent: API request to vLLM server failed: {e}")
-                yield f"\n[ERROR: Could not connect to the vLLM server: {e}]\n"
+                raise RuntimeError(f"API request to vLLM server failed: {e}") from e
             except Exception as e:
-                logger.error(f"ReActAgent: An unexpected error occurred during vLLM streaming: {e}", exc_info=True)
-                yield f"\n[ERROR: An unexpected error occurred: {e}]\n"
+                logger.error(f"ReActAgent: An unexpected error occurred: {e}", exc_info=True)
+                raise RuntimeError(f"An unexpected error occurred: {e}") from e

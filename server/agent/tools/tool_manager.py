@@ -1,5 +1,6 @@
 # tools/tool_manager.py
 
+import json
 from typing import Dict, Any, List, Optional
 from collections import defaultdict
 import re
@@ -232,7 +233,7 @@ class ToolManager:
                 raise Exception(f"Invalid arguments for tool '{tool_name}'")
         
         # Let exceptions bubble up naturally - they indicate real tool failures
-        return tool_instance.run(tool_args)
+        return tool_instance.run(json.loads(tool_args))
 
     def reload_tools(self):
         """Reload all tools from the filesystem."""
