@@ -3,6 +3,7 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import httpx
+from transformers import AutoTokenizer
 
 from server.agent import learning_loop
 from server.agent import knowledge_store
@@ -15,6 +16,8 @@ from server.agent.tools import tool_manager
 # Configure a basic logger for demonstration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+MODEL_NAME = "cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit" 
 
 
 FEW_SHOT_ROUTER_PROMPT = """You are a precise and logical AI router. Your only function is to classify the user's intent based on their most recent message and output a single, valid JSON object. Do not add any conversational text or explanations.
@@ -59,6 +62,9 @@ def extract_user_prompt(messages: List[Dict[str, str]]) -> str:
 
 async def determine_route(conversation_history: List[Dict]) -> Optional[str]:
 
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    print("--- Default Chat Template ---")
+    logger.info(tokenizer.chat_template)
     MAX_ROUTER_RETRIES = 2
     router_messages = [
         {"role": "system", "content": FEW_SHOT_ROUTER_PROMPT},
@@ -125,11 +131,12 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
     
     buffer = ''
     async for token in call_model_server(chat_messages):
-        buffer += token
         if not '</think>' in buffer:
             yield f'<thought>{token}</thought>'
         elif '</think>' in buffer:
             yield token
+        #Add buffer at end to avoid </think> annotation
+        buffer += token
 
 async def _handle_task_route(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """Placeholder for the complex task agent workflow."""
@@ -167,7 +174,6 @@ async def call_model_server(messages: List[Dict[str, str]]) -> AsyncGenerator[st
 
         vllm_url = "http://localhost:8003"
         logger.info(f"Sending vLLM request to {vllm_url}/v1/chat/completions")
-        logger.info(f"Request payload: {json.dumps(request_payload, indent=2)}")
 
         async with httpx.AsyncClient(timeout=120.0) as client:
                 url = f"{vllm_url}/v1/chat/completions"
@@ -181,30 +187,30 @@ async def call_model_server(messages: List[Dict[str, str]]) -> AsyncGenerator[st
                     response.raise_for_status()
                     
                     async for line in response.aiter_lines():
-                        if line.startswith("data: "):
+                        if line.startswith('data: '):
                             line = line[6:]  # Remove "data: " prefix
-                            
+
                         if line.strip() == "[DONE]":
                             break
-                            
+
                         if line.strip():
                             try:
                                 chunk_data = json.loads(line)
-                                
+
                                 # Handle vLLM streaming response format
                                 choices = chunk_data.get("choices", [])
                                 if choices:
                                     delta = choices[0].get("delta", {})
                                     content = delta.get("content", "")
                                     tool_calls = delta.get("tool_calls", [])
-                                    
+
                                     if content:
                                         yield content
-                                    
+
                                     # Handle tool calls if present
                                     if tool_calls:
                                         yield f"\n<tool_calls>{json.dumps(tool_calls)}</tool_calls>\n"
-                                        
+
                             except json.JSONDecodeError as e:
                                 logger.warning(f"Failed to parse streaming chunk: {line} - {e}")
                                 continue
