@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List
@@ -12,62 +13,74 @@ async def call_model_server(messages: List[Dict[str, str]]) -> AsyncGenerator[st
             "messages": messages,
             "temperature": 0.6,
             "stream": True,
-            "max_tokens": 4096
+            "max_tokens": 9000
         }
 
         vllm_url = "http://localhost:8003"
         logger.info(f"Sending vLLM request to {vllm_url}/v1/chat/completions")
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-                url = f"{vllm_url}/v1/chat/completions"
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer anton-vllm-key"
-                }
-                
-                async with client.stream("POST", url, json=request_payload, headers=headers) as response:
-                    logger.info(f"vLLM response status: {response.status_code}")
-                    response.raise_for_status()
-                    
-                    async for line in response.aiter_lines():
-                        if line.startswith('data: '):
-                            line = line[6:]  # Remove "data: " prefix
+        for attempt in range(3):
+          try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                    url = f"{vllm_url}/v1/chat/completions"
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer anton-vllm-key"
+                    }
+                    buffer = ''
+                    async with client.stream("POST", url, json=request_payload, headers=headers) as response:
+                        logger.info(f"vLLM response status: {response.status_code}")
+                        response.raise_for_status()
+                        
+                        async for line in response.aiter_lines():
+                            if line.startswith('data: '):
+                                line = line[6:]  # Remove "data: " prefix
 
-                        if line.strip() == "[DONE]":
-                            break
+                            if line.strip() == "[DONE]":
+                                break
 
-                        if line.strip():
-                            try:
-                                chunk_data = json.loads(line)
+                            if line.strip():
+                                try:
+                                    chunk_data = json.loads(line)
 
-                                # Handle vLLM streaming response format
-                                choices = chunk_data.get("choices", [])
-                                if choices:
-                                    delta = choices[0].get("delta", {})
-                                    content = delta.get("content", "")
-                                    tool_calls = delta.get("tool_calls", [])
+                                    # Handle vLLM streaming response format
+                                    choices = chunk_data.get("choices", [])
+                                    if choices:
+                                        delta = choices[0].get("delta", {})
+                                        content = delta.get("content", "")
+                                        tool_calls = delta.get("tool_calls", [])
 
-                                    if content:
-                                        yield content
+                                        if content:
+                                            yield content
+                                        buffer += content
 
-                                    # Handle tool calls if present
-                                    if tool_calls:
-                                        yield f"\n<tool_calls>{json.dumps(tool_calls)}</tool_calls>\n"
+                                        # Handle tool calls if present
+                                        if tool_calls:
+                                            yield f"\n<tool_calls>{json.dumps(tool_calls)}</tool_calls>\n"
 
-                            except json.JSONDecodeError as e:
-                                logger.warning(f"Failed to parse streaming chunk: {line} - {e}")
-                                continue
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"Failed to parse streaming chunk: {line} - {e}")
+                                    continue
+          except httpx.RequestError as e:
+            # Handle connection errors, timeouts, etc.
+            logger.info(f"Request error on attempt {attempt + 1}: {e}")
+            if attempt < 3:
+              delay = 2 ** attempt
+              logger.info(f"Waiting {delay} seconds before retrying...")
+              await asyncio.sleep(delay)
+          finally:
+              logger.info(buffer)
 
 
 SIMPLE_PLANNER_PROMPT = """
     # PERSONA
-    You are an AI Planner and Task Decomposer. Your sole responsibility is to break down a user request into a structured, step-by-step plan using only the tools available to you. You must think logically and create a clear plan that an execution agent can follow precisely.
+    You are a confident AI Planner and Task Decomposer. Your sole responsibility is to break down a user request into a structured, step-by-step plan using only the tools available to you. You must think logically and create a clear plan that an execution agent can follow precisely.
 
     # CONTEXT
     The current date is {current_date}.
 
     # AVAILABLE TOOLS
-    You have access to the following tools. Your plan must ONLY use these tools.
+    You have access to the following tools. Your plan must ONLY use these tools. You MAY NOT call tools yourself
     {tools}
 
     # OUTPUT FORMAT
@@ -145,10 +158,31 @@ SIMPLE_PLANNER_PROMPT = """
     }
     """
 
+REPLANNING_PROMPT_ADDENDUM = """
+---
+# RE-PLANNING CONTEXT
+Your previous attempt to solve this goal failed. You MUST analyze the failure reason and create a new, different plan to achieve the user's original goal. Do not repeat the failed steps.
+
+# ORIGINAL GOAL
+{user_goal}
+
+# FAILED PLAN
+{original_plan}
+
+# FAILURE ANALYSIS
+{failure_reasoning}
+
+# STEPS TAKEN IN ORIGINAL PLAN
+{steps_taken}
+
+# NEW PLAN
+Based on the failure analysis, create a new plan to achieve the original user goal.
+"""
+
 COMPLEX_PLANNER_PROMPT = """
 # PERSONA
-You are a highly autonomous AI Planner and Task Decomposer. Your primary goal is to create a complete, step-by-step plan to solve a user's request. You are self-aware of your toolset; if the available task tools are insufficient, your FIRST priority is to create a plan to learn about your capabilities before solving the user's request.
-
+You are a highly autonomous, confident AI Planner and Task Decomposer. Your primary goal is to create a complete, step-by-step plan to solve a user's request. You are self-aware of your toolset; if the available task tools are insufficient, your FIRST priority is to create a plan to learn about your capabilities before solving the user's request.
+You MAY NOT call tools yourself
 # CONTEXT
 The current date is {current_date}.
 
@@ -267,7 +301,7 @@ Now, create a plan for the following user request.
 
 EXECUTOR_PROMPT = """
 # PERSONA
-You are a diligent and precise AI Executor. Your sole responsibility is to execute a single step from a given plan. 
+You are a diligent, confident and precise AI Executor. Your sole responsibility is to execute a single step from a given plan. 
 
 # CONTEXT
 You have been given the following information to guide your action:
@@ -289,7 +323,7 @@ Your task is to execute the "Current Step" using the available tools.
 """
 
 ASSESSMENT_PROMPT = """
-    You are a highly autonomous AI task assessment agent. Your only function is to analyze the user's request and determine if your system's core toolset is sufficient to handle it. You must output a single, valid JSON object with one of two possible values.
+    You are a highly autonomous, confident AI task assessment agent. Your only function is to analyze the user's request and determine if your system's core toolset is sufficient to handle it. You must output a single, valid JSON object with one of two possible values.
 
     # CORE TOOLS
     These are the primary tools for accomplishing tasks.
@@ -325,3 +359,99 @@ ASSESSMENT_PROMPT = """
 
     Now, assess the following messages.
     """
+
+PLAN_RESULT_EVALUATOR_PROMPT = """
+You are a highly autonomous, confident AI plan result evaluator. Your only function is to analyze the results of a plan execution and determine if it was successful or not. You must output a single, valid JSON object with one of two possible objects.
+
+--- OUTPUT FORMAT ---
+Output a single JSON object following 1 of the 2 possible schemas:
+
+# SCHEMA 1 - SUCCESS:
+{"result": "success"}
+
+# SCHEMA 2 - FAILURE:
+{"result": "failure", "reasoning": "<A concise reason for why the plan execution failed to meet the user's goal, as well as suggested corrective steps.>"}
+
+--- CONTEXT ---
+# USER GOAL
+{user_goal}
+
+# ORIGINAL PLAN
+{original_plan}
+
+# PLAN EXECUTION RESULTS
+{execution_results}
+
+--- EXAMPLES ---
+
+# EXAMPLE 1: SUCCESSFUL EXECUTION
+
+--- CONTEXT ---
+# USER GOAL
+"Find the current weather in Paris and save it to a file named 'weather_paris.txt'."
+
+# ORIGINAL PLAN
+[
+    {"step": 1, "tool": "web_search", "args": {"query": "current weather in Paris"}},
+    {"step": 2, "tool": "file_write", "args": {"filename": "weather_paris.txt", "content": "The weather in Paris is: {{step_1_output}}"}},
+    {"step": 3, "tool": "final_answer", "args": {"summary": "I have saved the current weather in Paris to 'weather_paris.txt'."}}
+]
+
+# PLAN EXECUTION RESULTS
+{
+    "step_1_output": "Sunny with a temperature of 22°C.",
+    "step_2_output": "Successfully wrote 41 bytes to weather_paris.txt",
+    "step_3_output": "I have saved the current weather in Paris to 'weather_paris.txt'."
+}
+
+--- YOUR EVALUATION ---
+{"result": "success"}
+
+
+# EXAMPLE 2: FAILED EXECUTION (TECHNICAL ERROR)
+
+--- CONTEXT ---
+# USER GOAL
+"Read the sales data from 'sales_data.csv' and calculate the total revenue."
+
+# ORIGINAL PLAN
+[
+    {"step": 1, "tool": "file_read", "args": {"filename": "sales_data.csv"}},
+    {"step": 2, "tool": "code_interpreter", "args": {"code": "calculate_total({{step_1_output}})"}},
+    {"step": 3, "tool": "final_answer", "args": {"summary": "The total revenue is {{step_2_output}}."}}
+]
+
+# PLAN EXECUTION RESULTS
+{
+    "step_1_output": "Error: FileNotFoundError at path 'sales_data.csv'."
+}
+
+--- YOUR EVALUATION ---
+{"result": "failure", "reasoning": "The plan failed at step 1 because the required file 'sales_data.csv' was not found. Corrective steps would be to verify the filename is correct or to first use a tool to list available files before attempting to read one."}
+
+
+# EXAMPLE 3: FAILED EXECUTION (LOGICAL FAILURE)
+
+--- CONTEXT ---
+# USER GOAL
+"Find the email address for John Doe on the company website."
+
+# ORIGINAL PLAN
+[
+    {"step": 1, "tool": "web_search", "args": {"query": "John Doe email on examplecorp.com"}},
+    {"step": 2, "tool": "final_answer", "args": {"summary": "The email is {{step_1_output}}."}}
+]
+
+# PLAN EXECUTION RESULTS
+{
+    "step_1_output": "No results found matching the query.",
+    "step_2_output": "The email is No results found matching the query."
+}
+
+--- YOUR EVALUATION ---
+{"result": "failure", "reasoning": "The plan executed without technical errors but failed to achieve the user's goal of finding the email address. The web search was unsuccessful. A corrective step would be to try a broader search, such as for a company directory, instead of searching for the specific email directly."}
+
+--- END EXAMPLES ---
+
+Begin.
+"""

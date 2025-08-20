@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
-from server.agent.agentic_flow.helpers_and_prompts import ASSESSMENT_PROMPT, COMPLEX_PLANNER_PROMPT, EXECUTOR_PROMPT, SIMPLE_PLANNER_PROMPT, call_model_server
+from server.agent.agentic_flow.helpers_and_prompts import ASSESSMENT_PROMPT, COMPLEX_PLANNER_PROMPT, EXECUTOR_PROMPT, PLAN_RESULT_EVALUATOR_PROMPT, REPLANNING_PROMPT_ADDENDUM, SIMPLE_PLANNER_PROMPT, call_model_server
 from server.agent.config import MODEL_SERVER_URL, USER_ROLE
 from server.agent.knowledge_store import KnowledgeStore
 from server.agent.react.react_agent import ReActAgent
@@ -12,7 +12,7 @@ from server.agent.tools.tool_manager import tool_manager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def _call_and_parse_model(chat_messages: List[Dict[str, str]], expected_key: str) -> Any:
+async def _call_and_parse_model(chat_messages: List[Dict[str, str]], expected_key: Optional[str] = None) -> Any:
     """
     Handles the common logic of calling the model, parsing the response,
     and handling potential errors.
@@ -31,6 +31,8 @@ async def _call_and_parse_model(chat_messages: List[Dict[str, str]], expected_ke
         if expected_key in parsed_json:
             logger.info(f"Router successfully parsed JSON: {parsed_json}")
             return parsed_json[expected_key]
+        elif not expected_key and parsed_json:
+            return parsed_json
         else:
             logger.warning(f"JSON is valid but missing '{expected_key}' key: {parsed_json}")
             return None # Or raise an error
@@ -55,13 +57,14 @@ async def initial_assessment(messages: List[Dict[str, str]]) -> str:
 async def execute_planner(prompt: str, messages: List[Dict[str, str]]) -> str:
     """Executes the planner to create a simple plan."""
     tools = tool_manager.get_tool_schemas()
-    logger.info("Creating Simple Plan")
+    logger.info("Creating Plan")
     chat_prompt = prompt.replace("{tools}", json.dumps(tools, indent=2)).replace(
         "{current_date}", datetime.datetime.now().isoformat()
     )
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
     
     plan = await _call_and_parse_model(chat_messages, "plan")
+    logger.info(f"Generated Plan: {plan}")
     return plan or ""
 
 async def execute_executor(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]], current_step: Dict[str, str]) -> str:
@@ -89,6 +92,13 @@ async def execute_executor(overall_goal: str, full_plan: str, previous_steps: Li
     result = await react_agent.execute_react_loop(chat_messages, logger)
     return result or ""
 
+async def evaluate_plan_success(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]]) -> Dict:
+    logger.info("Evaluating plan success...")
+    chat_prompt = PLAN_RESULT_EVALUATOR_PROMPT.replace("{user_goal}", overall_goal).replace("{original_plan}", json.dumps(full_plan)).replace("{execution_results}", json.dumps(previous_steps))
+    result = await _call_and_parse_model([{'role' : 'system', 'content' : chat_prompt}])
+    logger.info(f"Plan evaluation result: {result}")
+    return result
+
 async def handle_task_route(messages: List[Dict[str, str]], goal:str) -> AsyncGenerator[str, None]:
     """Placeholder for the complex task agent workflow."""
     logger.info("Executing task route...")
@@ -96,16 +106,34 @@ async def handle_task_route(messages: List[Dict[str, str]], goal:str) -> AsyncGe
     assessment = await initial_assessment(messages)
     logger.info(f"Initial assessment result: {assessment}")
 
+    prompt = ''
     if assessment == "Sufficient":
-        plan = await execute_planner(SIMPLE_PLANNER_PROMPT, messages)
+        prompt = SIMPLE_PLANNER_PROMPT
     else:
-        plan = await execute_planner(COMPLEX_PLANNER_PROMPT, messages)
-    
+        prompt = COMPLEX_PLANNER_PROMPT
+    plan = await execute_planner(prompt, messages)
+    async for result in execute_control_loop(plan, goal, messages):
+        yield result
+
+async def execute_control_loop(plan, goal, messages):
     step_history = []
     for step in plan:
         if step['tool'] == 'final_answer':
-            logger.info("Final step reached, returning result.")
-            yield step['args']['summary']
-            return
+            logger.info("Final step reached")
+            result = await evaluate_plan_success(goal, plan, step_history)
+            if result['result'] == 'success':
+                yield step['args']['summary']
+                return
+            else:
+                logger.info("Replanning due to failure... " + result['reasoning'])
+                prompt_string = COMPLEX_PLANNER_PROMPT + REPLANNING_PROMPT_ADDENDUM
+
+                prompt_string = prompt_string.replace("{user_goal}", goal)
+                prompt_string = prompt_string.replace("{original_plan}", json.dumps(plan))
+                prompt_string = prompt_string.replace("{failure_reasoning}", result['reasoning'])
+                prompt_string = prompt_string.replace("{steps_taken}", str(json.dumps(step_history)))
+
+                plan = await execute_planner(prompt_string, messages)
+                yield execute_control_loop(plan, goal, messages)
         result = await execute_executor(goal, plan, step_history, step)
         step_history.append({"step": step['step'], "result": result})

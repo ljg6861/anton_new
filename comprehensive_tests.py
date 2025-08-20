@@ -133,8 +133,11 @@ async def main():
         # "Task Executor: Write the pledge": test_task_executor(SIMPLE_PLANNER_PROMPT,
         #     [{"role": "user", "content": "Write the pledge of allegiance to pledge.txt"}], "Write the pledge of allegiance to pledge.txt"
         # ),
-        "Task Route: Write the pledge": test_task_route(
-            [{"role": "user", "content": "Write the pledge of allegiance to pledge.txt"}]
+        # "Task Route: Write the pledge": test_task_route(
+        #     [{"role": "user", "content": "Write the pledge of allegiance to pledge.txt"}]
+        # ),
+        "Task Route: Create a tool": test_task_route(
+            [{"role": "user", "content": "Create a new tool for yourself that allows you to multiply numbers. You MUST test it by calling the tool after it has been created. If you create the tool correctly, it will automatically be available to you."}]
         ),
     }
 
