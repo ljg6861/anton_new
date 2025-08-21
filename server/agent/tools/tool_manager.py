@@ -250,6 +250,10 @@ class ToolManager:
         """Get a list of all registered tool names."""
         return list(self.tools.keys())
 
+    def get_tools_by_names(self, tool_names: List[str]) -> List[Dict[str, Any]]:
+        """Get metadata for specific tools by name."""
+        return [self.tools[name].function for name in tool_names if name in self.tools]
+
     def has_tool(self, tool_name: str) -> bool:
         """Check if a tool is registered."""
         return tool_name in self.tools

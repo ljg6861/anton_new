@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"  # project root
 
+
 # Load environment file
 if [[ -f .env.vllm ]]; then
     echo "🔧 Loading vLLM environment from .env.vllm..."

@@ -13,8 +13,8 @@ fi
 # Configuration from environment variables
 VLLM_HOSTNAME=${VLLM_HOSTNAME:-"0.0.0.0"}
 VLLM_PORT=${VLLM_PORT:-8003}
-VLLM_MODEL=${VLLM_MODEL:-"cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit"}
-VLLM_SERVED_MODEL_NAME=${VLLM_SERVED_MODEL_NAME:-"qwen3-30b-awq"}
+VLLM_MODEL=${VLLM_MODEL:-"models/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf"}
+VLLM_SERVED_MODEL_NAME="anton"
 VLLM_API_KEY=${VLLM_API_KEY:-"anton-vllm-key"}
 
 # Performance settings from environment variables
@@ -50,7 +50,6 @@ fi
 exec vllm serve "$VLLM_MODEL" \
     --host "$VLLM_HOSTNAME" \
     --port "$VLLM_PORT" \
-    --quantization compressed-tensors \
     --tensor-parallel-size "$TENSOR_PARALLEL_SIZE" \
     --max-model-len "$MAX_MODEL_LEN" \
     --gpu-memory-utilization "$GPU_MEMORY_UTILIZATION" \
@@ -60,4 +59,4 @@ exec vllm serve "$VLLM_MODEL" \
     --disable-log-stats \
     --enable-prefix-caching \
     --enable-auto-tool-choice \
-    --tool-call-parser "hermes"
+    --tool-call-parser "qwen3_coder"

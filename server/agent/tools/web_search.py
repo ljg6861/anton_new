@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from duckduckgo_search import DDGS
+import ddgs
 import json  # Import json for a better return format
 
 
@@ -28,13 +28,13 @@ class WebSearchTool:
 
         # Use DuckDuckGo Search API for reliable results
         search_results = []
-        with DDGS() as ddgs:
-            search_results = list(ddgs.text(
-                keywords=query,
+        search_results = list(ddgs.DDGS().text(
+                query=query,
                 region='us-en',
                 safesearch='off',
                 max_results=num_results
-            ))
+        ))
+        
 
         if not search_results:
             return json.dumps([{"error": "No search results found.", "query": query}])
