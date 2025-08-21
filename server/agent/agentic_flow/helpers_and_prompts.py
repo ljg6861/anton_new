@@ -111,13 +111,14 @@ async def call_model_for_summarization(conversation_history: str) -> str:
 
 SIMPLE_PLANNER_PROMPT = """
 Create a step-by-step plan using available tools. Return JSON only. You are not permitted to use any tools. You may only reference them in your plan.
+You should NOT create or implement a new tool unless the user SPECIFICALLY asks you to.
 
 Research findings: {research_findings}
 
 Available tools:
 {tools}
 
-All research has been provided to you. Do not do your own research.
+All research has been provided to you. Do not do your own research. If no research was provided, that means the task was deemed simple enough that research was not required.
 
 Output format:
 {
@@ -130,8 +131,6 @@ Output format:
     }
   ]
 }
-
-Always end with final_answer tool.
 """
 
 REPLANNING_PROMPT_ADDENDUM = """
@@ -144,8 +143,73 @@ Original goal: {user_goal}
 Create a different approach.
 """
 
+ADAPTIVE_PLANNING_PROMPT = """
+Review the current progress and determine if the plan needs adjustment.
+You should NOT create or implement a new tool or file unless the user SPECIFICALLY asked you to.
+
+Original goal: {user_goal}
+Original plan: {original_plan}
+Steps completed so far: {completed_steps}
+Latest step result: {latest_result}
+
+Research findings (if available): {research_findings}
+
+Available tools:
+{tools}
+
+Analyze the current situation and either:
+1. Continue with the existing plan (if on track)
+2. Adjust the remaining steps (if minor corrections needed)
+3. Create a completely new plan (if major changes required)
+
+Output format:
+{
+  "action": "continue|adjust|replan",
+  "reasoning": "Why this action is needed",
+  "plan": [
+    {
+      "step": 1,
+      "thought": "Why this step is needed",
+      "tool": "tool_name",
+      "args": {"key": "value"}
+    }
+  ]
+}
+
+If action is "continue", return the remaining steps from the original plan.
+If action is "adjust", return modified remaining steps.
+If action is "replan", return a completely new plan from the current state.
+Always end with final_answer tool.
+"""
+
+FINAL_MESSAGE_GENERATOR_PROMPT = """
+Generate a natural, conversational user-facing message based on the completed task execution.
+
+Original user goal: {user_goal}
+Completed steps and results: {execution_history}
+Plan summary: {plan_summary}
+
+Create a friendly, informative response that:
+1.  Clearly explains what was accomplished.
+2.  Mentions the specific actions taken (files created, searches performed, etc.).
+3.  **Crucially, you must include the key results directly in your response.** Do not just describe the topics you found. For example, list the actual headlines found, provide the specific errors identified, or state the full path of the file you created.
+4.  Uses a conversational tone (not robotic "task complete" language).
+
+Examples of good responses:
+- "I've created the Python script at `src/calculator.py` with the functions you requested. The script includes error handling for division by zero and has been tested with sample inputs."
+- "I searched for the latest news about AI and found these top headlines:
+  - 'New Deep Learning Model Surpasses Human Performance in Image Recognition'
+  - 'AI Ethics Board Releases New Framework for Responsible Development'
+  - 'The Role of AI in Predicting Climate Change Patterns'
+I've also saved a more detailed summary to `news_summary.txt` for your reference."
+- "I've analyzed your codebase and identified 3 potential performance improvements in the database queries. The main issues are in `models/user.py` (lines 45-67), where we can add indexing to the `user_email` column."
+
+Return only the user-facing message text (no JSON, no formatting).
+"""
+
 EXECUTOR_PROMPT = """
 Execute the current step from the plan.
+You should NOT create or implement a new tool or file unless the user SPECIFICALLY asked you to.
 
 Goal: {overall_goal}
 Current step: {current_step}
@@ -157,6 +221,10 @@ Use the available tools to complete this step. Ensure that you ONLY work on the 
 
 ASSESSMENT_PROMPT = """
 Assess if the core tools can handle this request.
+Note that the system should NOT create or implement a new tool or file unless the user SPECIFICALLY asked it to.
+
+Core Tools:
+{tools}
 
 Return JSON only:
 {"assessment": "Sufficient"} - if core tools can handle it
@@ -169,6 +237,7 @@ Examples:
 
 RESEARCHER_PROMPT = """
 As a Researcher, your sole purpose is to gather information to fulfill a user's request. Your task is to turn the user's query into a research plan and execute it. You have access to search and file reading tools.
+You should NOT create or implement a new tool or file unless the user SPECIFICALLY asked you to.
 
 CRITICAL RULES:
 1.  **Focus on Research Only**: Do not attempt to execute, create, or modify files. Your output must be a JSON object containing your research findings.
@@ -202,6 +271,7 @@ Return your findings in the following JSON format:
 
 PLAN_RESULT_EVALUATOR_PROMPT = """
 Evaluate if the plan execution achieved the user's goal.
+Note that the system should NOT create or implement a new tool or file unless the user SPECIFICALLY asked you to.
 
 User goal: {user_goal}
 Plan: {original_plan}

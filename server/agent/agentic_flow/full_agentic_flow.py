@@ -4,6 +4,7 @@ from typing import AsyncGenerator, Dict, List, Optional
 from server.agent.agentic_flow.helpers_and_prompts import call_model_server
 from server.agent.config import USER_ROLE
 from server.agent.agentic_flow.task_flow import handle_task_route
+from server.agent.tools.tool_manager import tool_manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ async def determine_route(conversation_history: List[Dict]) -> Optional[str]:
         logger.info(f"Router attempt {attempt + 1}/{MAX_ROUTER_RETRIES}...")
         
         raw_response = ""
-        async for token in call_model_server(router_messages):
+        async for token in call_model_server(router_messages, []):
             raw_response += token
         
         # Pre-process the response to handle <think> tags
@@ -116,11 +117,5 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
     chat_prompt = "You are Anton, a friendly and helpful assistant. Provide a concise answer to the user."
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
     
-    buffer = ''
-    async for token in call_model_server(chat_messages):
-        if not '</think>' in buffer:
-            yield f'<thought>{token}</thought>'
-        elif '</think>' in buffer:
-            yield token
-        #Add buffer at end to avoid </think> annotation
-        buffer += token
+    async for token in call_model_server(chat_messages, tool_manager.get_tool_schemas()):
+        yield token

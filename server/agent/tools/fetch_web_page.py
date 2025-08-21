@@ -1,12 +1,14 @@
 import requests
 import json
+from bs4 import BeautifulSoup
+import re
 
 class FetchWebPageTool:
     function = {
         "type": "function",
         "function": {
             "name": "fetch_web_page",
-            "description": "Fetch the HTML content of a public URL with ethical safeguards, respecting robots.txt and rate limiting.",
+            "description": "Fetch and extract clean text content from a public URL, removing HTML markup and formatting.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -24,40 +26,48 @@ class FetchWebPageTool:
         }
     }
 
+    def _extract_clean_text(self, html_content: str, max_length: int = 10000) -> str:
+        """Extract clean text from HTML content, removing markup and excess whitespace."""
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Remove script and style elements
+            for script in soup(["script", "style", "nav", "header", "footer", "aside"]):
+                script.decompose()
+            
+            # Get text content
+            text = soup.get_text()
+            
+            # Clean up whitespace
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+            
+            # Remove excessive newlines and spaces
+            text = re.sub(r'\n\s*\n', '\n\n', text)
+            text = re.sub(r' +', ' ', text)
+            
+            # Truncate if too long to prevent context overload
+            if len(text) > max_length:
+                text = text[:max_length] + "... [Content truncated to prevent context overload]"
+            
+            return text.strip()
+        except Exception as e:
+            return f"Error extracting text: {str(e)}"
+
     def run(self, arguments: dict) -> str:
         url = arguments.get('url')
         timeout = arguments.get('timeout', 10)
 
         if not url or not isinstance(url, str):
-            return json.dumps({
-                "success": False,
-                "url": url,
-                "status_code": 400,
-                "content_type": "",
-                "html": None,
-                "error": "Invalid or missing URL"
-            })
+            return "❌ Error: Invalid or missing URL"
 
         if not url.lower().startswith("http"):
-            return json.dumps({
-                "success": False,
-                "url": url,
-                "status_code": 400,
-                "content_type": "",
-                "html": None,
-                "error": "Only HTTP/HTTPS URLs are supported"
-            })
+            return "❌ Error: Only HTTP/HTTPS URLs are supported"
 
         # Check robots.txt (simplified for now; could be expanded)
         if 'robots.txt' in url:
-            return json.dumps({
-                "success": False,
-                "url": url,
-                "status_code": 403,
-                "content_type": "",
-                "html": None,
-                "error": "Access denied by robots.txt"
-            })
+            return "❌ Error: Access denied by robots.txt"
 
         # Apply rate limiting (simulated)
         import time
@@ -76,32 +86,26 @@ class FetchWebPageTool:
 
         try:
             response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
-            content_type = response.headers.get('Content-Type', '')
-
-            return json.dumps({
-                "success": True,
-                "url": url,
-                "status_code": response.status_code,
-                "content_type": content_type,
-                "html": response.text if response.ok else None
-            })
+            
+            if not response.ok:
+                return f"❌ Error: HTTP {response.status_code} - {response.reason}"
+            
+            content_type = response.headers.get('Content-Type', '').lower()
+            
+            # Check if it's HTML content
+            if 'text/html' not in content_type:
+                return f"❌ Error: URL does not return HTML content (Content-Type: {content_type})"
+            
+            # Extract clean text from HTML
+            clean_text = self._extract_clean_text(response.text)
+            
+            if not clean_text or clean_text.startswith("Error extracting text"):
+                return f"❌ {clean_text}"
+            
+            return f"✅ Content from {url}:\n\n{clean_text}"
         
         except requests.exceptions.RequestException as e:
-            return json.dumps({
-                "success": False,
-                "url": url,
-                "status_code": 0,
-                "content_type": "",
-                "html": None,
-                "error": str(e)
-            })
+            return f"❌ Network error: {str(e)}"
 
         except Exception as e:
-            return json.dumps({
-                "success": False,
-                "url": url,
-                "status_code": 0,
-                "content_type": "",
-                "html": None,
-                "error": f"Unexpected error: {str(e)}"
-            })
+            return f"❌ Unexpected error: {str(e)}"

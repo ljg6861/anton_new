@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
-from server.agent.agentic_flow.helpers_and_prompts import ASSESSMENT_PROMPT, EXECUTOR_PROMPT, PLAN_RESULT_EVALUATOR_PROMPT, REPLANNING_PROMPT_ADDENDUM, RESEARCHER_PROMPT, SIMPLE_PLANNER_PROMPT, call_model_server
+from server.agent.agentic_flow.helpers_and_prompts import ADAPTIVE_PLANNING_PROMPT, ASSESSMENT_PROMPT, EXECUTOR_PROMPT, FINAL_MESSAGE_GENERATOR_PROMPT, PLAN_RESULT_EVALUATOR_PROMPT, REPLANNING_PROMPT_ADDENDUM, RESEARCHER_PROMPT, SIMPLE_PLANNER_PROMPT, call_model_server
 from server.agent.config import MODEL_SERVER_URL, USER_ROLE
 from server.agent.knowledge_store import KnowledgeStore
 from server.agent.react.react_agent import ReActAgent
@@ -48,11 +48,11 @@ async def initial_assessment(messages: List[Dict[str, str]]) -> str:
     """Assesses a task based on the provided messages."""
     tools = tool_manager.get_tool_schemas()
     logger.info("Assessing Task")
-    chat_prompt = ASSESSMENT_PROMPT
+    chat_prompt = ASSESSMENT_PROMPT.replace('{tools}', json.dumps(tools))
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
 
-    assessment = await _call_and_parse_model(chat_messages, tools, "assessment")
-    return assessment or "" # Return the assessment or an empty string if parsing failed
+    assessment = await _call_and_parse_model(chat_messages, [], "assessment")
+    return assessment or ""
 
 async def execute_researcher(messages: List[Dict[str, str]]) -> Dict:
     """Executes the relentless researcher - an LLM that analyzes scraped data comprehensively."""
@@ -157,7 +157,7 @@ async def execute_executor(overall_goal: str, full_plan: str, previous_steps: Li
         api_base_url=MODEL_SERVER_URL,
         tools=available_tools,
         knowledge_store=knowledge_store,
-        max_iterations=1,
+        max_iterations=50,
         user_id='',
         token_budget=budget
     )
@@ -165,10 +165,57 @@ async def execute_executor(overall_goal: str, full_plan: str, previous_steps: Li
     result = await react_agent.execute_react_loop(chat_messages, logger)
     return result or ""
 
+async def execute_adaptive_planner(goal: str, original_plan: List[Dict], completed_steps: List[Dict], latest_result: str, messages: List[Dict[str, str]], research_findings: Dict = None) -> Dict:
+    """Executes adaptive planning to determine if plan adjustments are needed."""
+    tools = tool_manager.get_tool_schemas()
+    logger.info("Executing adaptive planning...")
+    
+    # Include research findings in the prompt
+    research_context = json.dumps(research_findings, indent=2) if research_findings else "No prior research conducted."
+    
+    chat_prompt = ADAPTIVE_PLANNING_PROMPT.replace(
+        "{current_date}", datetime.datetime.now().isoformat()
+    ).replace(
+        "{user_goal}", goal
+    ).replace(
+        "{original_plan}", json.dumps(original_plan, indent=2)
+    ).replace(
+        "{completed_steps}", json.dumps(completed_steps, indent=2)
+    ).replace(
+        "{latest_result}", latest_result
+    ).replace(
+        "{research_findings}", research_context
+    ).replace(
+        "{tools}", json.dumps(tools, indent=2)
+    )
+    
+    chat_messages = [{"role": "system", "content": chat_prompt}] + messages
+    
+    result = await _call_and_parse_model(chat_messages, [], None)
+    logger.info(f"Adaptive planning result: {result}")
+    return result or {"action": "continue", "reasoning": "Failed to parse planning response", "plan": original_plan}
+
+async def generate_final_user_message(goal: str, step_history: List[Dict], plan_summary: str) -> AsyncGenerator[str, None]:
+    """Generate a natural user-facing message based on the completed execution."""
+    logger.info("Generating final user-facing message...")
+    
+    chat_prompt = FINAL_MESSAGE_GENERATOR_PROMPT.replace(
+        "{user_goal}", goal
+    ).replace(
+        "{execution_history}", json.dumps(step_history, indent=2)
+    ).replace(
+        "{plan_summary}", plan_summary
+    )
+    
+    chat_messages = [{"role": "system", "content": chat_prompt}]
+    
+    async for token in call_model_server(chat_messages, []):
+        yield token
+
 async def evaluate_plan_success(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]]) -> Dict:
     logger.info("Evaluating plan success...")
     chat_prompt = PLAN_RESULT_EVALUATOR_PROMPT.replace("{user_goal}", overall_goal).replace("{original_plan}", json.dumps(full_plan)).replace("{execution_results}", json.dumps(previous_steps))
-    result = await _call_and_parse_model([{'role' : 'system', 'content' : chat_prompt}])
+    result = await _call_and_parse_model([{'role' : 'system', 'content' : chat_prompt}], [])
     logger.info(f"Plan evaluation result: {result}")
     return result
 
@@ -176,10 +223,14 @@ async def handle_task_route(messages: List[Dict[str, str]], goal:str) -> AsyncGe
     """Complex task agent workflow with research phase."""
     logger.info("Executing task route...")
 
-    # Step 2: RELENTLESS RESEARCH PHASE
-    logger.info("Starting RELENTLESS research phase...")
-    research_findings = await execute_researcher(messages)
-    logger.info(f"Research completed with findings: {research_findings}")
+    assessment = await initial_assessment(messages)
+    if assessment != 'Sufficient':
+        # Step 2: RELENTLESS RESEARCH PHASE
+        logger.info("Starting RELENTLESS research phase...")
+        research_findings = await execute_researcher(messages)
+        logger.info(f"Research completed with findings: {research_findings}")
+    else:
+        research_findings = []
 
     # Step 3: Planning with Research Context
     prompt = SIMPLE_PLANNER_PROMPT
@@ -191,23 +242,57 @@ async def handle_task_route(messages: List[Dict[str, str]], goal:str) -> AsyncGe
 
 async def execute_control_loop(plan, goal, messages, research_findings=None):
     step_history = []
-    for step in plan:
-        if step['tool'] == 'final_answer':
-            logger.info("Final step reached")
-            result = await evaluate_plan_success(goal, plan, step_history)
-            if result['result'] == 'success':
-                yield step['args']['summary']
-                return
-            else:
-                logger.info("Replanning due to failure... " + result['reasoning'])
-                prompt_string = SIMPLE_PLANNER_PROMPT + REPLANNING_PROMPT_ADDENDUM
-
-                prompt_string = prompt_string.replace("{user_goal}", goal)
-                prompt_string = prompt_string.replace("{original_plan}", json.dumps(plan))
-                prompt_string = prompt_string.replace("{failure_reasoning}", result['reasoning'])
-                prompt_string = prompt_string.replace("{steps_taken}", str(json.dumps(step_history)))
-
-                plan = await execute_planner(prompt_string, messages, research_findings)
-                yield execute_control_loop(plan, goal, messages, research_findings)
-        result = await execute_executor(goal, plan, step_history, step)
+    current_plan = plan
+    step_index = 0
+    
+    while step_index < len(current_plan):
+        step = current_plan[step_index]
+        
+        # Execute the current step
+        result = await execute_executor(goal, current_plan, step_history, step)
         step_history.append({"step": step['step'], "result": result})
+        step_index += 1
+        
+        # After each step (except the last), check if we need to adjust the plan
+        if step_index < len(current_plan):
+            logger.info(f"Checking if plan adjustment needed after step {step['step']}")
+            adaptive_result = await execute_adaptive_planner(
+                goal, current_plan, step_history, result, messages, research_findings
+            )
+            
+            if adaptive_result.get("action") == "replan":
+                logger.info(f"Replanning: {adaptive_result.get('reasoning')}")
+                current_plan = adaptive_result.get("plan", current_plan)
+                step_index = 0  # Start from beginning with new plan
+            elif adaptive_result.get("action") == "adjust":
+                logger.info(f"Adjusting plan: {adaptive_result.get('reasoning')}")
+                # Replace remaining steps with adjusted ones
+                adjusted_plan = adaptive_result.get("plan", [])
+                current_plan = adjusted_plan
+                step_index = 0  # Start from beginning with adjusted plan
+            else:
+                logger.info(f"Continuing with original plan: {adaptive_result.get('reasoning')}")
+                # Continue with current plan as-is
+    
+    result = await evaluate_plan_success(goal, current_plan, step_history)
+    if result['result'] == 'success':
+        # Generate a natural user-facing message instead of yielding the raw summary
+        async for token in generate_final_user_message(
+            goal, 
+            step_history, 
+            step.get('args', {}).get('summary', 'Task completed successfully')
+        ):
+            yield token
+        return
+    else:
+        logger.info("Replanning due to failure... " + result['reasoning'])
+        prompt_string = SIMPLE_PLANNER_PROMPT + REPLANNING_PROMPT_ADDENDUM
+
+        prompt_string = prompt_string.replace("{user_goal}", goal)
+        prompt_string = prompt_string.replace("{original_plan}", json.dumps(current_plan))
+        prompt_string = prompt_string.replace("{failure_reasoning}", result['reasoning'])
+        prompt_string = prompt_string.replace("{steps_taken}", str(json.dumps(step_history)))
+
+        new_plan = await execute_planner(prompt_string, messages, research_findings)
+        async for token in execute_control_loop(new_plan, goal, messages, research_findings):
+            yield token
