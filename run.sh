@@ -37,7 +37,7 @@ docker start chainlit-pg
 sudo chmod -R 777 /home/lucas/anton_new/pgdata
 cmd1="uvicorn server.agent.agent_server:app --host 0.0.0.0 --port 8001 --reload"
 cmd2="./start_vllm.sh"
-cmd3="chainlit run app.py --port 7860 --host 0.0.0.0"
+cmd3="chainlit run app.py --headless --port 7860 --host 0.0.0.0"
 
 pids=()
 cleanup() {

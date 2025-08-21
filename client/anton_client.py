@@ -61,6 +61,16 @@ class AntonClient:
                     if MD_DEBUG:
                         logger.info(f"[MDDBG:anton_client] parsed tool_result len={len(content)}")
                     yield {"type": "tool_result", "content": content}
+                elif chunk.startswith("<step>") and chunk.endswith("</step>"):
+                    content = chunk[6:-7]  # Remove <step> tags
+                    if MD_DEBUG:
+                        logger.info(f"[MDDBG:anton_client] parsed step len={len(content)}")
+                    yield {"type": "step", "content": content}
+                elif chunk.startswith("<step_content>") and chunk.endswith("</step_content>"):
+                    content = chunk[14:-15]  # Remove <step_content> tags
+                    if MD_DEBUG:
+                        logger.info(f"[MDDBG:anton_client] parsed step_content len={len(content)}")
+                    yield {"type": "step_content", "content": content}
                 elif chunk.startswith("<token>") and chunk.endswith("</token>"):
                     logger.info(f"Current chunk: {chunk!r}")
                     content = chunk[7:-8]  # Remove <token> tags

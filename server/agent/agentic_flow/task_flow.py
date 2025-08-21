@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -11,6 +12,12 @@ from server.agent.tools.tool_manager import tool_manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+async def stream_step_content(text: str) -> AsyncGenerator[str, None]:
+    """Stream text character by character with a typing effect for step content."""
+    for char in text:
+        yield f"<step_content>{char}</step_content>"
+        await asyncio.sleep(0.02)  # Small delay for typing effect
 
 async def _call_and_parse_model(chat_messages: List[Dict[str, str]], tools: List[Dict[str, Any]], expected_key: Optional[str] = None) -> Any:
     """
@@ -54,7 +61,7 @@ async def initial_assessment(messages: List[Dict[str, str]]) -> str:
     assessment = await _call_and_parse_model(chat_messages, [], "assessment")
     return assessment or ""
 
-async def execute_researcher(messages: List[Dict[str, str]]) -> Dict:
+async def execute_researcher(messages: List[Dict[str, str]]) -> AsyncGenerator[Dict, None]:
     """Executes the relentless researcher - an LLM that analyzes scraped data comprehensively."""
     logger.info("Executing RELENTLESS researcher...")
     
@@ -92,13 +99,19 @@ async def execute_researcher(messages: List[Dict[str, str]]) -> Dict:
         user_id='',
         token_budget=budget
     )
-    await react_agent.execute_react_loop(research_messages, logger)
+    
+    research_result = ""
+    async for chunk in react_agent.execute_react_loop_streaming(research_messages, logger):
+        if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
+            yield chunk
+        else:
+            research_result += chunk
+    
     try:
-        research_result = json.loads(research_messages[-1]['content'])
-        return research_result
+        research_data = json.loads(research_result)
+        yield research_data
     except Exception as e:
         logger.error('Failed decoding research: %s', e)
-        research_result = research_messages[-1]['content']
         # Fallback: try to get the raw response and extract findings
         logger.info("Attempting to extract research findings from raw LLM response...")
         
@@ -109,19 +122,19 @@ async def execute_researcher(messages: List[Dict[str, str]]) -> Dict:
         # Try parsing the cleaned result first
         try:
             research_data = json.loads(cleaned_result)
-            return research_data
+            yield research_data
         except:
             # If that fails, try to extract just the research_findings section
             json_match = re.search(r'\{.*?"research_findings".*?\}', cleaned_result, re.DOTALL)
             if json_match:
                 try:
                     research_data = json.loads(json_match.group())
-                    return research_data.get("research_findings", {"summary": research_result})
+                    yield research_data.get("research_findings", {"summary": research_result})
                 except:
                     pass
             
             # Final fallback: return the raw result as summary
-            return {"summary": research_result}
+            yield {"summary": research_result}
 
 async def execute_planner(prompt: str, messages: List[Dict[str, str]], research_findings: Dict = None) -> str:
     """Executes the planner to create a simple plan."""
@@ -141,7 +154,7 @@ async def execute_planner(prompt: str, messages: List[Dict[str, str]], research_
     logger.info(f"Generated Plan: {plan}")
     return plan or ""
 
-async def execute_executor(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]], current_step: Dict[str, str]) -> str:
+async def execute_executor(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]], current_step: Dict[str, str]) -> AsyncGenerator[str, None]:
     """Executes the executor to carry out the plan."""
     logger.info("Executing Plan")
     chat_prompt = EXECUTOR_PROMPT.replace("{overall_goal}", overall_goal).replace("{full_plan}", json.dumps(full_plan)).replace("{previous_steps}", json.dumps(previous_steps)).replace("{current_step}", json.dumps(current_step))
@@ -162,8 +175,14 @@ async def execute_executor(overall_goal: str, full_plan: str, previous_steps: Li
         token_budget=budget
     )
 
-    result = await react_agent.execute_react_loop(chat_messages, logger)
-    return result or ""
+    result = ""
+    async for chunk in react_agent.execute_react_loop_streaming(chat_messages, logger):
+        if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
+            yield chunk
+        else:
+            result += chunk
+    
+    yield result or ""
 
 async def execute_adaptive_planner(goal: str, original_plan: List[Dict], completed_steps: List[Dict], latest_result: str, messages: List[Dict[str, str]], research_findings: Dict = None) -> Dict:
     """Executes adaptive planning to determine if plan adjustments are needed."""
@@ -199,6 +218,11 @@ async def generate_final_user_message(goal: str, step_history: List[Dict], plan_
     """Generate a natural user-facing message based on the completed execution."""
     logger.info("Generating final user-facing message...")
     
+    # First stream the step content to show progress
+    progress_msg = "Crafting personalized response..."
+    async for content in stream_step_content(progress_msg):
+        yield content
+    
     chat_prompt = FINAL_MESSAGE_GENERATOR_PROMPT.replace(
         "{user_goal}", goal
     ).replace(
@@ -209,6 +233,7 @@ async def generate_final_user_message(goal: str, step_history: List[Dict], plan_
     
     chat_messages = [{"role": "system", "content": chat_prompt}]
     
+    # Now stream the actual response tokens
     async for token in call_model_server(chat_messages, []):
         yield token
 
@@ -223,18 +248,38 @@ async def handle_task_route(messages: List[Dict[str, str]], goal:str) -> AsyncGe
     """Complex task agent workflow with research phase."""
     logger.info("Executing task route...")
 
+    # Step 1: Assessment
+    yield "<step>Assessing Task Requirements</step>"
     assessment = await initial_assessment(messages)
+    async for content in stream_step_content(f"Assessment result: {assessment}"):
+        yield content
+    
+    research_findings = []
     if assessment != 'Sufficient':
         # Step 2: RELENTLESS RESEARCH PHASE
+        yield "<step>Conducting Research</step>"
         logger.info("Starting RELENTLESS research phase...")
-        research_findings = await execute_researcher(messages)
+        
+        async for chunk in execute_researcher(messages):
+            if isinstance(chunk, dict):
+                # This is the final research result
+                research_findings = chunk
+            elif chunk.startswith("<step>") or chunk.startswith("<step_content>"):
+                yield chunk
+        
         logger.info(f"Research completed with findings: {research_findings}")
+        async for content in stream_step_content("Research completed with findings"):
+            yield content
     else:
         research_findings = []
 
     # Step 3: Planning with Research Context
+    yield "<step>Generating Plan</step>"
     prompt = SIMPLE_PLANNER_PROMPT
     plan = await execute_planner(prompt, messages, research_findings)
+    plan_msg = f"Plan generated with {len(plan) if plan else 0} steps"
+    async for content in stream_step_content(plan_msg):
+        yield content
     
     # Step 4: Execute the plan
     async for result in execute_control_loop(plan, goal, messages, research_findings):
@@ -245,16 +290,37 @@ async def execute_control_loop(plan, goal, messages, research_findings=None):
     current_plan = plan
     step_index = 0
     
+    def truncate_step_name(name: str, max_length: int = 30) -> str:
+        """Truncate step name to max_length characters"""
+        if len(name) <= max_length:
+            return name
+        return name[:max_length-3] + "..."
+    
     while step_index < len(current_plan):
         step = current_plan[step_index]
         
         # Execute the current step
-        result = await execute_executor(goal, current_plan, step_history, step)
+        step_name = f"Executing Step {step['step']}: {step.get('thought', 'Processing step')}"
+        truncated_name = truncate_step_name(step_name)
+        yield f"<step>{truncated_name}</step>"
+        
+        result = ""
+        async for chunk in execute_executor(goal, current_plan, step_history, step):
+            if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
+                yield chunk
+            else:
+                result = chunk  # The final result comes as the last chunk
+        
         step_history.append({"step": step['step'], "result": result})
+        
+        completion_msg = f"Step {step['step']} completed"
+        async for content in stream_step_content(completion_msg):
+            yield content
         step_index += 1
         
         # After each step (except the last), check if we need to adjust the plan
         if step_index < len(current_plan):
+            yield f"<step>Evaluating Plan Progress</step>"
             logger.info(f"Checking if plan adjustment needed after step {step['step']}")
             adaptive_result = await execute_adaptive_planner(
                 goal, current_plan, step_history, result, messages, research_findings
@@ -262,21 +328,35 @@ async def execute_control_loop(plan, goal, messages, research_findings=None):
             
             if adaptive_result.get("action") == "replan":
                 logger.info(f"Replanning: {adaptive_result.get('reasoning')}")
+                replan_msg = f"Replanning required: {adaptive_result.get('reasoning')}"
+                async for content in stream_step_content(replan_msg):
+                    yield content
                 current_plan = adaptive_result.get("plan", current_plan)
                 step_index = 0  # Start from beginning with new plan
             elif adaptive_result.get("action") == "adjust":
                 logger.info(f"Adjusting plan: {adaptive_result.get('reasoning')}")
+                adjust_msg = f"Adjusting plan: {adaptive_result.get('reasoning')}"
+                async for content in stream_step_content(adjust_msg):
+                    yield content
                 # Replace remaining steps with adjusted ones
                 adjusted_plan = adaptive_result.get("plan", [])
                 current_plan = adjusted_plan
                 step_index = 0  # Start from beginning with adjusted plan
             else:
                 logger.info(f"Continuing with original plan: {adaptive_result.get('reasoning')}")
+                continue_msg = f"Continuing with plan: {adaptive_result.get('reasoning')}"
+                async for content in stream_step_content(continue_msg):
+                    yield content
                 # Continue with current plan as-is
     
+    yield f"<step>Evaluating Final Results</step>"
     result = await evaluate_plan_success(goal, current_plan, step_history)
     if result['result'] == 'success':
+        success_msg = "Task completed successfully"
+        async for content in stream_step_content(success_msg):
+            yield content
         # Generate a natural user-facing message instead of yielding the raw summary
+        yield f"<step>Generating Final Response</step>"
         async for token in generate_final_user_message(
             goal, 
             step_history, 
@@ -286,6 +366,10 @@ async def execute_control_loop(plan, goal, messages, research_findings=None):
         return
     else:
         logger.info("Replanning due to failure... " + result['reasoning'])
+        failure_msg = f"Task failed, replanning: {result['reasoning']}"
+        async for content in stream_step_content(failure_msg):
+            yield content
+        yield f"<step>Replanning Strategy</step>"
         prompt_string = SIMPLE_PLANNER_PROMPT + REPLANNING_PROMPT_ADDENDUM
 
         prompt_string = prompt_string.replace("{user_goal}", goal)
@@ -294,5 +378,8 @@ async def execute_control_loop(plan, goal, messages, research_findings=None):
         prompt_string = prompt_string.replace("{steps_taken}", str(json.dumps(step_history)))
 
         new_plan = await execute_planner(prompt_string, messages, research_findings)
+        new_plan_msg = "New plan created"
+        async for content in stream_step_content(new_plan_msg):
+            yield content
         async for token in execute_control_loop(new_plan, goal, messages, research_findings):
             yield token

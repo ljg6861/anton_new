@@ -281,6 +281,111 @@ class ReActAgent:
         # If we reached max iterations, return the last response
         return "Maximum iterations reached"
 
+    async def execute_react_loop_streaming(self, react_messages: List[Dict[str, str]], 
+                                         logger: Any) -> AsyncGenerator[str, None]:
+        """Execute the main ReAct reasoning loop with streaming step output"""
+        iteration = 0
+        recent_tool_calls = []  # Track recent tool calls to detect loops
+        
+        while iteration < self.max_iterations:
+            iteration += 1
+            logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
+            
+            # Stream iteration step
+            yield f"<step>ReAct Iteration {iteration}/{self.max_iterations}</step>"
+            
+            # Only check summarization occasionally for the researcher to preserve context
+            if iteration % 10 == 0:  # Check every 10 iterations instead of every iteration
+                react_messages = await self.check_and_summarize_if_needed(react_messages)
+            
+            response = (self._execute_llm_request(react_messages, logger))
+            response = response['choices'][0]['message']
+            tool_calls = response['tool_calls']
+            
+            if (tool_calls):
+                for i in range(len(tool_calls)):
+                    tool_name = tool_calls[i]['function']['name']
+                    tool_args = tool_calls[i]['function']['arguments']
+                    
+                    # Stream tool execution step
+                    yield f"<step>Using Tool: {tool_name}</step>"
+                    
+                    # Create a signature for this tool call
+                    tool_signature = f"{tool_name}:{tool_args}"
+                    
+                    # Check for repetitive tool calls (same tool with same args within last 3 calls - more aggressive)
+                    if tool_signature in recent_tool_calls[-3:]:
+                        logger.warning(f"Detected repetitive tool call: {tool_name} with {tool_args}")
+                        # Add a strong guidance message instead of executing the same tool again
+                        guidance_msg = f"🔄 STOP REPEATING! You've already tried {tool_name} with these arguments recently. If you have enough information to synthesize findings, CONCLUDE your research instead of searching more!"
+                        
+                        # Stream the warning content
+                        async for char in self._stream_step_content(f"Loop detected: {tool_name}"):
+                            yield char
+                            
+                        react_messages.append({
+                            'role': 'function', 
+                            'name': tool_name, 
+                            'content': f"LOOP_DETECTED: {guidance_msg}"
+                        })
+                        continue
+                    
+                    # Also check if using the same tool too frequently (same tool type within last 4 calls)
+                    same_tool_count = sum(1 for sig in recent_tool_calls[-4:] if sig.startswith(f"{tool_name}:"))
+                    if same_tool_count >= 3:
+                        logger.warning(f"Tool {tool_name} used too frequently - forcing diversity")
+                        guidance_msg = f"🚨 DIVERSIFY! You've used {tool_name} {same_tool_count} times recently. Try different tools or conclude with your current findings!"
+                        
+                        # Stream the warning content
+                        async for char in self._stream_step_content(f"Frequency warning: {tool_name}"):
+                            yield char
+                            
+                        react_messages.append({
+                            'role': 'function', 
+                            'name': tool_name, 
+                            'content': f"FREQUENCY_WARNING: {guidance_msg}"
+                        })
+                        continue
+                    
+                    logger.info(f"Calling tool: {tool_name} with args: {tool_args}")
+                    
+                    # Stream tool execution progress
+                    async for char in self._stream_step_content(f"Executing {tool_name}..."):
+                        yield char
+                    
+                    try:
+                        result = tool_manager.run_tool(tool_name, tool_args)
+                        
+                        # Stream tool completion
+                        async for char in self._stream_step_content(f"Tool {tool_name} completed"):
+                            yield char
+                            
+                        react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : result}) 
+                        recent_tool_calls.append(tool_signature)
+                            
+                    except Exception as e:
+                        logger.error(f"Error occurred while calling tool {tool_name}: {e}")
+                        
+                        # Stream error message
+                        async for char in self._stream_step_content(f"Tool {tool_name} failed: {str(e)}"):
+                            yield char
+                            
+                        react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : str(e)}) 
+            else:
+                # Add the assistant's final response and stream it
+                react_messages.append({'role' : 'assistant', 'content' : response['content']})
+                yield response['content']
+                return
+        
+        # If we reached max iterations, stream the final message
+        yield "Maximum iterations reached"
+
+    async def _stream_step_content(self, text: str) -> AsyncGenerator[str, None]:
+        """Stream text character by character with a typing effect for step content."""
+        for char in text:
+            yield f"<step_content>{char}</step_content>"
+            await asyncio.sleep(0.01)  # Faster delay for tool content
+
 
     
     def _update_session_memory_from_tool_result(self, tool_result_summary: Dict):

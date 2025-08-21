@@ -30,51 +30,47 @@ async def on_message(message: cl.Message):
 
     final_answer = ""
     answer_msg = None
-    thought_has_started = False 
 
-    # By creating the Step first, it will appear at the top.
-    async with cl.Step(name="Thinking", parent_id=message.id) as step:
+    # We keep the async with block to maintain the single, shimmering step
+    async with cl.Step(name="Working...", parent_id=message.id, type="run") as step:
         async for chunk in anton.stream_response(
             user_prompt=message.content, chat_history=chat_history
         ):
-            if chunk["type"] == "thought":
-                content = chunk["content"]
-                # Add a bullet point only for the first thought chunk.
-                if not thought_has_started:
-                    content = "• " + content
-                    thought_has_started = True
-                
-                # Stream the new content directly to the step.
-                await step.stream_token(content)
+            if chunk["type"] == "step":
+                # A new phase is starting. Update the name of our single step.
+                new_name = chunk.get("content")
+                if new_name:
+                    step.name = new_name
+                    # INSTEAD of clearing output, we stream a separator for clarity
+                    await step.stream_token("\n\n---\n")
+                    await step.update() # Push the name change to the UI
 
-            # Process the non-thought chunk.
+            elif chunk["type"] == "step_content":
+                # Stream content to the step. It will now append.
+                await step.stream_token(chunk["content"])
+
             elif chunk["type"] == "tool_result":
+                # Stream tool results.
                 result_str = (
                     f"\n*Tool Result:*\n```json\n{chunk['content']}\n```\n"
                 )
                 await step.stream_token(result_str)
 
             elif chunk["type"] == "token":
+                # Handle the final answer stream as usual.
                 final_answer += chunk["content"]
                 token = chunk["content"]
                 if answer_msg is None:
                     answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
-                if MD_DEBUG:
-                    _tok_preview = token.replace('\n', '\\n')
-                    logger.info(f"[MDDBG:ui] stream token len={len(token)} repr={_tok_preview!r}")
                 await answer_msg.stream_token(token)
-            
-            else:
-                if chunk["type"] == "info":
-                    continue
-                if answer_msg is None:
-                    answer_msg = cl.Message(content="", author="Anton", parent_id=message.id)
-                await answer_msg.stream_token("Unkown chunk: " + chunk["type"])
-        
-        if answer_msg:
-            clean_content = re.sub(r"<tool_call>.*?</tool_call>", "", html.unescape(answer_msg.content), flags=re.DOTALL)
-            answer_msg.content = clean_content.strip()
-            await answer_msg.send()
+
+            elif chunk["type"] == "info":
+                continue
+
+    if answer_msg:
+        clean_content = re.sub(r"<tool_call>.*?</tool_call>", "", html.unescape(answer_msg.content), flags=re.DOTALL)
+        answer_msg.content = clean_content.strip()
+        await answer_msg.update()
 
     # Update the session's chat history.
     chat_history.append({"role": "user", "content": message.content})
