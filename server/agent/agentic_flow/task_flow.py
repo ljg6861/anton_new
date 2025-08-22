@@ -173,6 +173,7 @@ async def execute_researcher(messages: List[Dict[str, str]], knowledge_store: Op
     meta_tools = tool_manager.get_tools_by_names([
         "search_codebase",
         "web_search",
+        "fetch_web_content",
         "read_file"
     ])
     

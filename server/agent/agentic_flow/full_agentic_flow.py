@@ -2,9 +2,12 @@ import json
 import logging
 from typing import AsyncGenerator, Dict, List, Optional
 from server.agent.agentic_flow.helpers_and_prompts import call_model_server
-from server.agent.config import USER_ROLE
+from server.agent.config import USER_ROLE, MODEL_SERVER_URL
 from server.agent.agentic_flow.task_flow import handle_task_route
 from server.agent.tools.tool_manager import tool_manager
+from server.agent.react.react_agent import ReActAgent
+from server.agent.react.token_budget import TokenBudget
+from server.agent.knowledge_store import KnowledgeStore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -114,8 +117,47 @@ async def execute_agentic_flow(initial_messages: List[Dict[str, str]]) -> AsyncG
         yield f"Error: Unknown route '{route}' provided by the router."
 
 async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
-    chat_prompt = "You are Anton, a friendly and helpful assistant. Provide a concise answer to the user."
+    """Enhanced chat route with tool calling capabilities using ReAct agent"""
+    logger.info("Handling chat route with tool support")
+    
+    # Set up tools available for chat (same as researcher)
+    chat_tools = tool_manager.get_tools_by_names([
+        "search_codebase",
+        "web_search", 
+        "fetch_web_content",
+        "read_file"
+    ])
+    
+    # Create enhanced chat prompt that mentions tool availability
+    chat_prompt = """You are Anton, a friendly and helpful assistant. You have access to tools that can help you provide better answers:
+
+Use tools when they would help provide a more accurate or complete answer. If the user asks about code, files, or needs current information, consider using the appropriate tools. Keep your responses conversational and helpful.
+
+For simple questions that don't require tools, respond directly without using tools.
+"""
+
+    # Create chat messages with the enhanced prompt
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
     
-    async for token in call_model_server(chat_messages, tool_manager.get_tool_schemas()):
-        yield token
+    # Initialize knowledge store for this chat session
+    knowledge_store = KnowledgeStore()
+    
+    # Set up token budget for chat (smaller than task execution)
+    budget = TokenBudget(total_budget=50000)  # Smaller budget for chat
+    
+    # Create ReAct agent for tool-enabled chat
+    react_agent = ReActAgent(
+        api_base_url=MODEL_SERVER_URL,
+        tools=chat_tools,
+        knowledge_store=knowledge_store,
+        max_iterations=10,  # Limit iterations for chat
+        user_id='chat_user',
+        token_budget=budget
+    )
+    
+    # Execute chat with tool support using ReAct agent
+    logger.info("Starting ReAct agent for chat with tool support")
+    async for chunk in react_agent.execute_react_loop_streaming(chat_messages, logger):
+        # Filter out step markers for cleaner chat experience
+        if not (chunk.startswith("<step>") or chunk.startswith("<step_content>")):
+            yield chunk
