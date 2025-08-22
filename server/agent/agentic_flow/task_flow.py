@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
+from server.agent.tool_learning_store import tool_learning_store
 from server.agent.agentic_flow.helpers_and_prompts import ADAPTIVE_PLANNING_PROMPT, ASSESSMENT_PROMPT, EXECUTOR_PROMPT, FINAL_MESSAGE_GENERATOR_PROMPT, PLAN_RESULT_EVALUATOR_PROMPT, REPLANNING_PROMPT_ADDENDUM, RESEARCHER_PROMPT, SIMPLE_PLANNER_PROMPT, call_model_server
 from server.agent.config import MODEL_SERVER_URL, USER_ROLE
 from server.agent.knowledge_store import KnowledgeStore
@@ -303,7 +304,7 @@ async def execute_control_loop(plan, goal, messages, research_findings=None):
         step_name = f"Executing Step {step['step']}: {step.get('thought', 'Processing step')}"
         truncated_name = truncate_step_name(step_name)
         yield f"<step>{truncated_name}</step>"
-        
+
         result = ""
         async for chunk in execute_executor(goal, current_plan, step_history, step):
             if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
@@ -382,4 +383,4 @@ async def execute_control_loop(plan, goal, messages, research_findings=None):
         async for content in stream_step_content(new_plan_msg):
             yield content
         async for token in execute_control_loop(new_plan, goal, messages, research_findings):
-            yield token
+            yield token 
