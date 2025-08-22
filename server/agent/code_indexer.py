@@ -281,18 +281,27 @@ class CodeIndexer:
     def _remove_previous_chunks(self, rel_path: str) -> None:
         """
         Remove all previously indexed chunks for a specific file.
+        Since source_to_ids mapping can be unreliable, we'll search by source prefix in the actual doc store.
         """
-        # Get all document IDs that need to be removed
+        # Find all documents with sources that start with this file path
         doc_ids_to_remove = []
+        for doc_id, doc in rag_manager.doc_store.items():
+            source = doc.get('source', '')
+            if source == rel_path or source.startswith(f"{rel_path}:"):
+                doc_ids_to_remove.append(doc_id)
 
-        # Find all documents with sources starting with this file path
+        # Also check the source_to_ids mapping for additional cleanup
         for source, ids in list(self.source_to_ids.items()):
             if source == rel_path or source.startswith(f"{rel_path}:"):
                 doc_ids_to_remove.extend(ids)
                 # Remove from the source_to_ids mapping
                 del self.source_to_ids[source]
 
+        # Remove duplicates
+        doc_ids_to_remove = list(set(doc_ids_to_remove))
+
         if not doc_ids_to_remove:
+            logger.debug(f"No chunks found to remove for {rel_path}")
             return
 
         # Remove documents from the document store
@@ -305,9 +314,9 @@ class CodeIndexer:
         # Rebuild the FAISS index to remove orphaned vectors
         if removed_count > 0:
             rag_manager.rebuild_index()
-            logger.info(f"Removed {removed_count} previous chunks for {rel_path} and rebuilt FAISS index")
+            logger.info(f"🗑️  Removed {removed_count} previous chunks for {rel_path} and rebuilt FAISS index")
         else:
-            logger.info(f"No chunks found to remove for {rel_path}")
+            logger.debug(f"No chunks found to remove for {rel_path}")
 
     def index_file(self, file_path: str) -> bool:
         """
@@ -341,16 +350,16 @@ class CodeIndexer:
 
             # Track the document IDs for each chunk by source
             for chunk in chunks:
+                # Store the current index size to know what the new doc ID will be
+                doc_id = rag_manager.index.ntotal
+                
                 # Add the chunk to RAG manager
                 rag_manager.add_knowledge(
                     text=chunk["text"],
                     source=chunk["source"]
                 )
 
-                # Get the document ID for this chunk (it's the last one added)
-                doc_id = rag_manager.index.ntotal - 1
-
-                # Track the source -> ID mapping
+                # Track the source -> ID mapping with the correct doc_id
                 source = chunk["source"]
                 if source not in self.source_to_ids:
                     self.source_to_ids[source] = []
@@ -394,9 +403,11 @@ class CodeIndexer:
     def refresh_index(self) -> int:
         """
         Re-index only the files that have changed since the last indexing.
+        Also removes deleted files from the index.
         Returns the number of files updated.
         """
         files_updated = 0
+        files_removed = 0
 
         try:
             # Get list of files tracked by git
@@ -405,7 +416,9 @@ class CodeIndexer:
                 capture_output=True, text=True, check=True,
                 cwd=self.repo_root
             )
-            all_files = result.stdout.strip().split('\n')
+            all_files = set(result.stdout.strip().split('\n'))
+            if '' in all_files:
+                all_files.remove('')
 
             # Get list of modified files
             result = subprocess.run(
@@ -414,6 +427,20 @@ class CodeIndexer:
                 cwd=self.repo_root
             )
             modified_files = result.stdout.strip().split('\n') if result.stdout.strip() else []
+
+            # CRITICAL: Remove deleted files from index
+            # Check which indexed files no longer exist on filesystem
+            indexed_files = set(self.indexed_files_meta.keys())
+            deleted_files = indexed_files - all_files
+            
+            for deleted_file in deleted_files:
+                logger.info(f"🗑️  REMOVING DELETED FILE from index: {deleted_file}")
+                self._remove_previous_chunks(deleted_file)
+                del self.indexed_files_meta[deleted_file]
+                files_removed += 1
+
+            if files_removed > 0:
+                logger.info(f"🧹 CLEANED UP: Removed {files_removed} deleted files from index")
 
             # Index all new and modified files
             for file in all_files:

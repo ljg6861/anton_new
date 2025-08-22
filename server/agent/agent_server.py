@@ -93,8 +93,9 @@ async def lifespan(app: FastAPI):
     import threading
     def index_code():
         logger.info("Starting code indexing...")
-        files_indexed = code_indexer.index_directory()
-        logger.info(f"✅ Code indexing complete. {files_indexed} files indexed.")
+        # Use refresh_index to ensure deleted files are cleaned up
+        files_updated = code_indexer.refresh_index()
+        logger.info(f"✅ Code indexing complete. {files_updated} files updated.")
         # Save the RAG index to persist embeddings
         rag_manager.save()
 
@@ -123,12 +124,15 @@ async def agent_chat(request: AgentChatRequest):
     Handles incoming chat requests using the ReAct agent with three-memory architecture.
     Uses token budgeting to prevent context overflow.
     """
-    logger.info("Agent Server received request. Processing with three-memory ReAct agent...")
     initial_messages = [msg.model_dump() for msg in request.messages]
         
     async def react_with_metrics():
+        buffer = ''
         async for token in execute_agentic_flow(initial_messages):
+            buffer += token
             yield token
+        logger.info("Responsed to " + str(initial_messages[-1]) + ' with \n' + buffer) 
+        
     
     return StreamingResponse(
         react_with_metrics(),

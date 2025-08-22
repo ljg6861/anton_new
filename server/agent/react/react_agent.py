@@ -47,6 +47,7 @@ class ReActAgent:
         domain_pack_dir: str = "../../learning/packs",
         user_id: Optional[str] = None,
         token_budget: Optional[TokenBudget] = None,
+        temperature: float = 0.6,
     ) -> None:
         self.api_base_url = api_base_url
         self.tools = tools
@@ -54,6 +55,7 @@ class ReActAgent:
         self.max_iterations = max_iterations
         self.domain_pack_dir = domain_pack_dir
         self.user_id = user_id or "anonymous"
+        self.temperature = temperature
         
         # Initialize components
         self.budget = token_budget or TokenBudget()
@@ -216,71 +218,6 @@ class ReActAgent:
             logger.error(f"Error in LLM analysis callback: {e}", exc_info=True)
             return f"Analysis failed: {str(e)}"
     
-    async def execute_react_loop(self, react_messages: List[Dict[str, str]], 
-                                 logger: Any) -> str:
-        """Execute the main ReAct reasoning loop"""
-        iteration = 0
-        recent_tool_calls = []  # Track recent tool calls to detect loops
-        
-        while iteration < self.max_iterations:
-            iteration += 1
-            logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
-            
-            # Only check summarization occasionally for the researcher to preserve context
-            if iteration % 10 == 0:  # Check every 10 iterations instead of every iteration
-                react_messages = await self.check_and_summarize_if_needed(react_messages)
-            
-            response = (self._execute_llm_request(react_messages, logger))
-            response = response['choices'][0]['message']
-            tool_calls = response['tool_calls']
-            if (tool_calls):
-                for i in range(len(tool_calls)):
-                    tool_name = tool_calls[i]['function']['name']
-                    tool_args = tool_calls[i]['function']['arguments']
-                    
-                    # Create a signature for this tool call
-                    tool_signature = f"{tool_name}:{tool_args}"
-                    
-                    # Check for repetitive tool calls (same tool with same args within last 3 calls - more aggressive)
-                    if tool_signature in recent_tool_calls[-3:]:
-                        logger.warning(f"Detected repetitive tool call: {tool_name} with {tool_args}")
-                        # Add a strong guidance message instead of executing the same tool again
-                        guidance_msg = f"🔄 STOP REPEATING! You've already tried {tool_name} with these arguments recently. If you have enough information to synthesize findings, CONCLUDE your research instead of searching more!"
-                        react_messages.append({
-                            'role': 'function', 
-                            'name': tool_name, 
-                            'content': f"LOOP_DETECTED: {guidance_msg}"
-                        })
-                        continue
-                    
-                    # Also check if using the same tool too frequently (same tool type within last 4 calls)
-                    same_tool_count = sum(1 for sig in recent_tool_calls[-4:] if sig.startswith(f"{tool_name}:"))
-                    if same_tool_count >= 3:
-                        logger.warning(f"Tool {tool_name} used too frequently - forcing diversity")
-                        guidance_msg = f"🚨 DIVERSIFY! You've used {tool_name} {same_tool_count} times recently. Try different tools or conclude with your current findings!"
-                        react_messages.append({
-                            'role': 'function', 
-                            'name': tool_name, 
-                            'content': f"FREQUENCY_WARNING: {guidance_msg}"
-                        })
-                        continue
-                    
-                    logger.info(f"Calling tool: {tool_name} with args: {tool_args}")
-                    try:
-                        result = tool_manager.run_tool(tool_name, tool_args)
-                        react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : result}) 
-                            
-                    except Exception as e:
-                        logger.error(f"Error occurred while calling tool {tool_name}: {e}")
-                        react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : str(e)}) 
-            else:
-                # Add the assistant's final response and return
-                react_messages.append({'role' : 'assistant', 'content' : response['content']})
-                return response['content']
-        
-        # If we reached max iterations, return the last response
-        return "Maximum iterations reached"
-
     async def execute_react_loop_streaming(self, react_messages: List[Dict[str, str]], 
                                          logger: Any) -> AsyncGenerator[str, None]:
         """Execute the main ReAct reasoning loop with streaming step output"""
@@ -289,7 +226,7 @@ class ReActAgent:
         
         while iteration < self.max_iterations:
             iteration += 1
-            logger.info(f"ReAct iteration {iteration}/{self.max_iterations}")
+            logger.info(f"=== ReAct Iteration {iteration}/{self.max_iterations} ===")
             
             # Stream iteration step
             yield f"<step>ReAct Iteration {iteration}/{self.max_iterations}</step>"
@@ -298,31 +235,47 @@ class ReActAgent:
             if iteration % 10 == 0:  # Check every 10 iterations instead of every iteration
                 react_messages = await self.check_and_summarize_if_needed(react_messages)
             
+            logger.info(f"Sending {len(react_messages)} messages to LLM...")
+            # Log the most recent user/assistant message for context
+            if react_messages:
+                last_msg = react_messages[-1]
+                logger.info(f"Most recent message ({last_msg.get('role', 'unknown')}): {last_msg.get('content', '')[:200]}...")
+            
             response = (self._execute_llm_request(react_messages, logger))
             response = response['choices'][0]['message']
             tool_calls = response['tool_calls']
             
+            # Log the LLM response
+            if tool_calls:
+                logger.info(f"LLM wants to use {len(tool_calls)} tools: {[call['function']['name'] for call in tool_calls]}")
+            else:
+                logger.info(f"LLM final response: {response.get('content', '')}...")
+            
             if (tool_calls):
-                for i in range(len(tool_calls)):
-                    tool_name = tool_calls[i]['function']['name']
-                    tool_args = tool_calls[i]['function']['arguments']
+                for i, tool_call in enumerate(tool_calls):
+                    tool_name = tool_call['function']['name']
+                    tool_args = tool_call['function']['arguments']
                     
-                    # Stream tool execution step
+                    # Stream tool execution step with actual args
                     yield f"<step>Using Tool: {tool_name}</step>"
+                    async for char in self._stream_step_content(f"Tool: {tool_name}\nArgs: {str(tool_args)[:200]}"):
+                        yield char
                     
                     # Create a signature for this tool call
                     tool_signature = f"{tool_name}:{tool_args}"
                     
-                    # Check for repetitive tool calls (same tool with same args within last 3 calls - more aggressive)
+                    # Check for repetitive tool calls (same tool with same args within last 3 calls)
                     if tool_signature in recent_tool_calls[-3:]:
-                        logger.warning(f"Detected repetitive tool call: {tool_name} with {tool_args}")
-                        # Add a strong guidance message instead of executing the same tool again
+                        logger.warning(f"🔄 LOOP DETECTED: {tool_name} with same args already tried recently")
                         guidance_msg = f"🔄 STOP REPEATING! You've already tried {tool_name} with these arguments recently. If you have enough information to synthesize findings, CONCLUDE your research instead of searching more!"
                         
-                        # Stream the warning content
-                        async for char in self._stream_step_content(f"Loop detected: {tool_name}"):
+                        # Stream the warning content with details
+                        async for char in self._stream_step_content(f"LOOP DETECTED\nTool: {tool_name}\nReason: Same tool+args used recently\nAction: Skipping execution"):
                             yield char
-                            
+                        
+                        # Still add to recent_tool_calls to track this attempt
+                        recent_tool_calls.append(tool_signature)
+                        
                         react_messages.append({
                             'role': 'function', 
                             'name': tool_name, 
@@ -330,16 +283,19 @@ class ReActAgent:
                         })
                         continue
                     
-                    # Also check if using the same tool too frequently (same tool type within last 4 calls)
-                    same_tool_count = sum(1 for sig in recent_tool_calls[-4:] if sig.startswith(f"{tool_name}:"))
-                    if same_tool_count >= 3:
-                        logger.warning(f"Tool {tool_name} used too frequently - forcing diversity")
+                    # Also check if using the same tool too frequently (same tool type within last 5 calls)
+                    same_tool_count = sum(1 for sig in recent_tool_calls[-5:] if sig.startswith(f"{tool_name}:"))
+                    if same_tool_count >= 4:  # Increased threshold to be less aggressive
+                        logger.warning(f"🚨 FREQUENCY LIMIT: {tool_name} used {same_tool_count} times recently")
                         guidance_msg = f"🚨 DIVERSIFY! You've used {tool_name} {same_tool_count} times recently. Try different tools or conclude with your current findings!"
                         
-                        # Stream the warning content
-                        async for char in self._stream_step_content(f"Frequency warning: {tool_name}"):
+                        # Stream the warning content with details
+                        async for char in self._stream_step_content(f"FREQUENCY WARNING\nTool: {tool_name}\nUsage: {same_tool_count} times in last 5 calls\nAction: Forcing diversity"):
                             yield char
-                            
+                        
+                        # Still add to recent_tool_calls to track this attempt
+                        recent_tool_calls.append(tool_signature)
+                        
                         react_messages.append({
                             'role': 'function', 
                             'name': tool_name, 
@@ -347,38 +303,58 @@ class ReActAgent:
                         })
                         continue
                     
-                    logger.info(f"Calling tool: {tool_name} with args: {tool_args}")
+                    logger.info(f"✅ Executing tool: {tool_name} with args: {str(tool_args)[:100]}...")
                     
-                    # Stream tool execution progress
-                    async for char in self._stream_step_content(f"Executing {tool_name}..."):
-                        yield char
+                    # Add to recent_tool_calls BEFORE execution to ensure it's tracked
+                    recent_tool_calls.append(tool_signature)
+                    
+                    # Keep only the last 10 tool calls to prevent memory bloat
+                    if len(recent_tool_calls) > 10:
+                        recent_tool_calls = recent_tool_calls[-10:]
                     
                     try:
                         result = tool_manager.run_tool(tool_name, tool_args)
+                        logger.info(f"✅ Tool {tool_name} completed successfully. Result length: {len(str(result))} chars")
                         
-                        # Stream tool completion
-                        async for char in self._stream_step_content(f"Tool {tool_name} completed"):
+                        # Stream tool completion with actual result preview
+                        result_preview = str(result)[:300] + "..." if len(str(result)) > 300 else str(result)
+                        async for char in self._stream_step_content(f"TOOL COMPLETED\nTool: {tool_name}\nResult: {result_preview}"):
                             yield char
                             
                         react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : result}) 
-                        recent_tool_calls.append(tool_signature)
                             
                     except Exception as e:
-                        logger.error(f"Error occurred while calling tool {tool_name}: {e}")
+                        logger.error(f"❌ Tool {tool_name} FAILED: {str(e)}")
                         
-                        # Stream error message
-                        async for char in self._stream_step_content(f"Tool {tool_name} failed: {str(e)}"):
+                        # Stream error message with details
+                        async for char in self._stream_step_content(f"TOOL FAILED\nTool: {tool_name}\nError: {str(e)[:200]}"):
                             yield char
                             
                         react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : str(e)}) 
             else:
                 # Add the assistant's final response and stream it
+                logger.info(f"🏁 FINAL RESPONSE: {response['content'][:200]}...")
                 react_messages.append({'role' : 'assistant', 'content' : response['content']})
+                
+                # Stream the final response with context
+                async for char in self._stream_step_content(f"FINAL RESPONSE\nContent: {response['content'][:500]}"):
+                    yield char
+                
                 yield response['content']
                 return
         
         # If we reached max iterations, stream the final message
+        logger.warning(f"⚠️ REACHED MAX ITERATIONS ({self.max_iterations})")
         yield "Maximum iterations reached"
+
+    # Backward compatibility alias - everything should stream
+    async def execute_react_loop(self, react_messages: List[Dict[str, str]], logger: Any) -> str:
+        """Legacy method - now just collects streaming output into a string"""
+        result = ""
+        async for chunk in self.execute_react_loop_streaming(react_messages, logger):
+            if not (chunk.startswith("<step>") or chunk.startswith("<step_content>")):
+                result += chunk
+        return result
 
     async def _stream_step_content(self, text: str) -> AsyncGenerator[str, None]:
         """Stream text character by character with a typing effect for step content."""
@@ -451,7 +427,7 @@ class ReActAgent:
         request_payload = {
             "model": "anton",
             "messages": sanitized_messages,
-            "temperature": 0.6,
+            "temperature": self.temperature,
             "stream": False,
             "max_tokens": 2048
         }
