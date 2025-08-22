@@ -46,7 +46,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     handlers=[
         logging.StreamHandler(),  # Console
-        logging.FileHandler("logs/concept_extractor.log", mode="w", encoding="utf-8"),  # File
+        logging.FileHandler("../logs/concept_extractor.log", mode="w", encoding="utf-8"),  # File
     ]
 )
 logger = logging.getLogger(__name__)
@@ -143,46 +143,35 @@ class LLMClient:
         Calls your streaming endpoint and returns the visible answer (no SSE metadata).
         If the model emits <think>…</think>, we discard it and keep only the content after </think>.
         """
-        payload = {
+
+        request_payload = {
+            "model": "anton",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
-            ],
-            "temperature": self.temperature,
-            "model": model or QWEN_30B_INSTRUCT,
+            ],            "temperature": 0.6,
+            "stream": False,
+            "max_tokens": 4096,
         }
 
         backoff = 1.0
+        vllm_url = "http://localhost:8003"
+        url = f"{vllm_url}/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer anton-vllm-key"
+        }
         for attempt in range(self.retries + 1):
             t0 = time.perf_counter()
             try:
-                timeout = httpx.Timeout(self.request_timeout)
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    async with client.stream("POST", f"{self.api_base}/v1/chat/stream", json=payload) as response:
-                        response.raise_for_status()
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    response = await client.post(url, json=request_payload, headers=headers)
+                    response.raise_for_status()
+                    response_json = response.json()
+                    response = response_json['choices'][0]['message']
+                    return response['content']
 
-                        full_response_content = ""
-                        # Iterate over the streamed chunks
-                        async for chunk in response.aiter_text():
-                            for line in chunk.split('\n'):
-                                if line.startswith('data: '):
-                                    content = line[6:]  # Remove 'data: ' prefix
-                                    if content == '[DONE]':
-                                        # End of stream marker; continue to finalize below
-                                        continue
-                                    full_response_content += content
-                                elif line.strip():
-                                    # Fallback for non-SSE format
-                                    full_response_content += line
 
-                think_split = full_response_content.split('</think>', 1)
-                if len(think_split) > 1:
-                    text = think_split[1]
-                else:
-                    text = full_response_content
-                dur = time.perf_counter() - t0
-                logger.debug("LLM call ok in %.2fs (attempt %d)", dur, attempt + 1)
-                return text.strip()
             except Exception as e:
                 dur = time.perf_counter() - t0
                 logger.warning("LLM call failed in %.2fs (attempt %d/%d): %s", dur, attempt + 1, self.retries + 1, str(e))

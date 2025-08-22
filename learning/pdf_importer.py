@@ -330,6 +330,7 @@ def emit_blocks(doc: "fitz.Document", roots: List[SectionNode], domain: str, out
 # ---------- Main ----------
 
 def main():
+    # python pdf_importer.py content/MusicTheory.pdf --outdir packs/music_theory.v1 --domain music_theory
     ap = argparse.ArgumentParser(description="Study Importer: PDF → outline.json + blocks.jsonl")
     ap.add_argument("pdf", type=str, help="Path to PDF textbook")
     ap.add_argument("--outdir", type=str, required=True, help="Output directory (e.g., packs/calc.v1)")
