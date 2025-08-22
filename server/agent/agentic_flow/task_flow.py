@@ -113,12 +113,13 @@ async def initial_assessment(messages: List[Dict[str, str]], knowledge_store: Op
     
     # If knowledge store provided, start episodic run and get relevant past assessments
     episodic_context = ""
+    semantic_context = ""
     if knowledge_store:
         # Try to determine domain from query
         domain = _extract_domain_from_query(user_content)
         knowledge_store.start_episodic_run(domain)
         
-        # Get relevant past assessment experiences
+        # Get relevant past assessment experiences (episodic memory)
         past_assessments = knowledge_store.search_episodes_by_query(
             f"assessment task evaluation {user_content[:100]}", 
             role="assessor", 
@@ -129,8 +130,15 @@ async def initial_assessment(messages: List[Dict[str, str]], knowledge_store: Op
             episodic_context = "\n\nPast Assessment Experiences:\n"
             for i, episode in enumerate(past_assessments, 1):
                 episodic_context += f"{i}. {episode.summary} (confidence: {episode.confidence:.2f})\n"
+        
+        # Get relevant semantic facts for this domain
+        semantic_context = await knowledge_store.build_semantic_context(
+            f"assessment task {user_content[:100]}", 
+            max_facts=3
+        )
     
-    chat_prompt = ASSESSMENT_PROMPT.replace('{tools}', json.dumps(tools)) + episodic_context
+    full_context = episodic_context + "\n" + semantic_context
+    chat_prompt = ASSESSMENT_PROMPT.replace('{tools}', json.dumps(tools)) + full_context
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
 
     assessment = await _call_and_parse_model(chat_messages, [], "assessment")
@@ -260,10 +268,13 @@ async def execute_planner(prompt: str, messages: List[Dict[str, str]], research_
     tools = tool_manager.get_tool_schemas()
     logger.info("Creating Plan")
     
-    # Get relevant past planning experiences
+    # Get relevant past planning experiences and semantic facts
     episodic_context = ""
+    semantic_context = ""
     if knowledge_store:
         user_content = " ".join([msg.get("content", "") for msg in messages if msg.get("role") == "user"])
+        
+        # Get episodic planning experiences
         past_plans = knowledge_store.search_episodes_by_query(
             f"planning strategy approach {user_content[:100]}", 
             role="planner", 
@@ -275,13 +286,20 @@ async def execute_planner(prompt: str, messages: List[Dict[str, str]], research_
             for episode in past_plans:
                 outcome_status = episode.outcome.get("status", "unknown")
                 episodic_context += f"- {episode.summary} (outcome: {outcome_status})\n"
+        
+        # Get relevant semantic facts for planning
+        semantic_context = await knowledge_store.build_semantic_context(
+            f"planning strategy {user_content[:100]}", 
+            max_facts=3
+        )
     
     # Include research findings in the prompt
     research_context = json.dumps(research_findings, indent=2) if research_findings else "No prior research conducted."
     
+    full_context = episodic_context + "\n" + semantic_context
     chat_prompt = prompt.replace(
         "{current_date}", datetime.datetime.now().isoformat()
-    ).replace("{research_findings}", research_context).replace("{tools}", json.dumps(tools, indent=2)) + episodic_context
+    ).replace("{research_findings}", research_context).replace("{tools}", json.dumps(tools, indent=2)) + full_context
     
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
     
@@ -420,12 +438,60 @@ async def generate_final_user_message(goal: str, step_history: List[Dict], plan_
     async for token in call_model_server(chat_messages, []):
         yield token
 
-async def evaluate_plan_success(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]]) -> Dict:
+async def evaluate_plan_success(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]], knowledge_store: Optional[KnowledgeStore] = None) -> Dict:
+    """Evaluate plan success and optionally promote insights to semantic memory"""
     logger.info("Evaluating plan success...")
     chat_prompt = PLAN_RESULT_EVALUATOR_PROMPT.replace("{user_goal}", overall_goal).replace("{original_plan}", json.dumps(full_plan)).replace("{execution_results}", json.dumps(previous_steps))
     result = await _call_and_parse_model([{'role' : 'system', 'content' : chat_prompt}], [])
     logger.info(f"Plan evaluation result: {result}")
+    
+    # If successful and knowledge store available, promote key insights to semantic memory
+    if result.get('result') == 'success' and knowledge_store:
+        await _promote_successful_insights_to_semantic(overall_goal, previous_steps, knowledge_store)
+    
     return result
+
+async def _promote_successful_insights_to_semantic(goal: str, steps: List[Dict[str, str]], knowledge_store: KnowledgeStore):
+    """Extract and promote successful patterns from completed task to semantic memory"""
+    try:
+        # Extract key insights from successful execution
+        successful_tools = []
+        key_outcomes = []
+        
+        for step in steps:
+            if step.get('status') == 'success' and 'tool_calls' in step:
+                for tool_call in step['tool_calls']:
+                    tool_name = tool_call.get('function', {}).get('name')
+                    if tool_name:
+                        successful_tools.append(tool_name)
+            
+            if 'result' in step and 'error' not in step['result'].lower():
+                key_outcomes.append(step['result'][:100])  # First 100 chars
+        
+        # Promote tool usage patterns
+        if successful_tools:
+            tool_pattern = f"For {goal[:50]} tasks, effective tools include: {', '.join(set(successful_tools))}"
+            await knowledge_store.write_semantic_fact(
+                text=tool_pattern,
+                tags=["tool_pattern", "successful_execution"],
+                entities={"tools": list(set(successful_tools)), "goal_type": goal[:50]},
+                confidence=0.8
+            )
+        
+        # Promote execution strategy if multiple steps were successful
+        if len(key_outcomes) >= 2:
+            strategy_insight = f"Multi-step approach effective for {goal[:50]} type tasks"
+            await knowledge_store.write_semantic_fact(
+                text=strategy_insight,
+                tags=["execution_strategy", "multi_step"],
+                entities={"strategy": "multi_step", "goal_type": goal[:50]},
+                confidence=0.75
+            )
+        
+        logger.info("Successfully promoted insights to semantic memory")
+        
+    except Exception as e:
+        logger.error(f"Error promoting insights to semantic memory: {e}")
 
 async def handle_task_route(messages: List[Dict[str, str]], goal: str, knowledge_store: Optional[KnowledgeStore] = None) -> AsyncGenerator[str, None]:
     """Complex task agent workflow with research phase and episodic memory."""
@@ -537,7 +603,7 @@ async def execute_control_loop(plan, goal, messages, research_findings=None, kno
                 # Continue with current plan as-is
     
     yield f"<step>Evaluating Final Results</step>"
-    result = await evaluate_plan_success(goal, current_plan, step_history)
+    result = await evaluate_plan_success(goal, current_plan, step_history, knowledge_store)
     if result['result'] == 'success':
         success_msg = "Task completed successfully"
         async for content in stream_step_content(success_msg):

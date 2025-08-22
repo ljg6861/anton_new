@@ -2,6 +2,7 @@
 Centralized knowledge management system that tracks context across planner, doer, and evaluator components.
 Provides persistent storage, context prioritization, and knowledge transfer capabilities.
 Enhanced with episodic memory for recording and retrieving past run experiences.
+Enhanced with semantic memory for persistent domain-scoped facts and knowledge.
 """
 from pathlib import Path
 import time
@@ -16,6 +17,7 @@ from server.agent.learning_loop import learning_loop
 from server.agent.pack_builder import load_centroids
 from server.agent.rag_manager import rag_manager
 from server.agent.episodic_memory import episodic_memory, EpisodicEntry
+from server.agent.semantic_memory import semantic_memory_store, SemanticFact
 
 # Configure logger for knowledge store
 logger = logging.getLogger(__name__)
@@ -666,3 +668,153 @@ class KnowledgeStore:
         # This would require adding an update method to episodic_memory
         # For now, just log the update intent
         logger.info(f"Episode outcome update requested for {episode_id}: {outcome}")
+    
+    # ===============================
+    # SEMANTIC MEMORY INTEGRATION
+    # ===============================
+    
+    async def write_semantic_fact(
+        self, 
+        text: str,
+        entities: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+        confidence: float = 0.7
+    ) -> Optional[str]:
+        """
+        Write a semantic fact to persistent memory.
+        
+        Args:
+            text: The fact text (≤ 2-3 sentences)
+            entities: Named entities mentioned in the fact
+            tags: Categorization tags
+            confidence: Confidence score (0.0 to 1.0)
+            
+        Returns:
+            Fact ID if stored, None if rejected
+        """
+        if not self.current_domain:
+            logger.warning("No current domain set - cannot write semantic fact")
+            return None
+        
+        return await semantic_memory_store.write_fact(
+            domain=self.current_domain,
+            text=text,
+            entities=entities,
+            tags=tags,
+            confidence=confidence
+        )
+    
+    async def get_semantic_facts(
+        self,
+        query: Optional[str] = None,
+        entities: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+        limit: int = 6
+    ) -> List[SemanticFact]:
+        """
+        Retrieve semantic facts for the current domain.
+        
+        Args:
+            query: Optional query text for semantic matching
+            entities: Optional entity filters
+            tags: Optional tag filters
+            limit: Maximum number of facts to return
+            
+        Returns:
+            List of ranked SemanticFact objects
+        """
+        if not self.current_domain:
+            logger.warning("No current domain set - cannot retrieve semantic facts")
+            return []
+        
+        return await semantic_memory_store.retrieve_facts(
+            domain=self.current_domain,
+            query=query,
+            entities=entities,
+            tags=tags,
+            limit=limit
+        )
+    
+    async def build_semantic_context(self, query: str, max_facts: int = 4) -> str:
+        """
+        Build context string from relevant semantic facts.
+        
+        Args:
+            query: Query to find relevant facts
+            max_facts: Maximum number of facts to include
+            
+        Returns:
+            Formatted context string with semantic knowledge
+        """
+        relevant_facts = await self.get_semantic_facts(query=query, limit=max_facts)
+        
+        if not relevant_facts:
+            return ""
+        
+        context_parts = ["=== RELEVANT DOMAIN KNOWLEDGE ==="]
+        
+        for i, fact in enumerate(relevant_facts, 1):
+            confidence_str = f"confidence: {fact.confidence:.2f}"
+            support_str = f"support: {fact.support_count}"
+            
+            context_parts.append(
+                f"\n{i}. {fact.text}\n"
+                f"   {confidence_str} | {support_str}"
+            )
+            
+            # Add tags if available
+            if fact.tags:
+                context_parts.append(f"   Tags: {', '.join(fact.tags[:4])}")
+        
+        context_parts.append("=== END DOMAIN KNOWLEDGE ===")
+        return "\n".join(context_parts)
+    
+    async def promote_episode_to_semantic(
+        self,
+        episode_summary: str,
+        outcome: Dict[str, Any],
+        confidence: float = 0.8
+    ) -> Optional[str]:
+        """
+        Promote a successful episodic experience to semantic memory.
+        
+        This is typically called by the evaluator after successful outcomes
+        to distill lessons learned into persistent knowledge.
+        
+        Args:
+            episode_summary: Summary of the episodic experience
+            outcome: Outcome information from the episode
+            confidence: Confidence in the semantic fact
+            
+        Returns:
+            Semantic fact ID if promoted, None if not suitable
+        """
+        if not self.current_domain:
+            logger.warning("No current domain set - cannot promote to semantic memory")
+            return None
+        
+        return await semantic_memory_store.promote_from_episode(
+            domain=self.current_domain,
+            episode_summary=episode_summary,
+            outcome=outcome,
+            confidence=confidence
+        )
+    
+    async def get_domain_knowledge_stats(self) -> Dict[str, Any]:
+        """Get statistics about knowledge in the current domain"""
+        if not self.current_domain:
+            return {"error": "No current domain set"}
+        
+        # Get semantic memory stats
+        semantic_stats = await semantic_memory_store.get_domain_stats(self.current_domain)
+        
+        # Get episodic memory stats (would need to add this method to episodic memory)
+        episodic_count = len(episodic_memory.retrieve_episodes(limit=1000))
+        
+        return {
+            "domain": self.current_domain,
+            "semantic_facts": semantic_stats.get("total_facts", 0),
+            "avg_confidence": semantic_stats.get("avg_confidence", 0.0),
+            "episodic_experiences": episodic_count,
+            "combined_knowledge_sources": 2
+        }
