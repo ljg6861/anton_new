@@ -1,6 +1,7 @@
 """
 Centralized knowledge management system that tracks context across planner, doer, and evaluator components.
 Provides persistent storage, context prioritization, and knowledge transfer capabilities.
+Enhanced with episodic memory for recording and retrieving past run experiences.
 """
 from pathlib import Path
 import time
@@ -14,6 +15,7 @@ from server.agent.concept_graph import load_pack, rag_topk_nodes, expand_nodes, 
 from server.agent.learning_loop import learning_loop
 from server.agent.pack_builder import load_centroids
 from server.agent.rag_manager import rag_manager
+from server.agent.episodic_memory import episodic_memory, EpisodicEntry
 
 # Configure logger for knowledge store
 logger = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ class ContextItem:
 class KnowledgeStore:
     """
     Centralized knowledge management that tracks and persists context across all agent components.
-    Integrates with existing RAG manager for persistent storage.
+    Integrates with existing RAG manager for persistent storage and episodic memory for run-based experiences.
     """
     
     def __init__(self):
@@ -83,6 +85,10 @@ class KnowledgeStore:
         self.start_time = time.time()
         self.is_complete = False
         self.final_response = ""
+        
+        # Episodic memory integration
+        self.current_domain = None
+        self.current_run_id = None
     
     def add_context(
         self, 
@@ -452,3 +458,211 @@ class KnowledgeStore:
     def start_new_session(self):
         """Start a completely new session with fresh context"""
         self.reset_conversation(preserve_important_context=False)
+    
+    # ===============================
+    # Episodic Memory Integration
+    # ===============================
+    
+    def start_episodic_run(self, domain: str, parent_run_id: Optional[str] = None) -> str:
+        """
+        Start a new episodic memory run for the given domain.
+        
+        Args:
+            domain: The domain context (e.g., 'chess', 'tool_dev', 'code_analysis')
+            parent_run_id: Optional parent run ID for hierarchical tracking
+            
+        Returns:
+            Generated run ID
+        """
+        run_id = episodic_memory.start_run(domain, parent_run_id)
+        self.current_run_id = run_id
+        self.current_domain = domain
+        
+        # Record the run start as an episode
+        self.record_episode(
+            role="system",
+            summary=f"Started new run for domain '{domain}'",
+            tags=["run_start", domain],
+            entities={"domain": domain, "parent_run": parent_run_id},
+            outcome={"status": "pass", "notes": "Run initialized successfully"}
+        )
+        
+        return run_id
+    
+    def record_episode(
+        self,
+        role: str,
+        summary: str,
+        tags: List[str] = None,
+        entities: Dict[str, Any] = None,
+        outcome: Dict[str, Any] = None,
+        confidence: float = 1.0
+    ) -> str:
+        """
+        Record an episodic memory entry for the current run.
+        
+        Args:
+            role: The role performing this episode (assessor, researcher, planner, executor, evaluator)
+            summary: Human-readable summary of what happened
+            tags: List of searchable tags
+            entities: Structured entities involved (files, tools, concepts, etc.)
+            outcome: Outcome information {status: 'pass'|'fail'|'partial', metrics, notes}
+            confidence: Confidence score (0.0 to 1.0)
+            
+        Returns:
+            Episode ID
+        """
+        if not self.current_run_id:
+            # Auto-start a run if none exists
+            self.start_episodic_run("general")
+        
+        return episodic_memory.record_episode(
+            role=role,
+            summary=summary,
+            tags=tags,
+            entities=entities,
+            outcome=outcome,
+            confidence=confidence
+        )
+    
+    def get_relevant_episodes(
+        self,
+        role: str = None,
+        tags: List[str] = None,
+        limit: int = 5,
+        min_confidence: float = 0.3,
+        time_decay_hours: float = 168.0  # 1 week
+    ) -> List[EpisodicEntry]:
+        """
+        Retrieve relevant episodes for the current context.
+        
+        Args:
+            role: Filter by role (None for any role)
+            tags: Filter by tags (must contain all specified tags)
+            limit: Maximum number of results
+            min_confidence: Minimum confidence threshold
+            time_decay_hours: Hours for time decay calculation
+            
+        Returns:
+            List of relevant episodic entries
+        """
+        return episodic_memory.retrieve_episodes(
+            domain=self.current_domain,
+            role=role,
+            tags=tags,
+            limit=limit,
+            min_confidence=min_confidence,
+            time_decay_hours=time_decay_hours
+        )
+    
+    def search_episodes_by_query(self, query: str, role: str = None, limit: int = 5) -> List[EpisodicEntry]:
+        """
+        Semantic search of past episodes using natural language query.
+        
+        Args:
+            query: Natural language description of what to search for
+            role: Filter by role (None for any role)
+            limit: Maximum number of results
+            
+        Returns:
+            List of semantically similar episodes
+        """
+        return episodic_memory.search_episodes_semantic(
+            query=query,
+            domain=self.current_domain,
+            role=role,
+            limit=limit
+        )
+    
+    def get_domain_history(self, domain: str = None, limit: int = 10) -> List[EpisodicEntry]:
+        """
+        Get recent history for a specific domain.
+        
+        Args:
+            domain: Domain to get history for (None for current domain)
+            limit: Maximum number of results
+            
+        Returns:
+            List of recent episodes for the domain
+        """
+        target_domain = domain or self.current_domain
+        return episodic_memory.retrieve_episodes(
+            domain=target_domain,
+            limit=limit,
+            min_confidence=0.0
+        )
+    
+    def get_role_experiences(self, role: str, limit: int = 10) -> List[EpisodicEntry]:
+        """
+        Get past experiences for a specific role across all domains.
+        
+        Args:
+            role: Role to get experiences for
+            limit: Maximum number of results
+            
+        Returns:
+            List of episodes for the specified role
+        """
+        return episodic_memory.retrieve_episodes(
+            role=role,
+            limit=limit,
+            min_confidence=0.0
+        )
+    
+    def get_current_run_summary(self) -> Dict[str, Any]:
+        """
+        Get summary of the current episodic run.
+        
+        Returns:
+            Dictionary with run statistics and episode summaries
+        """
+        return episodic_memory.get_run_summary(self.current_run_id)
+    
+    def build_episodic_context(self, query: str, max_episodes: int = 3) -> str:
+        """
+        Build context string from relevant past episodes.
+        
+        Args:
+            query: Query to find relevant episodes
+            max_episodes: Maximum number of episodes to include
+            
+        Returns:
+            Formatted context string with past episode insights
+        """
+        relevant_episodes = self.search_episodes_by_query(query, limit=max_episodes)
+        
+        if not relevant_episodes:
+            return ""
+        
+        context_parts = ["=== RELEVANT PAST EXPERIENCES ==="]
+        
+        for i, episode in enumerate(relevant_episodes, 1):
+            outcome_status = episode.outcome.get("status", "unknown")
+            confidence_str = f"confidence: {episode.confidence:.2f}"
+            support_str = f"support: {episode.support_count}"
+            
+            context_parts.append(
+                f"\n{i}. [{episode.role}] {episode.summary}\n"
+                f"   Domain: {episode.domain} | Outcome: {outcome_status} | {confidence_str} | {support_str}\n"
+                f"   Tags: {', '.join(episode.tags[:5])}"  # Limit tags to avoid clutter
+            )
+            
+            # Add any important notes from outcome
+            if "notes" in episode.outcome:
+                context_parts.append(f"   Notes: {episode.outcome['notes']}")
+        
+        context_parts.append("=== END PAST EXPERIENCES ===")
+        return "\n".join(context_parts)
+    
+    def update_episode_outcome(self, episode_id: str, outcome: Dict[str, Any]):
+        """
+        Update the outcome of a previously recorded episode.
+        This is useful for updating episodes after learning the final result.
+        
+        Args:
+            episode_id: ID of the episode to update
+            outcome: New outcome information
+        """
+        # This would require adding an update method to episodic_memory
+        # For now, just log the update intent
+        logger.info(f"Episode outcome update requested for {episode_id}: {outcome}")
