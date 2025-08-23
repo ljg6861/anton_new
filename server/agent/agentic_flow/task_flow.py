@@ -6,7 +6,7 @@ import re
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 from server.agent.tool_learning_store import tool_learning_store
-from server.agent.agentic_flow.helpers_and_prompts import ADAPTIVE_PLANNING_PROMPT, ASSESSMENT_PROMPT, EXECUTOR_PROMPT, FINAL_MESSAGE_GENERATOR_PROMPT, PLAN_RESULT_EVALUATOR_PROMPT, REPLANNING_PROMPT_ADDENDUM, RESEARCHER_PROMPT, SIMPLE_PLANNER_PROMPT, call_model_server
+from server.agent.agentic_flow.helpers_and_prompts import ADAPTIVE_PLANNING_PROMPT, ASSESSMENT_PROMPT, EXECUTOR_PROMPT, FINAL_MESSAGE_GENERATOR_PROMPT, PLAN_RESULT_EVALUATOR_PROMPT, REPLANNING_PROMPT_ADDENDUM, RESEARCHER_PROMPT, SIMPLE_PLANNER_PROMPT, call_model_server, HIGH_PRECISION_RESEARCHER_PROMPT, BREADTH_EXPLORER_PROMPT, SKEPTIC_VALIDATOR_PROMPT, CODEBASE_SPECIALIST_PROMPT, DOMAIN_EXPERT_PROMPT, WEB_SPECIALIST_PROMPT
 from server.agent.config import MODEL_SERVER_URL, USER_ROLE
 from server.agent.knowledge_store import KnowledgeStore
 from server.agent.react.react_agent import ReActAgent
@@ -241,14 +241,134 @@ async def initial_assessment(messages: List[Dict[str, str]], knowledge_store: Op
     
     return assessment or ""
 
+async def _determine_research_strategy(user_query: str, episodic_context: str) -> List[str]:
+    """
+    Use LLM to intelligently determine which researchers are needed for a specific task.
+    Returns a list of researcher names that should be activated.
+    """
+    # Define the research strategy prompt
+    strategy_prompt = """
+You are a Research Coordinator. Analyze the user's query and determine which researchers are most relevant.
+
+Available Researchers:
+1. "high_precision" - Focus on exact, well-cited information (good for: technical docs, academic info, precise facts)
+2. "breadth_explorer" - Cast wide net for diverse perspectives (good for: creative tasks, open-ended exploration)  
+3. "skeptic_validator" - Find contradictions, gaps, edge cases (good for: critical analysis, verification)
+4. "codebase_specialist" - Deep dive into local code and technical implementation (good for: programming, debugging, software development)
+5. "domain_expert" - Leverage specialized knowledge packs (good for: music theory, math, science, specialized domains)
+6. "web_specialist" - Expert at finding current online resources (good for: current events, APIs, external services)
+
+IMPORTANT: Only select researchers that are actually relevant to the task. 
+- For music theory questions: domain_expert + high_precision (NOT codebase_specialist)
+- For programming tasks: codebase_specialist + high_precision + skeptic_validator
+- For general questions: high_precision + breadth_explorer
+- For creative tasks: breadth_explorer + domain_expert
+- For current info/APIs: web_specialist + high_precision
+- For critical analysis: skeptic_validator + high_precision
+
+Respond with ONLY a JSON array of researcher names. Examples:
+- Music theory question: ["domain_expert", "high_precision"]
+- Programming bug: ["codebase_specialist", "skeptic_validator", "high_precision"] 
+- Creative writing: ["breadth_explorer", "domain_expert"]
+- Current API research: ["web_specialist", "high_precision"]
+- Math problem: ["domain_expert", "high_precision"]
+
+User Query: {user_query}
+
+Past Research Context: {episodic_context}
+
+Respond with JSON array only:"""
+
+    try:
+        # Create messages for the LLM
+        messages = [
+            {
+                "role": "system", 
+                "content": strategy_prompt.replace("{user_query}", user_query).replace("{episodic_context}", episodic_context)
+            }
+        ]
+        
+        # Call the model to get research strategy
+        raw_response = ""
+        async for token in call_model_server(messages, []):
+            raw_response += token
+        
+        logger.info(f"🧠 Research strategy response: {raw_response[:200]}...")
+        
+        # Clean and parse the response
+        cleaned_response = raw_response.strip()
+        if cleaned_response.startswith("```json"):
+            cleaned_response = cleaned_response.replace("```json", "").replace("```", "").strip()
+        
+        # Try to extract JSON array
+        import re
+        json_match = re.search(r'\[.*?\]', cleaned_response, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+            try:
+                selected_researchers = json.loads(json_str)
+                if isinstance(selected_researchers, list) and all(isinstance(r, str) for r in selected_researchers):
+                    logger.info(f"✅ Selected researchers: {selected_researchers}")
+                    return selected_researchers
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse JSON: {json_str}")
+        
+        # Fallback: try to parse the entire response as JSON
+        try:
+            selected_researchers = json.loads(cleaned_response)
+            if isinstance(selected_researchers, list):
+                logger.info(f"✅ Selected researchers (fallback): {selected_researchers}")
+                return selected_researchers
+        except json.JSONDecodeError:
+            pass
+        
+        # If all parsing fails, use intelligent heuristics
+        logger.warning("LLM parsing failed, using heuristic fallback")
+        return _fallback_research_strategy(user_query)
+        
+    except Exception as e:
+        logger.error(f"Error in research strategy determination: {e}")
+        return _fallback_research_strategy(user_query)
+
+def _fallback_research_strategy(user_query: str) -> List[str]:
+    """Fallback heuristic-based research strategy when LLM fails."""
+    query_lower = user_query.lower()
+    
+    # Programming/code related
+    if any(word in query_lower for word in ["code", "programming", "debug", "function", "class", "api", "software", "bug", "implementation"]):
+        return ["codebase_specialist", "high_precision"]
+    
+    # Music theory
+    if any(word in query_lower for word in ["music", "chord", "scale", "harmony", "melody", "rhythm", "theory"]):
+        return ["domain_expert", "high_precision"]
+    
+    # Math/science
+    if any(word in query_lower for word in ["math", "calculus", "algebra", "geometry", "physics", "chemistry", "equation", "formula"]):
+        return ["domain_expert", "high_precision"]
+    
+    # Creative tasks
+    if any(word in query_lower for word in ["creative", "write", "story", "poem", "design", "art", "brainstorm"]):
+        return ["breadth_explorer", "domain_expert"]
+    
+    # Current info/web tasks
+    if any(word in query_lower for word in ["current", "latest", "news", "api", "web", "online", "search"]):
+        return ["web_specialist", "high_precision"]
+    
+    # Critical analysis
+    if any(word in query_lower for word in ["analyze", "critique", "evaluate", "assess", "review", "validate"]):
+        return ["skeptic_validator", "high_precision"]
+    
+    # Default for general questions
+    return ["high_precision", "breadth_explorer"]
+
 async def execute_researcher(messages: List[Dict[str, str]], knowledge_store: Optional[KnowledgeStore] = None) -> AsyncGenerator[Dict, None]:
     """
-    Executes multi-instance researcher system with diverse search strategies.
-    Fan-out approach with specialized researchers for comprehensive information gathering.
+    Executes intelligent multi-instance researcher system with LLM-determined research strategies.
+    Uses LLM to analyze the task and select only relevant researchers for efficient information gathering.
     """
     user_content = " ".join([msg.get("content", "") for msg in messages if msg.get("role") == "user"])
     
-    logger.info(f"🔬 MULTI-RESEARCHER SYSTEM STARTING")
+    logger.info(f"🔬 INTELLIGENT RESEARCHER SYSTEM STARTING")
     logger.info(f"   User request: {user_content[:100]}...")
     logger.info(f"   Knowledge store: {'available' if knowledge_store else 'none'}")
     
@@ -271,50 +391,90 @@ async def execute_researcher(messages: List[Dict[str, str]], knowledge_store: Op
     meta_tools = tool_manager.get_tools_by_names([
         "search_codebase",
         "web_search", 
-        "fetch_web_content",
+        "fetch_web_page",
         "read_file"
     ])
     
     logger.info(f"   Available research tools: {[tool['function']['name'] for tool in meta_tools]}")
     
-    # Fan-out multiple researchers with different specializations
-    researcher_configs = [
-        {
+    # Step 1: Use LLM to determine which researchers are needed for this specific task
+    logger.info("🧠 ANALYZING TASK to determine optimal research strategy...")
+    async for content in stream_step_content("Analyzing task to determine optimal research strategy..."):
+        yield content
+    
+    selected_researchers = await _determine_research_strategy(user_content, episodic_context)
+    
+    if not selected_researchers:
+        logger.warning("❌ No researchers selected, defaulting to high_precision")
+        selected_researchers = ["high_precision"]
+    
+    logger.info(f"🎯 SELECTED RESEARCHERS: {', '.join(selected_researchers)}")
+    async for content in stream_step_content(f"Selected research team: {', '.join([r.replace('_', ' ').title() for r in selected_researchers])}"):
+        yield content
+    
+    # All available researcher configurations
+    all_researcher_configs = {
+        "high_precision": {
             "name": "high_precision",
             "prompt_role": "High-Precision Researcher - Focus on exact, well-cited information with strict verification",
             "temperature": 0.1,
             "top_p": 0.3,
             "search_strategy": "precise_citations",
-            "max_iterations": 15
+            "max_iterations": 15,
+            "domains": ["general", "technical", "academic", "documentation"]
         },
-        {
+        "breadth_explorer": {
             "name": "breadth_explorer", 
             "prompt_role": "Breadth Explorer - Cast a wide net to find diverse perspectives and comprehensive coverage",
             "temperature": 0.7,
             "top_p": 0.95,
             "search_strategy": "broad_coverage",
-            "max_iterations": 20
+            "max_iterations": 20,
+            "domains": ["creative", "exploration", "general", "multi_domain"]
         },
-        {
+        "skeptic_validator": {
             "name": "skeptic_validator",
             "prompt_role": "Skeptical Validator - Find contradictions, gaps, edge cases, and potential issues",
             "temperature": 0.2,
             "top_p": 0.5,
             "search_strategy": "contradiction_finding",
-            "max_iterations": 12
+            "max_iterations": 12,
+            "domains": ["critical_analysis", "verification", "quality_assurance"]
         },
-        {
+        "codebase_specialist": {
             "name": "codebase_specialist",
             "prompt_role": "Codebase Specialist - Deep dive into local code, implementation patterns, and technical details",
             "temperature": 0.3,
             "top_p": 0.4,
             "search_strategy": "local_code_focus",
-            "max_iterations": 18
+            "max_iterations": 18,
+            "domains": ["programming", "software_development", "technical_implementation", "debugging"]
+        },
+        "domain_expert": {
+            "name": "domain_expert",
+            "prompt_role": "Domain Expert - Leverage specialized knowledge packs and domain-specific information",
+            "temperature": 0.4,
+            "top_p": 0.6,
+            "search_strategy": "domain_specific",
+            "max_iterations": 15,
+            "domains": ["music_theory", "mathematics", "science", "specialized_knowledge"]
+        },
+        "web_specialist": {
+            "name": "web_specialist",
+            "prompt_role": "Web Research Specialist - Expert at finding and evaluating online resources and current information",
+            "temperature": 0.5,
+            "top_p": 0.7,
+            "search_strategy": "web_focused",
+            "max_iterations": 18,
+            "domains": ["current_events", "online_resources", "external_information", "apis"]
         }
-    ]
+    }
     
-    # Execute researchers in parallel
-    logger.info(f"🚀 LAUNCHING {len(researcher_configs)} specialized researchers")
+    # Select only the needed researcher configurations
+    researcher_configs = [all_researcher_configs[name] for name in selected_researchers if name in all_researcher_configs]
+    
+    # Execute selected researchers in parallel
+    logger.info(f"🚀 LAUNCHING {len(researcher_configs)} targeted researchers")
     for config in researcher_configs:
         logger.info(f"   • {config['name']}: {config['prompt_role'][:50]}...")
     
@@ -355,7 +515,7 @@ async def execute_researcher(messages: List[Dict[str, str]], knowledge_store: Op
     
     # Aggregate and synthesize results
     logger.info("🔄 AGGREGATING research findings...")
-    async for content in stream_step_content("Synthesizing findings from multiple researchers..."):
+    async for content in stream_step_content("Synthesizing findings from targeted researchers..."):
         yield content
     
     aggregated_result = await _aggregate_research_findings(researcher_results, user_content)
@@ -365,19 +525,20 @@ async def execute_researcher(messages: List[Dict[str, str]], knowledge_store: Op
         outcome_status = "pass" if aggregated_result else "partial"
         knowledge_store.record_episode(
             role="researcher",
-            summary=f"Multi-researcher investigation: {user_content[:100]}",
-            tags=["research", "multi_instance", "comprehensive_analysis"],
+            summary=f"Intelligent research with {len(selected_researchers)} targeted researchers: {user_content[:100]}",
+            tags=["research", "intelligent_selection", "targeted_analysis"],
             entities={
                 "query": user_content[:200], 
-                "researchers_used": len(researcher_results),
+                "researchers_selected": selected_researchers,
+                "researchers_completed": len(researcher_results),
                 "tools_used": [tool["function"]["name"] for tool in meta_tools]
             },
             outcome={
                 "status": outcome_status, 
-                "researchers_completed": len(researcher_results),
+                "efficiency": len(researcher_results) / len(selected_researchers) if selected_researchers else 0,
                 "total_researchers": len(researcher_configs)
             },
-            confidence=0.9 if len(researcher_results) >= 3 else 0.6
+            confidence=0.9 if len(researcher_results) >= 2 else 0.7
         )
     
     yield aggregated_result
@@ -390,11 +551,6 @@ async def _execute_single_researcher(
     knowledge_store: Optional[KnowledgeStore]
 ) -> Dict:
     """Execute a single researcher with specific configuration."""
-    from server.agent.agentic_flow.helpers_and_prompts import (
-        RESEARCHER_PROMPT, HIGH_PRECISION_RESEARCHER_PROMPT, 
-        BREADTH_EXPLORER_PROMPT, SKEPTIC_VALIDATOR_PROMPT, 
-        CODEBASE_SPECIALIST_PROMPT
-    )
     
     try:
         # Select specialized prompt based on researcher type
@@ -408,6 +564,10 @@ async def _execute_single_researcher(
             specialized_prompt = SKEPTIC_VALIDATOR_PROMPT.replace("{base_researcher_rules}", base_rules)
         elif config["name"] == "codebase_specialist":
             specialized_prompt = CODEBASE_SPECIALIST_PROMPT.replace("{base_researcher_rules}", base_rules)
+        elif config["name"] == "domain_expert":
+            specialized_prompt = DOMAIN_EXPERT_PROMPT.replace("{base_researcher_rules}", base_rules)
+        elif config["name"] == "web_specialist":
+            specialized_prompt = WEB_SPECIALIST_PROMPT.replace("{base_researcher_rules}", base_rules)
         else:
             specialized_prompt = base_rules
         
@@ -821,6 +981,10 @@ async def execute_executor(overall_goal: str, full_plan: str, previous_steps: Li
     async for chunk in react_agent.execute_react_loop_streaming(chat_messages, logger):
         if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
             yield chunk
+        elif chunk.startswith("<token>") and chunk.endswith("</token>"):
+            # Extract content from token tags and accumulate clean text
+            token_content = chunk[7:-8]  # Remove <token> and </token> tags
+            result += token_content
         else:
             result += chunk
     
@@ -1219,35 +1383,52 @@ async def execute_control_loop(plan, goal, messages, research_findings=None, kno
         step_num = step.get('step', step_index + 1)
         step_tool = step.get('tool', 'unknown')
         step_thought = step.get('thought', 'No description')
+        step_args = step.get('args', {})
         
-        # Execute the current step
-        step_name = f"Executing Step {step_num}: {step_tool}"
-        truncated_name = truncate_step_name(step_name)
-        yield f"<step>{truncated_name}</step>"
+        # Start step execution with clear plan context
+        yield f"<step>Starting Step {step_num}: {step_thought[:50]}{'...' if len(step_thought) > 50 else ''}</step>"
+        
+        # Show what we're about to do
+        async for content in stream_step_content(f"STEP {step_num} STARTING\nObjective: {step_thought}\nTool: {step_tool}\nArgs: {str(step_args)[:100]}{'...' if len(str(step_args)) > 100 else ''}"):
+            yield content
         
         logger.info(f"🔧 EXECUTING STEP {step_num}: {step_tool}")
         logger.info(f"   Thought: {step_thought}")
-        logger.info(f"   Args: {step.get('args', {})}")
+        logger.info(f"   Args: {step_args}")
 
+        # Execute the step and collect results
         result = ""
         async for chunk in execute_executor(goal, current_plan, step_history, step, knowledge_store, domain_knowledge, pack_name):
             if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
                 yield chunk
             else:
-                result = chunk  # The final result comes as the last chunk
+                result = chunk  # The final result comes as the last chunk (now clean)
+        
+        # Analyze step results
+        yield f"<step>Step {step_num} Analysis</step>"
+        
+        # Determine if step was successful
+        step_success = not ("error" in result.lower() or "failed" in result.lower())
+        success_indicator = "✅ SUCCESS" if step_success else "⚠️ ISSUES"
+        
+        result_preview = result[:300] + "..." if len(result) > 300 else result
+        async for content in stream_step_content(f"STEP {step_num} ANALYSIS\nStatus: {success_indicator}\nResults: {result_preview}"):
+            yield content
         
         logger.info(f"✅ STEP {step_num} COMPLETED. Result length: {len(result)} chars")
-        step_history.append({"step": step_num, "tool": step_tool, "result": result})
+        step_history.append({"step": step_num, "tool": step_tool, "result": result, "success": step_success})
         
-        # Show step completion with result preview
-        result_preview = result[:200] + "..." if len(result) > 200 else result
-        async for content in stream_step_content(f"STEP {step_num} COMPLETED\nTool: {step_tool}\nResult Preview: {result_preview}"):
-            yield content
+        # Show step completion and transition
         step_index += 1
-        
-        # After each step (except the last), check if we need to adjust the plan
         if step_index < len(current_plan):
-            yield f"<step>Evaluating Plan Progress</step>"
+            next_step = current_plan[step_index]
+            next_objective = next_step.get('thought', 'Next step')[:50]
+            
+            yield f"<step>Step {step_num} Complete, Moving to Step {step_index + 1}</step>"
+            async for content in stream_step_content(f"STEP {step_num} GOOD ✅\nMoving to Step {step_index + 1}: {next_objective}{'...' if len(next_step.get('thought', '')) > 50 else ''}"):
+                yield content
+                
+            # Check if we need to adjust the plan
             logger.info(f"Checking if plan adjustment needed after step {step['step']}")
             adaptive_result = await execute_adaptive_planner(
                 goal, current_plan, step_history, result, messages, research_findings

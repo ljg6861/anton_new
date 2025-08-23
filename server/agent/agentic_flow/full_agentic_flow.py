@@ -2,6 +2,7 @@ import json
 import logging
 from typing import AsyncGenerator, Dict, List, Optional
 from pathlib import Path
+import httpx
 from server.agent.agentic_flow.helpers_and_prompts import call_model_server
 from server.agent.config import USER_ROLE, MODEL_SERVER_URL
 from server.agent.agentic_flow.task_flow import handle_task_route
@@ -20,8 +21,8 @@ MODEL_NAME = "cpatonn/Qwen3-30B-A3B-Thinking-2507-AWQ-4bit"
 FEW_SHOT_ROUTER_PROMPT = """You are a precise and logical AI router. Your only function is to classify the user's intent based on their most recent message and output a single, valid JSON object. Do not add any conversational text or explanations.
 
 # ROUTES
-- `chat`: For general conversation, greetings, and simple questions that do not require action.
-- `task`: For any request that requires an action, tool use, or a multi-step process. This includes simple commands like setting reminders and complex requests like writing code.
+- `chat`: For basic greetings, simple acknowledgments, and very simple factual questions.
+- `task`: For any request requiring research, analysis, detailed explanations, tool use, or multi-step processes. This includes all analysis requests, explanations requiring expertise, and complex questions.
 
 Based on the route descriptions, classify the user's message by following the pattern in the examples below.
 
@@ -30,19 +31,28 @@ Based on the route descriptions, classify the user's message by following the pa
 User Message: "hello there how are you"
 {"route": "chat"}
 
-User Message: "What is the largest planet in our solar system?"
+User Message: "thanks"
 {"route": "chat"}
 
-User Message: "Set a reminder to call Mom at 5pm."
+User Message: "What's 2+2?"
+{"route": "chat"}
+
+User Message: "Analyze this for me"
 {"route": "task"}
 
-User Message: "Schedule a meeting with the design team for tomorrow morning."
+User Message: "Explain how this works"
 {"route": "task"}
 
-User Message: "Create a to-do list for my grocery shopping trip."
+User Message: "Break down this topic"
 {"route": "task"}
 
-User Message: "Write a python script to parse a CSV file."
+User Message: "Research the latest developments"
+{"route": "task"}
+
+User Message: "Create a plan for me"
+{"route": "task"}
+
+User Message: "Write code to solve this"
 {"route": "task"}
 
 --- END EXAMPLES ---
@@ -119,15 +129,43 @@ async def execute_agentic_flow(initial_messages: List[Dict[str, str]]) -> AsyncG
         yield f"Error: Unknown route '{route}' provided by the router."
 
 async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
-    """Enhanced chat route with tool calling capabilities and mandatory research for unknown topics"""
+    """Enhanced chat route with tool calling capabilities and LLM-based research validation"""
     logger.info("Handling chat route with research and learning capability")
     
     # Extract user query for learning context
     user_content = " ".join([msg.get("content", "") for msg in messages if msg.get("role") == "user"])
     
-    # Initialize research enhancement system
-    research_enhancer = ResearchEnhancer()
-    research_requirement = research_enhancer.analyze_query_complexity(user_content)
+    # Create LLM callback for research enhancement
+    async def llm_callback(prompt: str) -> str:
+        """Callback for LLM-based research analysis"""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "http://localhost:8003/v1/chat/completions",
+                    json={
+                        "model": "anton",
+                        "messages": [
+                            {"role": "system", "content": "You are an expert research analyst. Respond with JSON only."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.1,
+                        "max_tokens": 1000
+                    },
+                    headers={"Content-Type": "application/json", "Authorization": "Bearer anton-vllm-key"}
+                )
+                if response.status_code == 200:
+                    result = response.json()
+                    return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                else:
+                    logger.error(f"LLM callback failed: {response.status_code}")
+                    return ""
+        except Exception as e:
+            logger.error(f"LLM callback error: {e}")
+            return ""
+    
+    # Initialize research enhancement system with LLM callback
+    research_enhancer = ResearchEnhancer(llm_callback=llm_callback)
+    research_requirement = await research_enhancer.analyze_query_complexity(user_content)
     
     logger.info(f"🔍 Research requirement: min_sources={research_requirement.min_sources}, "
                f"fact_verification={research_requirement.fact_verification_needed}")
@@ -205,7 +243,15 @@ MANDATORY TOOL USAGE RULES:
 - Weather questions → Use web_search → Use the weather links/data you found to answer
 - Product questions → Use web_search → Use the product info you found to answer  
 - Current events → Use web_search → Use the news results you found to answer
-- Music/technical analysis → Use multiple web_search calls with different queries → Verify facts before answering
+- Music/technical analysis → Use multiple web_search calls with different queries → ALWAYS verify facts before answering
+- Song analysis → Search for "song name artist analysis", then "song name chord progression", then "song name meaning" → Use ALL results to build comprehensive answer
+
+FOR MUSIC THEORY QUESTIONS:
+1. NEVER guess at technical details (time signatures, keys, chord progressions)
+2. ALWAYS search multiple times with different queries to verify information  
+3. Look for authoritative music theory sources, not just fan sites
+4. Cross-reference information from multiple sources before stating facts
+5. If sources conflict, mention the discrepancy rather than picking one
 
 EXAMPLE CORRECT BEHAVIOR:
 User: "Weather in Orlando?"
@@ -316,17 +362,19 @@ Remember: After using tools successfully, confidently provide information based 
                 # Note: We don't have access to the actual arguments here in the streaming,
                 # but the research validation will handle missing arguments gracefully
         
-        # Before generating response, validate research depth
+        # Before generating response, validate research depth ONLY for music theory queries
         elif chunk.startswith("<step>Generating response</step>") and not research_validated:
-            # Only validate for queries that need research
-            if research_requirement.min_sources > 1:
+            # Only validate for music theory queries that specifically need research
+            is_music_theory = any(keyword in user_content.lower() for keyword in ['music theory', 'song', 'guitar', 'chord'])
+            
+            if research_requirement.min_sources > 1 and is_music_theory:
                 # Validate research depth before allowing response
-                is_sufficient, issues = research_enhancer.validate_research_depth(
+                is_sufficient, issues = await research_enhancer.validate_research_depth(
                     user_content, tool_calls_made, research_requirement
                 )
                 
-                if not is_sufficient:
-                    logger.warning(f"🔍 Research insufficient: {issues}")
+                if not is_sufficient and len(tool_calls_made) < 2:  # Only block if very little research done
+                    logger.warning(f"🔍 Research insufficient for music theory query: {issues}")
                     suggestions = research_enhancer.suggest_additional_research(
                         user_content, tool_calls_made, research_requirement
                     )
@@ -346,7 +394,7 @@ Remember: After using tools successfully, confidently provide information based 
                     logger.info("✅ Research validation passed")
             else:
                 research_validated = True
-                logger.info("✅ Research validation skipped (not required for this query type)")
+                logger.info("✅ Research validation skipped (not a music theory query requiring validation)")
         
         # Pass through step markers and step content for UI processing
         if chunk.startswith("<step>") or chunk.startswith("<step_content>"):

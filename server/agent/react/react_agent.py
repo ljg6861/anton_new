@@ -112,6 +112,50 @@ class ReActAgent:
         
         return final_summary
     
+    async def force_aggressive_summarization(self, react_messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """
+        Forces aggressive summarization when hitting hard token limits.
+        Keeps only system message and creates a comprehensive summary of everything else.
+        """
+        if len(react_messages) <= 1:
+            return react_messages
+            
+        logger.info(f"Force aggressive summarization: {len(react_messages)} messages to be condensed")
+        
+        # Keep only the system message
+        system_message = react_messages[0] if react_messages[0].get("role") == "system" else None
+        messages_to_summarize = react_messages[1:] if system_message else react_messages
+        
+        # Format all conversation for summarization
+        formatted_history = []
+        for msg in messages_to_summarize:
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            if content.strip():
+                formatted_history.append(f"{role.upper()}: {content}")
+        
+        conversation_text = "\n\n".join(formatted_history)
+        summary = await self._summarize_text_in_batches(conversation_text)
+        
+        # Create comprehensive summary message
+        summary_message = {
+            "role": "assistant", 
+            "content": f"EMERGENCY CONTEXT COMPRESSION: Previous conversation summarized due to token limits.\n"
+                       f"({len(messages_to_summarize)} messages condensed)\n\n"
+                       f"COMPREHENSIVE SUMMARY:\n{summary}"
+        }
+        
+        # Return minimal message set
+        if system_message:
+            new_messages = [system_message, summary_message]
+        else:
+            new_messages = [summary_message]
+            
+        new_token_count = self.calculate_total_message_tokens(new_messages)
+        logger.info(f"Aggressive summarization: {len(react_messages)} -> {len(new_messages)} messages, ~{new_token_count} tokens")
+        
+        return new_messages
+
     async def check_and_summarize_if_needed(self, react_messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
         Checks if the message history exceeds a token threshold and, if so, preserves the
@@ -243,9 +287,41 @@ class ReActAgent:
             
             # Use non-streaming method to get response and check for tool calls
             # TODO: Implement proper streaming that can handle tool calls
-            response_data = self._execute_llm_request(react_messages, logger)
-            response = response_data['choices'][0]['message']
-            tool_calls = response.get('tool_calls')
+            try:
+                response_data = self._execute_llm_request(react_messages, logger)
+                response = response_data['choices'][0]['message']
+                tool_calls = response.get('tool_calls')
+            except RuntimeError as e:
+                # Check if this is a token limit error
+                if "'max_tokens' or 'max_completion_tokens' is too large" in str(e) or "maximum context length" in str(e):
+                    logger.warning(f"🔄 TOKEN LIMIT EXCEEDED: Context too large, forcing aggressive summarization...")
+                    
+                    # Stream warning to user
+                    yield f"<step>Context Size Limit Reached</step>"
+                    async for char in self._stream_step_content("Context has grown too large. Aggressively summarizing conversation history to continue..."):
+                        yield char
+                    
+                    # Force aggressive summarization to drastically reduce context
+                    react_messages = await self.force_aggressive_summarization(react_messages)
+                    
+                    # Retry the request with aggressively summarized context
+                    try:
+                        logger.info(f"Retrying with aggressively summarized context: {len(react_messages)} messages")
+                        response_data = self._execute_llm_request(react_messages, logger)
+                        response = response_data['choices'][0]['message']
+                        tool_calls = response.get('tool_calls')
+                        
+                        # Stream success message
+                        async for char in self._stream_step_content("✅ Successfully continued with compressed context"):
+                            yield char
+                            
+                    except Exception as retry_error:
+                        logger.error(f"Failed to execute request even after aggressive summarization: {retry_error}")
+                        # If it still fails after aggressive summarization, raise the original error
+                        raise e from retry_error
+                else:
+                    # Not a token limit error, re-raise as-is
+                    raise
             
             # Log the LLM response
             if tool_calls:
@@ -263,16 +339,17 @@ class ReActAgent:
                     async for char in self._stream_step_content(f"Executing {tool_name}..."):
                         yield char
                     
-                    # Create a signature for this tool call
-                    tool_signature = f"{tool_name}:{tool_args}"
+                    # Create a signature for this tool call - ensure consistent string representation
+                    tool_args_str = json.dumps(tool_args, sort_keys=True) if isinstance(tool_args, dict) else str(tool_args)
+                    tool_signature = f"{tool_name}:{tool_args_str}"
                     
-                    # Check for repetitive tool calls (same tool with same args within last 3 calls)
+                    # Check for repetitive tool calls (exact same tool with exact same args within last 3 calls)
                     if tool_signature in recent_tool_calls[-3:]:
-                        logger.warning(f"🔄 LOOP DETECTED: {tool_name} with same args already tried recently")
-                        guidance_msg = f"🔄 STOP REPEATING! You've already tried {tool_name} with these arguments recently. If you have enough information to synthesize findings, CONCLUDE your research instead of searching more!"
+                        logger.warning(f"🔄 LOOP DETECTED: {tool_name} with identical args already tried recently")
+                        guidance_msg = f"🔄 STOP REPEATING! You've already tried {tool_name} with these exact arguments recently. If you have enough information to synthesize findings, CONCLUDE your research instead of searching more!"
                         
                         # Stream the warning content with details
-                        async for char in self._stream_step_content(f"LOOP DETECTED\nTool: {tool_name}\nReason: Same tool+args used recently\nAction: Skipping execution"):
+                        async for char in self._stream_step_content(f"LOOP DETECTED\nTool: {tool_name}\nArgs: {tool_args_str[:100]}...\nReason: Identical call made recently\nAction: Skipping execution"):
                             yield char
                         
                         # Still add to recent_tool_calls to track this attempt
@@ -285,14 +362,14 @@ class ReActAgent:
                         })
                         continue
                     
-                    # Also check if using the same tool too frequently (same tool type within last 5 calls)
-                    same_tool_count = sum(1 for sig in recent_tool_calls[-5:] if sig.startswith(f"{tool_name}:"))
-                    if same_tool_count >= 4:  # Increased threshold to be less aggressive
+                    # Check if using the same tool too frequently - but only block if it's excessive (8+ times)
+                    same_tool_count = sum(1 for sig in recent_tool_calls[-10:] if sig.startswith(f"{tool_name}:"))
+                    if same_tool_count >= 8:  # Much higher threshold - 8+ calls with same tool
                         logger.warning(f"🚨 FREQUENCY LIMIT: {tool_name} used {same_tool_count} times recently")
-                        guidance_msg = f"🚨 DIVERSIFY! You've used {tool_name} {same_tool_count} times recently. Try different tools or conclude with your current findings!"
+                        guidance_msg = f"🚨 EXCESSIVE USAGE! You've used {tool_name} {same_tool_count} times recently. This is too much - try completely different approaches or conclude with your current findings!"
                         
                         # Stream the warning content with details
-                        async for char in self._stream_step_content(f"FREQUENCY WARNING\nTool: {tool_name}\nUsage: {same_tool_count} times in last 5 calls\nAction: Forcing diversity"):
+                        async for char in self._stream_step_content(f"FREQUENCY WARNING\nTool: {tool_name}\nUsage: {same_tool_count} times in last 10 calls\nAction: Blocking excessive usage"):
                             yield char
                         
                         # Still add to recent_tool_calls to track this attempt
@@ -318,8 +395,20 @@ class ReActAgent:
                         result = tool_manager.run_tool(tool_name, tool_args)
                         logger.info(f"✅ Tool {tool_name} completed successfully. Result length: {len(str(result))} chars")
                         
-                        # Don't show full tool results in step_content to keep UI clean, but confirm success
-                        async for char in self._stream_step_content(f"✅ {tool_name} completed - information gathered"):
+                        # Show tool results with truncation for better visibility
+                        result_str = str(result)
+                        
+                        # Clean any token tags from the result before displaying
+                        cleaned_result = re.sub(r'<token>(.*?)</token>', r'\1', result_str)
+                        
+                        result_preview = cleaned_result[:1000] + "..." if len(cleaned_result) > 1000 else cleaned_result
+                        
+                        # Show tool execution with name, args, and results
+                        async for char in self._stream_step_content(
+                            f"✅ {tool_name} COMPLETED\n"
+                            f"Args: {json.dumps(tool_args, indent=2)[:200]}{'...' if len(str(tool_args)) > 200 else ''}\n"
+                            f"Result: {result_preview}"
+                        ):
                             yield char
                             
                         react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : result}) 
@@ -327,8 +416,12 @@ class ReActAgent:
                     except Exception as e:
                         logger.error(f"❌ Tool {tool_name} FAILED: {str(e)}")
                         
-                        # Stream error message with details
-                        async for char in self._stream_step_content(f"TOOL FAILED\nTool: {tool_name}\nError: {str(e)[:200]}"):
+                        # Stream error message with full details
+                        async for char in self._stream_step_content(
+                            f"❌ {tool_name} FAILED\n"
+                            f"Args: {json.dumps(tool_args, indent=2)[:200]}{'...' if len(str(tool_args)) > 200 else ''}\n"
+                            f"Error: {str(e)[:500]}"
+                        ):
                             yield char
                             
                         react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : str(e)}) 

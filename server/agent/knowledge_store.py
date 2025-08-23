@@ -309,8 +309,26 @@ class KnowledgeStore:
             return ""
         
     def select_pack_by_embedding(self, prompt: str, fallback="packs/anton_repo.v1") -> str:
+        # Quick domain check for critical cases
+        prompt_lower = prompt.lower()
+        
+        # Music theory queries should use music pack
+        if any(word in prompt_lower for word in ["music", "song", "chord", "harmony", "melody", "musical", "crazy train", "theory"]):
+            music_pack = "learning/packs/music_theory.v1"
+            if Path(music_pack).exists():
+                logger.info(f'Domain override: using music_theory.v1 for music query')
+                return music_pack
+                
+        # Math queries should use calc pack  
+        if any(word in prompt_lower for word in ["calculus", "derivative", "integral", "math", "equation"]):
+            calc_pack = "learning/packs/calc.v1"
+            if Path(calc_pack).exists():
+                logger.info(f'Domain override: using calc.v1 for math query')
+                return calc_pack
+        
+        # Fall back to embedding selection
         centroids = load_centroids()
-        logger.info('loaded centroids')
+        logger.info('using embedding-based selection')
         if not centroids:
             logger.info('returning fallback pack, no centroids found')
             return fallback

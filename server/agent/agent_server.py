@@ -127,11 +127,15 @@ async def agent_chat(request: AgentChatRequest):
     initial_messages = [msg.model_dump() for msg in request.messages]
         
     async def react_with_metrics():
+        import re
         buffer = ''
         async for token in execute_agentic_flow(initial_messages):
             buffer += token
             yield token
-        logger.info("Responsed to " + str(initial_messages[-1]) + ' with \n' + buffer) 
+        
+        # Clean token tags from buffer before logging
+        clean_buffer = re.sub(r'<token>.*?</token>', '', buffer)
+        logger.info("Responsed to " + str(initial_messages[-1]) + ' with \n' + clean_buffer) 
         
     
     return StreamingResponse(

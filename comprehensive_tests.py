@@ -8,7 +8,7 @@ import traceback
 from typing import Dict, List
 from server.agent.agentic_flow.full_agentic_flow import determine_route, execute_agentic_flow
 from server.agent.agentic_flow.helpers_and_prompts import SIMPLE_PLANNER_PROMPT
-from server.agent.agentic_flow.task_flow import execute_executor, execute_researcher, handle_task_route, initial_assessment, execute_planner
+from server.agent.agentic_flow.task_flow import execute_executor, execute_researcher, handle_task_route, initial_assessment, execute_planner, _determine_research_strategy, _fallback_research_strategy
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -40,6 +40,82 @@ async def test_planner(prompt, messages):
         if step["tool"] == "final_answer":
             final_plan = True
     assert final_plan, "Plan must include a final step with the 'final_answer' tool."
+
+async def test_intelligent_research_strategy():
+    """Test the new intelligent research strategy selection system."""
+    print("\n🧪 Testing Intelligent Research Strategy Selection...")
+    
+    # Test cases for different types of queries
+    test_cases = [
+        {
+            "query": "What are the fundamentals of music theory? Explain scales and chord progressions.",
+            "expected_researchers": ["domain_expert", "high_precision"],
+            "should_not_include": ["codebase_specialist"]
+        },
+        {
+            "query": "I have a bug in my Python code. The function is not returning the expected values.",
+            "expected_researchers": ["codebase_specialist", "high_precision"],  
+            "should_not_include": ["domain_expert"]
+        },
+        {
+            "query": "Help me write a creative story about space exploration.",
+            "expected_researchers": ["breadth_explorer", "domain_expert"],
+            "should_not_include": ["codebase_specialist"]
+        },
+        {
+            "query": "What are the latest developments in AI and machine learning APIs?",
+            "expected_researchers": ["web_specialist", "high_precision"],
+            "should_not_include": ["codebase_specialist"]
+        },
+        {
+            "query": "Solve this calculus problem: find the derivative of x^3 + 2x^2 - 5x + 1",
+            "expected_researchers": ["domain_expert", "high_precision"],
+            "should_not_include": ["web_specialist", "codebase_specialist"]
+        }
+    ]
+    
+    all_tests_passed = True
+    
+    for i, test_case in enumerate(test_cases, 1):
+        print(f"\n  Test {i}: {test_case['query'][:50]}...")
+        
+        try:
+            # Test LLM-based strategy selection (when available)
+            try:
+                selected_researchers = await _determine_research_strategy(test_case['query'], "")
+                print(f"    LLM selected: {selected_researchers}")
+            except Exception as e:
+                print(f"    LLM failed ({e}), using fallback...")
+                selected_researchers = _fallback_research_strategy(test_case['query'])
+                print(f"    Fallback selected: {selected_researchers}")
+            
+            # Check that expected researchers are included
+            for expected in test_case['expected_researchers']:
+                if expected not in selected_researchers:
+                    print(f"    ❌ FAIL: Expected '{expected}' but not found in {selected_researchers}")
+                    all_tests_passed = False
+                else:
+                    print(f"    ✅ Found expected researcher: {expected}")
+            
+            # Check that unwanted researchers are NOT included 
+            for unwanted in test_case.get('should_not_include', []):
+                if unwanted in selected_researchers:
+                    print(f"    ❌ FAIL: Unwanted researcher '{unwanted}' found in {selected_researchers}")
+                    all_tests_passed = False
+                else:
+                    print(f"    ✅ Correctly excluded: {unwanted}")
+        
+        except Exception as e:
+            print(f"    ❌ ERROR: {str(e)}")
+            traceback.print_exc()
+            all_tests_passed = False
+    
+    if all_tests_passed:
+        print(f"\n✅ Intelligent Research Strategy Tests: PASSED")
+    else:
+        print(f"\n❌ Intelligent Research Strategy Tests: FAILED")
+        
+    return all_tests_passed
 
 async def test_task_executor(prompt, messages, overall_goal):
     plan = {'plan': [{'step': 1, 'thought': 'I need to retrieve the official text of the Pledge of Allegiance. Using web_search will provide the most accurate and current wording.', 'tool': 'web_search', 'args': {'query': 'official Pledge of Allegiance text'}}, {'step': 2, 'thought': "Now that I have the Pledge text from the web search, I'll write it to the specified file using the write_file tool.", 'tool': 'write_file', 'args': {'file_path': 'pledge.txt', 'content': '{{step_1_output}}'}}, {'step': 3, 'thought': "The Pledge of Allegiance has been successfully written to pledge.txt. I'll confirm completion to the user.", 'tool': 'final_answer', 'args': {'summary': "The Pledge of Allegiance has been written to 'pledge.txt' with the official text retrieved via web search."}}]}
@@ -229,6 +305,7 @@ async def main():
         "Task Route: Create a tool": test_task_route(
             [{"role": "user", "content": "Create a new tool for yourself that allows you to multiply numbers. You MUST test it by calling the tool after it has been created. If you create the tool correctly, it will automatically be available to you."}]
         ),
+        "Intelligent Research Strategy": test_intelligent_research_strategy(),
         # "Researcher API Analysis": test_researcher_api_research(
         #     [{"role": "user", "content": "Research the OpenWeatherMap API to understand how to integrate weather data retrieval"}],
         #     ["http", "requests", "json", "url", "api", "response"]
