@@ -761,7 +761,7 @@ async def execute_planner_with_research(prompt: str, messages: List[Dict[str, st
 # Backward compatibility alias
 execute_planner = execute_planner_with_research
 
-async def execute_executor(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]], current_step: Dict[str, str], knowledge_store: Optional[KnowledgeStore] = None) -> AsyncGenerator[str, None]:
+async def execute_executor(overall_goal: str, full_plan: str, previous_steps: List[Dict[str, str]], current_step: Dict[str, str], knowledge_store: Optional[KnowledgeStore] = None, domain_knowledge: str = "", pack_name: str = "") -> AsyncGenerator[str, None]:
     """Executes the executor to carry out the plan."""
     step_num = current_step.get('step', 'unknown')
     step_tool = current_step.get('tool', 'unknown')
@@ -788,7 +788,13 @@ async def execute_executor(overall_goal: str, full_plan: str, previous_steps: Li
                 outcome_status = episode.outcome.get("status", "unknown")
                 episodic_context += f"- {episode.summary} (outcome: {outcome_status})\n"
     
-    chat_prompt = EXECUTOR_PROMPT.replace("{overall_goal}", overall_goal).replace("{full_plan}", json.dumps(full_plan)).replace("{previous_steps}", json.dumps(previous_steps)).replace("{current_step}", json.dumps(current_step)) + episodic_context
+    # Include domain knowledge if available
+    domain_context = ""
+    if domain_knowledge and pack_name:
+        domain_context = f"\n\nDOMAIN KNOWLEDGE (from {pack_name.split('/')[-1]} pack):\n{domain_knowledge}\n"
+        logger.info(f"   Using domain knowledge from pack: {pack_name.split('/')[-1]}")
+    
+    chat_prompt = EXECUTOR_PROMPT.replace("{overall_goal}", overall_goal).replace("{full_plan}", json.dumps(full_plan)).replace("{previous_steps}", json.dumps(previous_steps)).replace("{current_step}", json.dumps(current_step)) + episodic_context + domain_context
     chat_messages = [{"role": "system", "content": chat_prompt}]
 
     temp_knowledge_store = knowledge_store or KnowledgeStore()
@@ -1091,6 +1097,28 @@ async def handle_task_route(messages: List[Dict[str, str]], goal: str, knowledge
         knowledge_store = KnowledgeStore()
         logger.info("   Created new knowledge store instance")
 
+    # Add pack integration for domain-specific knowledge
+    domain_knowledge = ""
+    pack_name = ""
+    try:
+        # Select appropriate learning pack based on user query
+        pack_name = knowledge_store.select_pack_by_embedding(goal)
+        if pack_name:
+            logger.info(f"   Selected learning pack: {pack_name}")
+            yield f"🎓 Using {pack_name.split('/')[-1]} pack for specialized knowledge..."
+            
+            # Build domain-specific knowledge context
+            domain_knowledge = knowledge_store.build_domain_knowledge_context(goal, pack_name)
+            logger.info(f"   Successfully integrated pack: {pack_name.split('/')[-1]}")
+            
+            async for content in stream_step_content(f"📚 Selected pack: {pack_name.split('/')[-1]}\n🧠 Retrieved relevant knowledge for your task"):
+                yield content
+        else:
+            logger.info("   No specific learning pack selected")
+    except Exception as e:
+        logger.warning(f"   Pack integration failed: {e}")
+        # Continue without pack integration
+
     # Step 1: Assessment
     yield "<step>Assessing Task Requirements</step>"
     logger.info("🔍 PHASE 1: ASSESSMENT")
@@ -1161,12 +1189,13 @@ async def handle_task_route(messages: List[Dict[str, str]], goal: str, knowledge
     # Step 4: Execute the plan
     logger.info("🚀 PHASE 4: EXECUTION")
     logger.info(f"   Executing plan with {len(plan) if plan else 0} steps")
+    logger.info(f"   Using learning pack: {pack_name.split('/')[-1] if pack_name else 'none'}")
     
     execution_start_time = time.time()
-    async for result in execute_control_loop(plan, goal, messages, research_findings, knowledge_store):
+    async for result in execute_control_loop(plan, goal, messages, research_findings, knowledge_store, domain_knowledge, pack_name):
         yield result
 
-async def execute_control_loop(plan, goal, messages, research_findings=None, knowledge_store: Optional[KnowledgeStore] = None):
+async def execute_control_loop(plan, goal, messages, research_findings=None, knowledge_store: Optional[KnowledgeStore] = None, domain_knowledge: str = "", pack_name: str = ""):
     step_history = []
     current_plan = plan or []  # Ensure we have a list
     step_index = 0
@@ -1201,7 +1230,7 @@ async def execute_control_loop(plan, goal, messages, research_findings=None, kno
         logger.info(f"   Args: {step.get('args', {})}")
 
         result = ""
-        async for chunk in execute_executor(goal, current_plan, step_history, step, knowledge_store):
+        async for chunk in execute_executor(goal, current_plan, step_history, step, knowledge_store, domain_knowledge, pack_name):
             if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
                 yield chunk
             else:

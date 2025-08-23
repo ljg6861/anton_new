@@ -341,13 +341,30 @@ class ReActAgent:
                 # Stream step indicating response is ready
                 yield f"<step>Generating response</step>"
                 
-                # Stream the actual final response as proper tokens
-                words = final_content.split()
-                for i, word in enumerate(words):
-                    # Add space except for the first word
-                    token = word if i == 0 else f" {word}"
-                    yield f"<token>{token}</token>"
-                    await asyncio.sleep(0.03)  # Small delay for streaming effect
+                # Stream the actual final response preserving all formatting
+                # Use a character-by-character approach but group into meaningful tokens
+                i = 0
+                while i < len(final_content):
+                    # Build token by collecting characters until we hit a space or newline
+                    token = ""
+                    
+                    # Collect non-whitespace characters into a word
+                    while i < len(final_content) and final_content[i] not in [' ', '\n', '\t']:
+                        token += final_content[i]
+                        i += 1
+                    
+                    # If we have a word, yield it
+                    if token:
+                        yield f"<token>{token}</token>"
+                        await asyncio.sleep(0.02)
+                    
+                    # Now handle whitespace characters individually to preserve formatting
+                    while i < len(final_content) and final_content[i] in [' ', '\n', '\t']:
+                        whitespace_char = final_content[i]
+                        yield f"<token>{whitespace_char}</token>"
+                        i += 1
+                        if whitespace_char == '\n':
+                            await asyncio.sleep(0.01)  # Shorter delay for whitespace
                 
                 return
         
@@ -467,7 +484,7 @@ class ReActAgent:
             "messages": sanitized_messages,
             "temperature": self.temperature,
             "stream": False,
-            "max_tokens": 2048
+            "max_tokens": 16000
         }
         
         if self.tools:

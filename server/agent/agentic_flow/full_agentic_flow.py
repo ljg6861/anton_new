@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import AsyncGenerator, Dict, List, Optional
+from pathlib import Path
 from server.agent.agentic_flow.helpers_and_prompts import call_model_server
 from server.agent.config import USER_ROLE, MODEL_SERVER_URL
 from server.agent.agentic_flow.task_flow import handle_task_route
@@ -118,7 +119,32 @@ async def execute_agentic_flow(initial_messages: List[Dict[str, str]]) -> AsyncG
 
 async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
     """Enhanced chat route with tool calling capabilities and mandatory research for unknown topics"""
-    logger.info("Handling chat route with research-first approach")
+    logger.info("Handling chat route with research and learning capability")
+    
+    # Extract user query for learning context
+    user_content = " ".join([msg.get("content", "") for msg in messages if msg.get("role") == "user"])
+    
+    # Initialize pack integration variables
+    domain_knowledge = ""
+    pack_name = ""
+    
+    # Pack selection and domain knowledge integration
+    try:
+        ks = KnowledgeStore()
+        selected_pack = ks.select_pack_by_embedding(user_content)
+        
+        if selected_pack:
+            pack_name = Path(selected_pack).name
+            domain_knowledge = ks.build_domain_knowledge_context(user_content, selected_pack, topk=5)
+            
+            if domain_knowledge and domain_knowledge.strip():
+                logger.info(f"Successfully integrated pack: {pack_name}")
+                # Add step content to show pack selection
+                yield f"🎓 Using {pack_name} pack for specialized knowledge..."
+            else:
+                logger.info(f"Selected pack {pack_name} but no domain knowledge retrieved")
+    except Exception as e:
+        logger.warning(f"Pack integration failed: {e}")
     
     # Set up tools available for chat (including research tools)
     chat_tools = tool_manager.get_tools_by_names([
@@ -128,37 +154,99 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
         "read_file"
     ])
     
-    # Create enhanced chat prompt that mandates research for unknown topics
-    chat_prompt = """You are Anton, a friendly and helpful assistant. You must be accurate and well-informed.
+    # Create enhanced chat prompt that includes domain knowledge
+    domain_knowledge_section = ""
+    if domain_knowledge:
+        domain_knowledge_section = f"""
 
-CRITICAL REQUIREMENT: Before answering ANY question about products, brands, substances, or topics you're uncertain about, you MUST research them first using the web_search tool. This is mandatory - DO NOT guess or provide potentially incorrect information.
+🎓 DOMAIN KNOWLEDGE AVAILABLE:
+{domain_knowledge}
 
-IMPORTANT: When you successfully use tools and get results, you DO have access to that information. You are NOT limited to saying "I don't have access" - if you just searched for something and got results, use those results to answer the question directly and helpfully.
-
-EXAMPLE MANDATORY RESEARCH SITUATIONS:
-- Someone asks about "zyns" or any product/brand you're unsure about → FIRST use web_search to find out what it is
-- Someone asks about current events or weather → FIRST use web_search for current information  
-- Someone asks about withdrawal symptoms from unknown substances → FIRST research the substance
-
-Your process should be:
-1. If uncertain about any topic → Use web_search tool to research it
-2. Read and understand the research results
-3. Then provide an accurate, well-informed response based on the research YOU JUST CONDUCTED
-4. NEVER say "I don't have access" if you just successfully used tools to get information
-
-Tools available:
-- web_search: For researching products, current information, weather, and unknown topics
-- search_codebase: For code-related questions
-- read_file: For file content questions
-
-Use these tools proactively when needed for accuracy, and then confidently use the results to help the user.
+Use this domain knowledge to provide detailed, accurate answers. This knowledge comes from the {pack_name} learning pack and should be your primary source for relevant questions.
 """
+
+    chat_prompt = f"""You are Anton, a helpful assistant with access to powerful research tools and domain knowledge.
+
+🚨 CRITICAL INSTRUCTIONS 🚨
+
+YOU HAVE SUCCESSFULLY USED TOOLS AND GOTTEN RESULTS - USE THEM!
+
+WHEN YOU GET TOOL RESULTS:
+1. ✅ YOU DO HAVE ACCESS to the information the tools just found
+2. ✅ YOU CAN provide the information from the tool results  
+3. ✅ YOU MUST use the tool results to answer the user's question
+4. ❌ NEVER say "I cannot provide" or "I don't have access" after getting tool results
+
+MANDATORY TOOL USAGE RULES:
+- Weather questions → Use web_search → Use the weather links/data you found to answer
+- Product questions → Use web_search → Use the product info you found to answer  
+- Current events → Use web_search → Use the news results you found to answer
+
+EXAMPLE CORRECT BEHAVIOR:
+User: "Weather in Orlando?"
+You: [Use web_search] → Get AccuWeather links → "Based on my search, I found current weather information for Orlando. You can check AccuWeather and Weather.com for detailed forecasts, or here's what I found: [use the search results]"
+
+EXAMPLE WRONG BEHAVIOR (DON'T DO THIS):
+You: [Use web_search] → Get results → "I cannot provide real-time weather data" ❌ NO!
+
+IF YOU JUST USED A TOOL AND GOT RESULTS - YOU HAVE ACCESS TO THAT INFORMATION!
+
+Your available tools:
+- web_search: Internet research (weather, products, news, etc.)
+- search_codebase: Code-related questions
+- read_file: File content questions
+
+Remember: After using tools successfully, confidently provide information based on what you found!{domain_knowledge_section}"""
 
     # Create chat messages with the enhanced prompt
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
     
-    # Initialize knowledge store for this chat session
+    # Initialize knowledge store for this chat session with learning capabilities
     knowledge_store = KnowledgeStore()
+    
+    # Start learning tracking for this chat session
+    from server.agent.learning_loop import learning_loop
+    learning_loop.start_task(user_content)
+    
+    # Determine domain and start episodic run
+    domain = _extract_domain_from_query(user_content)
+    knowledge_store.start_episodic_run(domain)
+    
+    # Select relevant learning pack based on the user query
+    selected_pack = knowledge_store.select_pack_by_embedding(user_content)
+    pack_name = Path(selected_pack).name if selected_pack else "none"
+    
+    # Retrieve domain knowledge from the selected pack
+    domain_knowledge = ""
+    if selected_pack and selected_pack != "packs/anton_repo.v1":  # Skip default code pack for chat
+        try:
+            domain_knowledge = knowledge_store.build_domain_knowledge_context(
+                query=user_content,
+                pack_dir=selected_pack,
+                topk=5,
+                max_nodes=6
+            )
+        except Exception as e:
+            logger.warning(f"Failed to retrieve domain knowledge from {selected_pack}: {e}")
+    
+    # Show pack selection in step content
+    if domain_knowledge:
+        yield f"<step>Knowledge Pack Selection</step>"
+        yield f"<step_content>📚 Selected pack: {pack_name}\n🧠 Retrieved relevant knowledge for your question</step_content>"
+        logger.info(f"Chat using learning pack: {pack_name}")
+    
+    # Check for relevant past chat experiences
+    past_chats = knowledge_store.search_episodes_by_query(
+        f"chat conversation {user_content[:100]}", 
+        role="chat_assistant", 
+        limit=2
+    )
+    
+    if past_chats:
+        yield f"<step>Learning from Experience</step>"
+        learning_info = f"Found {len(past_chats)} similar past conversations"
+        yield f"<step_content>📚 {learning_info}</step_content>"
+        logger.info(f"Chat learning: Found {len(past_chats)} relevant past conversations")
     
     # Set up token budget for chat (smaller than task execution)
     budget = TokenBudget(total_budget=50000)  # Smaller budget for chat
@@ -174,8 +262,19 @@ Use these tools proactively when needed for accuracy, and then confidently use t
     )
     
     # Execute chat with tool support using ReAct agent
-    logger.info("Starting ReAct agent for chat with research capability")
+    logger.info("Starting ReAct agent for chat with research and learning capability")
+    
+    tools_used = []
+    research_conducted = False
+    
     async for chunk in react_agent.execute_react_loop_streaming(chat_messages, logger):
+        # Track tool usage for learning
+        if chunk.startswith("<step>Using "):
+            tool_name = chunk.replace("<step>Using ", "").replace("</step>", "")
+            tools_used.append(tool_name)
+            if "web_search" in tool_name or "search_codebase" in tool_name:
+                research_conducted = True
+        
         # Pass through step markers and step content for UI processing
         if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
             yield chunk
@@ -185,3 +284,66 @@ Use these tools proactively when needed for accuracy, and then confidently use t
         else:
             # For any other content, skip it (shouldn't happen with proper tagging)
             continue
+    
+    # Record this chat interaction as a learning episode
+    yield f"<step>Recording Learning</step>"
+    
+    # Determine success based on whether research was conducted when needed
+    success = True
+    confidence = 0.8
+    
+    if any(keyword in user_content.lower() for keyword in ["what is", "tell me about", "weather", "news"]):
+        # Questions that should trigger research
+        if research_conducted:
+            learning_msg = "✅ Successfully researched unknown topic before responding"
+            confidence = 0.9
+        else:
+            learning_msg = "❌ Should have researched this topic first"
+            success = False
+            confidence = 0.4
+    else:
+        learning_msg = "✅ Handled conversational query appropriately"
+    
+    yield f"<step_content>📝 Learning: {learning_msg}</step_content>"
+    
+    # Record the chat episode for future learning
+    knowledge_store.record_episode(
+        role="chat_assistant",
+        summary=f"Chat: {user_content[:100]} - {'researched' if research_conducted else 'direct answer'}",
+        tags=["chat", "conversation", "research" if research_conducted else "direct"],
+        entities={
+            "query_type": "research_needed" if research_conducted else "conversational",
+            "tools_used": tools_used,
+            "domain": domain
+        },
+        outcome={
+            "status": "pass" if success else "needs_improvement",
+            "research_conducted": research_conducted,
+            "tools_count": len(tools_used)
+        },
+        confidence=confidence
+    )
+    
+    # Complete learning tracking
+    learning_loop.complete_task(success, learning_msg)
+    
+    logger.info(f"Chat learning complete: {learning_msg}")
+
+
+def _extract_domain_from_query(query: str) -> str:
+    """Extract a domain/topic from the user query for categorization."""
+    query_lower = query.lower()
+    
+    # Domain mapping based on keywords
+    if any(word in query_lower for word in ["weather", "temperature", "forecast", "rain", "snow"]):
+        return "weather"
+    elif any(word in query_lower for word in ["code", "programming", "function", "class", "debug"]):
+        return "coding"
+    elif any(word in query_lower for word in ["product", "brand", "buy", "price", "review"]):
+        return "products"
+    elif any(word in query_lower for word in ["health", "medical", "symptoms", "drug", "medicine"]):
+        return "health"
+    elif any(word in query_lower for word in ["news", "current", "recent", "today", "latest"]):
+        return "current_events"
+    else:
+        return "general"

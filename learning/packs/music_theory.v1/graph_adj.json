@@ -1,0 +1,2563 @@
+{
+  "derived_from": {
+    "music_theory.12-bar-blues-progression": [
+      "music_theory.harmonically-closed-section"
+    ],
+    "music_theory.5th-and-9th-alteration-rule": [
+      "music_theory.altered-dominant-seventh-chord"
+    ],
+    "music_theory.add-anticipation": [
+      "music_theory.add-suspension"
+    ],
+    "music_theory.add-nine-chord": [
+      "music_theory.ninth-chord-notation"
+    ],
+    "music_theory.afterbeats": [
+      "music_theory.offbeats"
+    ],
+    "music_theory.alberti-bass": [
+      "music_theory.arpeggio-motion-pattern"
+    ],
+    "music_theory.analyze-secondary-dominant": [
+      "music_theory.chord-quality-rule"
+    ],
+    "music_theory.anticipation": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.appoggiatura": [
+      "music_theory.non-chord-tone",
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.approach-of-perfect-consonances": [
+      "music_theory.direct-perfect-consonance-avoidance"
+    ],
+    "music_theory.arpeggiated-accompaniments": [
+      "music_theory.alberti-bass"
+    ],
+    "music_theory.augmented-interval": [
+      "music_theory.invert-interval"
+    ],
+    "music_theory.augmented-sixth-chord": [
+      "music_theory.roman-numeral-notation-in-minor-keys"
+    ],
+    "music_theory.authentic-cadence": [
+      "music_theory.cadence"
+    ],
+    "music_theory.avoid-perfect-unisons-and-fifths": [
+      "music_theory.consonance-on-downbeats"
+    ],
+    "music_theory.beat-grouping": [
+      "music_theory.time-signature"
+    ],
+    "music_theory.beat-grouping-rule": [
+      "music_theory.tuplet-notation-algorithm"
+    ],
+    "music_theory.binary-principle": [
+      "music_theory.modulation"
+    ],
+    "music_theory.blues-scale": [
+      "music_theory.blue-note-usage"
+    ],
+    "music_theory.borrowed-chord": [
+      "music_theory.chromatic-alteration"
+    ],
+    "music_theory.cadential-six-four-chord": [
+      "music_theory.cadential-six-four-chord",
+      "music_theory.six-four-chord"
+    ],
+    "music_theory.cantus-firmus": [
+      "music_theory.counterpoint"
+    ],
+    "music_theory.chorale-style-voice-leading": [
+      "music_theory.voice-leading"
+    ],
+    "music_theory.chord-quality": [
+      "music_theory.triad"
+    ],
+    "music_theory.chord-scale-relationship": [
+      "music_theory.determine-chord-scale-from-notes"
+    ],
+    "music_theory.chromatic-harmony": [
+      "music_theory.diatonic-harmony"
+    ],
+    "music_theory.chromatic-modulation": [
+      "music_theory.secondary-dominant-chord"
+    ],
+    "music_theory.chromatic-passing-tone": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.chromaticism-in-secondary-diminished-chords": [
+      "music_theory.secondary-diminished-chord"
+    ],
+    "music_theory.circle-of-fifths-progression": [
+      "music_theory.i-vi-ii-v-progression",
+      "music_theory.ii-v-i-progression",
+      "music_theory.ii-v-i-vi-progression",
+      "music_theory.iii-vi-ii-v-progression",
+      "music_theory.vi-ii-v-i-progression"
+    ],
+    "music_theory.closely-related-keys": [
+      "music_theory.borrowed-chord-modulation"
+    ],
+    "music_theory.common-tone-modulation": [
+      "music_theory.chromatic-mediant"
+    ],
+    "music_theory.compound-ternary-form": [
+      "music_theory.ternary-form"
+    ],
+    "music_theory.conclusive-cadence": [
+      "music_theory.cadence"
+    ],
+    "music_theory.consecutive-first-inversion-doubling-alternation": [
+      "music_theory.first-inversion-chord-doubling-rule"
+    ],
+    "music_theory.contrasting-verse-chorus-form": [
+      "music_theory.aaba-form"
+    ],
+    "music_theory.counterpoint": [
+      "music_theory.first-species-counterpoint"
+    ],
+    "music_theory.countersubject": [
+      "music_theory.tail-motive"
+    ],
+    "music_theory.deceptive-cadence": [
+      "music_theory.cadence",
+      "music_theory.chord-progression-analysis"
+    ],
+    "music_theory.deceptive-cadence-with-2-vi": [
+      "music_theory.roman-numeral-analysis-of-borrowed-chords"
+    ],
+    "music_theory.diminished-interval": [
+      "music_theory.invert-interval"
+    ],
+    "music_theory.diminished-triad-doubling": [
+      "music_theory.first-inversion-chord-doubling-rule"
+    ],
+    "music_theory.double-neighbor": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.eighth-note": [
+      "music_theory.rest"
+    ],
+    "music_theory.elision": [
+      "music_theory.elision-rule"
+    ],
+    "music_theory.enharmonic-equivalence": [
+      "music_theory.circle-of-fifths"
+    ],
+    "music_theory.enharmonic-equivalent": [
+      "music_theory.chord-label"
+    ],
+    "music_theory.enharmonic-german-6": [
+      "music_theory.augmented-sixth-chord"
+    ],
+    "music_theory.enharmonic-resolution-rule": [
+      "music_theory.pivot-chord-transposition-algorithm"
+    ],
+    "music_theory.escape-tone-addition": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.figured-bass-interval-notation": [
+      "music_theory.figured-bass-inversion-symbols"
+    ],
+    "music_theory.finding-inverted-interval": [
+      "music_theory.interval-inversion-rule"
+    ],
+    "music_theory.first-inversion": [
+      "music_theory.second-inversion"
+    ],
+    "music_theory.first-species-counterpoint-rules": [
+      "music_theory.second-species-counterpoint-rules"
+    ],
+    "music_theory.form-analysis": [
+      "music_theory.phrase-analysis"
+    ],
+    "music_theory.forte-number": [
+      "music_theory.interval-vector",
+      "music_theory.prime-form"
+    ],
+    "music_theory.fragment": [
+      "music_theory.motive"
+    ],
+    "music_theory.french-augmented-sixth": [
+      "music_theory.augmented-sixth-chord"
+    ],
+    "music_theory.fugue-subject": [
+      "music_theory.response"
+    ],
+    "music_theory.fully-diminished-seventh-chord": [
+      "music_theory.secondary-diminished-chord"
+    ],
+    "music_theory.ger6-pivot-chord": [
+      "music_theory.v7-pivot-chord"
+    ],
+    "music_theory.germ": [
+      "music_theory.motive"
+    ],
+    "music_theory.german-augmented-sixth": [
+      "music_theory.augmented-sixth-chord"
+    ],
+    "music_theory.habanera-rhythm": [
+      "music_theory.3-2-clave"
+    ],
+    "music_theory.half-cadence": [
+      "music_theory.cadence"
+    ],
+    "music_theory.half-note": [
+      "music_theory.rest"
+    ],
+    "music_theory.harmonic-emphasis-in-counterpoint": [
+      "music_theory.theme-alteration-for-harmony"
+    ],
+    "music_theory.harmonic-minor-scale": [
+      "music_theory.diatonic-chord",
+      "music_theory.minor-scale"
+    ],
+    "music_theory.harmonic-pun": [
+      "music_theory.enharmonic-modulation"
+    ],
+    "music_theory.harmonic-resolution-of-enharmonic-german-augmented-sixth": [
+      "music_theory.voice-leading-for-augmented-sixth-chords"
+    ],
+    "music_theory.harmonic-sequence": [
+      "music_theory.diatonic-chord-construction"
+    ],
+    "music_theory.i-v-vi-iv-rotation": [
+      "music_theory.i-v-vi-iv-progression"
+    ],
+    "music_theory.identify-key-from-flats": [
+      "music_theory.order-of-flats"
+    ],
+    "music_theory.identify-key-from-sharps": [
+      "music_theory.order-of-sharps"
+    ],
+    "music_theory.ii-v-i-progression": [
+      "music_theory.tritone-substitution"
+    ],
+    "music_theory.imperfect-authentic-cadence": [
+      "music_theory.cadence-requirement-rule"
+    ],
+    "music_theory.incomplete-chords": [
+      "music_theory.sus-chord"
+    ],
+    "music_theory.inconclusive-cadence": [
+      "music_theory.cadence"
+    ],
+    "music_theory.interval-vector": [
+      "music_theory.interval-class"
+    ],
+    "music_theory.interval-vector-calculation": [
+      "music_theory.interval-vector"
+    ],
+    "music_theory.interval-vector-construction": [
+      "music_theory.forte-numbers"
+    ],
+    "music_theory.invariant-section": [
+      "music_theory.secondary-section"
+    ],
+    "music_theory.invention-exposition-construction-rules": [
+      "music_theory.harmonic-emphasis-in-counterpoint"
+    ],
+    "music_theory.inversion-of-intervals": [
+      "music_theory.interval-inversion-rule"
+    ],
+    "music_theory.inversion-of-normal-form": [
+      "music_theory.normal-form"
+    ],
+    "music_theory.italian-augmented-sixth": [
+      "music_theory.augmented-sixth-chord"
+    ],
+    "music_theory.lead-sheet-symbols": [
+      "music_theory.neapolitan-chord"
+    ],
+    "music_theory.major-chord-members-up-to-13th": [
+      "music_theory.jazz-chord-analysis"
+    ],
+    "music_theory.major-interval": [
+      "music_theory.interval"
+    ],
+    "music_theory.melodic-minor-scale": [
+      "music_theory.diatonic-chord",
+      "music_theory.minor-scale"
+    ],
+    "music_theory.meter": [
+      "music_theory.compound-meter",
+      "music_theory.simple-meter"
+    ],
+    "music_theory.minor-key-signature": [
+      "music_theory.parallel-minor",
+      "music_theory.relative-minor"
+    ],
+    "music_theory.minor-major-seventh-chord": [
+      "music_theory.minor-seventh-with-minor-third"
+    ],
+    "music_theory.modified-version": [
+      "music_theory.document"
+    ],
+    "music_theory.modulation-to-closely-related-keys": [
+      "music_theory.key-relationship"
+    ],
+    "music_theory.modulation-without-pivot-chords": [
+      "music_theory.dominant-function"
+    ],
+    "music_theory.motivic-fragmentation": [
+      "music_theory.subject-head"
+    ],
+    "music_theory.natural-minor-scale": [
+      "music_theory.diatonic-chord",
+      "music_theory.harmonic-minor-scale",
+      "music_theory.melodic-minor-scale"
+    ],
+    "music_theory.neighbor-tone": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.ninth-chord-notation": [
+      "music_theory.augmented-seventh-chord"
+    ],
+    "music_theory.normal-form": [
+      "music_theory.prime-form"
+    ],
+    "music_theory.normal-form-calculation": [
+      "music_theory.pitch-class-integer"
+    ],
+    "music_theory.opposite-direction-doubling": [
+      "music_theory.first-inversion-chord-doubling-rule"
+    ],
+    "music_theory.parallel-double-period": [
+      "music_theory.double-period"
+    ],
+    "music_theory.passing-six-four-chord": [
+      "music_theory.six-four-chord"
+    ],
+    "music_theory.passing-tone": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.passing-tone-for-third": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.pattern-rotation": [
+      "music_theory.additive-process"
+    ],
+    "music_theory.pedal-six-four-chord": [
+      "music_theory.six-four-chord"
+    ],
+    "music_theory.perfect-interval": [
+      "music_theory.interval"
+    ],
+    "music_theory.phrase-analysis": [
+      "music_theory.motive-analysis"
+    ],
+    "music_theory.phrase-chain": [
+      "music_theory.phrase-group"
+    ],
+    "music_theory.phrase-diagram-creation": [
+      "music_theory.form-identification"
+    ],
+    "music_theory.pitch-class": [
+      "music_theory.prime-form"
+    ],
+    "music_theory.pitch-class-set": [
+      "music_theory.normal-form",
+      "music_theory.prime-form"
+    ],
+    "music_theory.pivot-chord": [
+      "music_theory.enharmonic-modulation"
+    ],
+    "music_theory.plagal-cadence": [
+      "music_theory.cadence"
+    ],
+    "music_theory.prime-form": [
+      "music_theory.complement-set",
+      "music_theory.forte-number",
+      "music_theory.interval-vector",
+      "music_theory.interval-vector-rule",
+      "music_theory.normal-form"
+    ],
+    "music_theory.quarter-note": [
+      "music_theory.rest"
+    ],
+    "music_theory.relative-minor-conversion": [
+      "music_theory.i-v-vi-iv-progression"
+    ],
+    "music_theory.repeated-note-embellishment": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.resolving-secondary-vii7-and-viiø7-chords": [
+      "music_theory.leading-tone-doubling-avoidance"
+    ],
+    "music_theory.resolving-seventh-chord": [
+      "music_theory.root-position-seventh-chord"
+    ],
+    "music_theory.retardation": [
+      "music_theory.non-chord-tone",
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.riff-definition": [
+      "music_theory.distinctive-bass-lines"
+    ],
+    "music_theory.rite-of-spring-chord": [
+      "music_theory.polychord"
+    ],
+    "music_theory.roman-numeral-analysis": [
+      "music_theory.chord-notation-convention",
+      "music_theory.lead-sheet-symbol-notation",
+      "music_theory.lead-sheet-to-roman-numeral-conversion",
+      "music_theory.neapolitan-chord"
+    ],
+    "music_theory.roman-numeral-notation-in-minor-keys": [
+      "music_theory.chromatic-expansion-of-pre-dominant-function"
+    ],
+    "music_theory.rondo-character": [
+      "music_theory.sonata-rondo-form"
+    ],
+    "music_theory.root-position": [
+      "music_theory.first-inversion"
+    ],
+    "music_theory.rounded-binary-form": [
+      "music_theory.musical-form-analysis",
+      "music_theory.sonata-form-structure",
+      "music_theory.ternary-form",
+      "music_theory.two-reprise-continuous-rounded-binary-form"
+    ],
+    "music_theory.row-form": [
+      "music_theory.normal-form"
+    ],
+    "music_theory.scale-degree-harmonization": [
+      "music_theory.harmonization-of-borrowed-scale-degrees"
+    ],
+    "music_theory.second-species-counterpoint-rules": [
+      "music_theory.third-species-counterpoint-rules"
+    ],
+    "music_theory.secondary-diminished-chord": [
+      "music_theory.diminished-seventh-chord"
+    ],
+    "music_theory.sectional-form": [
+      "music_theory.sonata-form-structure"
+    ],
+    "music_theory.set-class": [
+      "music_theory.forte-number",
+      "music_theory.interval-vector",
+      "music_theory.prime-form"
+    ],
+    "music_theory.seventh-chord-construction": [
+      "music_theory.triad-construction"
+    ],
+    "music_theory.seventh-chord-figured-bass-symbols": [
+      "music_theory.figured-bass-inversion-symbols"
+    ],
+    "music_theory.simple-verse-chorus-form": [
+      "music_theory.aaba-form"
+    ],
+    "music_theory.sixteenth-note": [
+      "music_theory.rest"
+    ],
+    "music_theory.sixth-ninth-chord": [
+      "music_theory.ninth-chord-notation"
+    ],
+    "music_theory.slash-chord": [
+      "music_theory.inverted-triad"
+    ],
+    "music_theory.sonata-principle": [
+      "music_theory.thematic-dissonance-principle"
+    ],
+    "music_theory.species-counterpoint": [
+      "music_theory.four-voice-species-counterpoint-rule",
+      "music_theory.two-voice-species-counterpoint-rule"
+    ],
+    "music_theory.step-down-suspension": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.subphrase": [
+      "music_theory.melodic-motive",
+      "music_theory.phrase"
+    ],
+    "music_theory.subtonic-in-minor-mode": [
+      "music_theory.secondary-dominant-chord"
+    ],
+    "music_theory.sus-chord": [
+      "music_theory.f13sus2-9"
+    ],
+    "music_theory.sus-chords": [
+      "music_theory.inverted-triad-analysis"
+    ],
+    "music_theory.suspension": [
+      "music_theory.suspension-labeling-algorithm"
+    ],
+    "music_theory.theme-alteration-for-harmony": [
+      "music_theory.minor-scale-degree-transposition"
+    ],
+    "music_theory.third-species-counterpoint-rules": [
+      "music_theory.fourth-species-counterpoint-rules"
+    ],
+    "music_theory.thirty-second-note": [
+      "music_theory.rest"
+    ],
+    "music_theory.tni-operation": [
+      "music_theory.inversionally-related-sets"
+    ],
+    "music_theory.tone-row": [
+      "music_theory.interval-vector",
+      "music_theory.prime-form"
+    ],
+    "music_theory.tonicization": [
+      "music_theory.pivot-chord"
+    ],
+    "music_theory.tonictonic-prolongationpredominantdominant-progression": [
+      "music_theory.dominant-function-exception",
+      "music_theory.tonic-prolongation-exception"
+    ],
+    "music_theory.translation-requirements": [
+      "music_theory.document-combination-rules"
+    ],
+    "music_theory.triad": [
+      "music_theory.fifth",
+      "music_theory.root-note",
+      "music_theory.third"
+    ],
+    "music_theory.triad-construction": [
+      "music_theory.interval-classifications"
+    ],
+    "music_theory.triad-figured-bass-symbols": [
+      "music_theory.figured-bass-inversion-symbols"
+    ],
+    "music_theory.twelve-tone-matrix": [
+      "music_theory.inversion-form",
+      "music_theory.prime-form",
+      "music_theory.tone-row",
+      "music_theory.write-specified-row-forms"
+    ],
+    "music_theory.twelve-tone-row": [
+      "music_theory.inversion-form",
+      "music_theory.prime-form",
+      "music_theory.retrograde-form",
+      "music_theory.retrograde-inversion-form"
+    ],
+    "music_theory.two-reprise-form": [
+      "music_theory.sectional-form",
+      "music_theory.sonata-form"
+    ],
+    "music_theory.use-of-modes-in-impressionist-music": [
+      "music_theory.modal-harmony-rule"
+    ],
+    "music_theory.v7-pivot-chord": [
+      "music_theory.ger6-pivot-chord"
+    ],
+    "music_theory.v7vii-to-ii-progression": [
+      "music_theory.irregular-resolution-of-secondary-dominant"
+    ],
+    "music_theory.voice-leading-of-augmented-sixth-chords": [
+      "music_theory.resolution-of-4-ˆ-2-in-enger6"
+    ],
+    "music_theory.voice-leading-resolution": [
+      "music_theory.tendency-tone-resolution"
+    ],
+    "music_theory.voice-leading-secondary-chord-resolution": [
+      "music_theory.voice-leading-secondary-chord-resolution"
+    ],
+    "music_theory.whole-note": [
+      "music_theory.rest"
+    ]
+  },
+  "analogous_to": {
+    "music_theory.3-2-clave": [
+      "music_theory.bo-diddley-beat"
+    ],
+    "music_theory.aaba-form": [
+      "music_theory.abac-form"
+    ],
+    "music_theory.abac-form": [
+      "music_theory.aaba-form"
+    ],
+    "music_theory.add-appoggiatura": [
+      "music_theory.add-chromatic-passing-tone"
+    ],
+    "music_theory.add-escape-tone": [
+      "music_theory.add-double-neighbor"
+    ],
+    "music_theory.add-suspension": [
+      "music_theory.add-retardation"
+    ],
+    "music_theory.add-upper-neighbor": [
+      "music_theory.add-lower-neighbor"
+    ],
+    "music_theory.afterbeats": [
+      "music_theory.offbeats"
+    ],
+    "music_theory.antecedent": [
+      "music_theory.consequent"
+    ],
+    "music_theory.anticipation": [
+      "music_theory.pedal-point"
+    ],
+    "music_theory.appoggiatura": [
+      "music_theory.neighbor-tone"
+    ],
+    "music_theory.augmentation": [
+      "music_theory.diminution"
+    ],
+    "music_theory.binary-form": [
+      "music_theory.ternary-form"
+    ],
+    "music_theory.contrapuntal-texture": [
+      "music_theory.homophonic-texture"
+    ],
+    "music_theory.deceptive-cadence": [
+      "music_theory.tonictonic-prolongationpredominantdominant-progression"
+    ],
+    "music_theory.deceptive-resolution": [
+      "music_theory.irregular-resolution-of-secondary-dominant"
+    ],
+    "music_theory.enharmonic-modulation": [
+      "music_theory.harmonic-pun"
+    ],
+    "music_theory.enharmonic-respinning": [
+      "music_theory.chromatic-alterations"
+    ],
+    "music_theory.expository-function": [
+      "music_theory.transitional-function"
+    ],
+    "music_theory.harmonically-closed-section": [
+      "music_theory.harmonically-open-section"
+    ],
+    "music_theory.i-vii-vi-vii-progression": [
+      "music_theory.andalusian-progression"
+    ],
+    "music_theory.interval-identification-method-1": [
+      "music_theory.interval-identification-method-2"
+    ],
+    "music_theory.interval-writing-above-note": [
+      "music_theory.interval-writing-below-note"
+    ],
+    "music_theory.inverted-triad": [
+      "music_theory.first-inversion",
+      "music_theory.root-position",
+      "music_theory.second-inversion"
+    ],
+    "music_theory.irregular-resolution-of-secondary-dominant": [
+      "music_theory.subtonic-vii-chord"
+    ],
+    "music_theory.italian-augmented-sixth-chord": [
+      "music_theory.french-augmented-sixth-chord",
+      "music_theory.german-augmented-sixth-chord"
+    ],
+    "music_theory.iv5-sus-chord": [
+      "music_theory.v7-chord"
+    ],
+    "music_theory.lead-sheet-symbols": [
+      "music_theory.chord-notation-convention",
+      "music_theory.roman-numerals"
+    ],
+    "music_theory.melodic-inversion": [
+      "music_theory.intervallic-change"
+    ],
+    "music_theory.modulation": [
+      "music_theory.key-change"
+    ],
+    "music_theory.parallel-minor": [
+      "music_theory.relative-minor"
+    ],
+    "music_theory.parallel-period": [
+      "music_theory.contrasting-period"
+    ],
+    "music_theory.parallel-voice-motion": [
+      "music_theory.parallel-motion-prohibition"
+    ],
+    "music_theory.phase-shifting": [
+      "music_theory.clapping-music",
+      "music_theory.piano-phase"
+    ],
+    "music_theory.phrase-group": [
+      "music_theory.period"
+    ],
+    "music_theory.rhythmic-change": [
+      "music_theory.intervallic-change"
+    ],
+    "music_theory.sectional-form": [
+      "music_theory.continuous-form"
+    ],
+    "music_theory.simple-binary-form": [
+      "music_theory.balanced-binary-form",
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.sonata-form": [
+      "music_theory.sonatina-form"
+    ],
+    "music_theory.spread-voicings": [
+      "music_theory.close-voicings"
+    ],
+    "music_theory.subject-head": [
+      "music_theory.tail-motive"
+    ],
+    "music_theory.ternary-form": [
+      "music_theory.binary-form"
+    ],
+    "music_theory.tie-handling-rule": [
+      "music_theory.compactness-criterion"
+    ],
+    "music_theory.tonicization": [
+      "music_theory.modulation"
+    ],
+    "music_theory.transitional-function": [
+      "music_theory.developmental-function"
+    ],
+    "music_theory.versechorus-form": [
+      "music_theory.bridge"
+    ],
+    "music_theory.voice-leading-of-augmented-sixth-chords": [
+      "music_theory.exception-to-4-ˆ-4-resolution"
+    ]
+  },
+  "applies_to": {
+    "music_theory.3-2-clave": [
+      "music_theory.cross-rhythm",
+      "music_theory.rhythmic-expansion-rule"
+    ],
+    "music_theory.64th-note": [
+      "music_theory.note-duration-relationships"
+    ],
+    "music_theory.aaba-form": [
+      "music_theory.musical-terminology",
+      "music_theory.song-section",
+      "music_theory.verse-chorus-ambiguity"
+    ],
+    "music_theory.aaba-form-variation-rule": [
+      "music_theory.aaba-form"
+    ],
+    "music_theory.abac-form": [
+      "music_theory.musical-terminology",
+      "music_theory.song-section"
+    ],
+    "music_theory.abac-form-usage-period": [
+      "music_theory.abac-form"
+    ],
+    "music_theory.accidentals": [
+      "music_theory.double-flat-symbol",
+      "music_theory.double-sharp-symbol",
+      "music_theory.flat-symbol",
+      "music_theory.natural-symbol",
+      "music_theory.sharp-symbol"
+    ],
+    "music_theory.accompaniment-texture": [
+      "music_theory.diatonic-chord-progression"
+    ],
+    "music_theory.add-anticipation": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-appoggiatura": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-chromatic-passing-tone": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-double-neighbor": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-escape-tone": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-lower-neighbor": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-passing-tone": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-retardation": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-suspension": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.add-upper-neighbor": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.altered-chord-convention": [
+      "music_theory.chord-label"
+    ],
+    "music_theory.analyze-secondary-diminished-chord-procedure": [
+      "music_theory.secondary-diminished-chord-analysis-rule"
+    ],
+    "music_theory.analyze-secondary-dominant": [
+      "music_theory.secondary-dominant"
+    ],
+    "music_theory.anticipation": [
+      "music_theory.non-chord-tone-usage-rules"
+    ],
+    "music_theory.arpeggiated-accompaniments": [
+      "music_theory.harmonic-interval-constraint"
+    ],
+    "music_theory.articulation": [
+      "music_theory.musical-section-contrast"
+    ],
+    "music_theory.articulation-in-music": [
+      "music_theory.form-in-popular-music"
+    ],
+    "music_theory.asymmetrical-period": [
+      "music_theory.antecedent-consequent-distribution-rule",
+      "music_theory.phrase-count-in-asymmetrical-period"
+    ],
+    "music_theory.augmented-interval": [
+      "music_theory.interval-quality-rules"
+    ],
+    "music_theory.augmented-sixth-chord": [
+      "music_theory.augmented-sixth-chord-resolution-rule",
+      "music_theory.french-augmented-sixth",
+      "music_theory.german-augmented-sixth",
+      "music_theory.italian-augmented-sixth",
+      "music_theory.lead-sheet-symbol",
+      "music_theory.lead-sheet-symbol-convention",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.augmented-sixth-chords": [
+      "music_theory.modulation"
+    ],
+    "music_theory.augmented-triad-notation": [
+      "music_theory.triad"
+    ],
+    "music_theory.authentic-cadence": [
+      "music_theory.cadence"
+    ],
+    "music_theory.avoid-objectionable-parallels": [
+      "music_theory.non-chord-tone",
+      "music_theory.voice-leading"
+    ],
+    "music_theory.bass-movement-of-the-interval-of-a-2nd": [
+      "music_theory.voice-leading-root-position-triads"
+    ],
+    "music_theory.bass-movement-of-the-interval-of-a-3rd-or-6th": [
+      "music_theory.voice-leading-root-position-triads"
+    ],
+    "music_theory.bass-movement-of-the-interval-of-a-4th-or-5th": [
+      "music_theory.voice-leading-root-position-triads"
+    ],
+    "music_theory.bass-movement-rules": [
+      "music_theory.chorale-style-voice-leading"
+    ],
+    "music_theory.bebop-scale": [
+      "music_theory.chord-scale-relationship"
+    ],
+    "music_theory.bebop-scale-harmonization": [
+      "music_theory.four-part-voicing-techniques"
+    ],
+    "music_theory.binary-form": [
+      "music_theory.binary-principle",
+      "music_theory.form-diagramming-process"
+    ],
+    "music_theory.block-chord-accompaniment": [
+      "music_theory.1-2-rhythm-pattern",
+      "music_theory.barbara-ann-rhythm-pattern",
+      "music_theory.repeated-eighth-note-chord-pattern",
+      "music_theory.repeated-quarter-note-chord-pattern"
+    ],
+    "music_theory.block-chord-accompaniments": [
+      "music_theory.afterbeats-and-offbeats-usage"
+    ],
+    "music_theory.blue-note-usage": [
+      "music_theory.blues-scale"
+    ],
+    "music_theory.blues-progression": [
+      "music_theory.ii-v-i-progression"
+    ],
+    "music_theory.blues-scale": [
+      "music_theory.chord-scale-relationship"
+    ],
+    "music_theory.borrowed-chord": [
+      "music_theory.deceptive-cadence-with-2-vi",
+      "music_theory.roman-numeral-analysis-of-borrowed-chords"
+    ],
+    "music_theory.borrowed-chord-modulation": [
+      "music_theory.modulation"
+    ],
+    "music_theory.cadence-type-classification": [
+      "music_theory.phrase-diagram-creation"
+    ],
+    "music_theory.cadence-types": [
+      "music_theory.harmonic-function",
+      "music_theory.harmonic-function-abbreviations"
+    ],
+    "music_theory.cadential-formula-for-modulation": [
+      "music_theory.modulation"
+    ],
+    "music_theory.cadential-six-four-chord": [
+      "music_theory.six-four-chord-occurrence-rules"
+    ],
+    "music_theory.cadential-sixfour-chord": [
+      "music_theory.figured-bass-notation-rules",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.cantus-firmus-in-lower-voice": [
+      "music_theory.fourth-species-counterpoint-rules"
+    ],
+    "music_theory.chorale-style-voice-leading": [
+      "music_theory.six-four-chord-type"
+    ],
+    "music_theory.chorale-texture": [
+      "music_theory.homorhythmic-movement",
+      "music_theory.schuberts-winterreise-example",
+      "music_theory.star-spangled-banner-example"
+    ],
+    "music_theory.chord-inversion": [
+      "music_theory.block-chord-accompaniments"
+    ],
+    "music_theory.chord-inversion-identification": [
+      "music_theory.first-inversion",
+      "music_theory.root-position",
+      "music_theory.second-inversion"
+    ],
+    "music_theory.chord-labeling-convention": [
+      "music_theory.cadence"
+    ],
+    "music_theory.chord-progression": [
+      "music_theory.avoid-parallel-fifths",
+      "music_theory.chromatic-harmony",
+      "music_theory.harmonic-function"
+    ],
+    "music_theory.chord-progression-animation": [
+      "music_theory.accompanimental-textures"
+    ],
+    "music_theory.chord-progression-mapping": [
+      "music_theory.lead-sheet-symbol",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.chromatic-alterations": [
+      "music_theory.ninth-chord-notation"
+    ],
+    "music_theory.chromatic-ascending-dominant-seventh-chord": [
+      "music_theory.lead-sheet-symbols"
+    ],
+    "music_theory.chromatic-mediants": [
+      "music_theory.modulation"
+    ],
+    "music_theory.chromatic-pivot-chord": [
+      "music_theory.borrowed-common-chord",
+      "music_theory.neapolitan-common-chord",
+      "music_theory.secondary-common-chord"
+    ],
+    "music_theory.chromatic-pre-dominant-chords": [
+      "music_theory.augmented-sixth-chord",
+      "music_theory.harmonization-of-descending-bass-lines"
+    ],
+    "music_theory.circle-of-fifths": [
+      "music_theory.order-of-flats",
+      "music_theory.order-of-sharps"
+    ],
+    "music_theory.circle-of-fifths-for-minor-keys": [
+      "music_theory.minor-key-signature"
+    ],
+    "music_theory.circle-of-fifths-progression": [
+      "music_theory.harmonic-sequence",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.circle-of-fifths-progression-rule": [
+      "music_theory.figured-bass-notation"
+    ],
+    "music_theory.classical-analysis-rule": [
+      "music_theory.augmented-sixth-chord"
+    ],
+    "music_theory.clef": [
+      "music_theory.middle-c"
+    ],
+    "music_theory.common-time-signature": [
+      "music_theory.eighth-note",
+      "music_theory.half-note",
+      "music_theory.quarter-note",
+      "music_theory.sixteenth-note",
+      "music_theory.thirty-second-note",
+      "music_theory.whole-note"
+    ],
+    "music_theory.common-tone-modulation": [
+      "music_theory.modulation-without-pivot-chords"
+    ],
+    "music_theory.compactness-criterion": [
+      "music_theory.prime-form-computation"
+    ],
+    "music_theory.compound-meter": [
+      "music_theory.beat-grouping-rule",
+      "music_theory.time-signature"
+    ],
+    "music_theory.consonance-on-downbeats": [
+      "music_theory.dissonant-intervals"
+    ],
+    "music_theory.copying-in-quantity-rule": [
+      "music_theory.gnu-free-documentation-license"
+    ],
+    "music_theory.cover-text-restrictions": [
+      "music_theory.document-combination-rules"
+    ],
+    "music_theory.deceptive-cadence": [
+      "music_theory.cadence",
+      "music_theory.dominant-function",
+      "music_theory.tonic-function-in-minor-keys"
+    ],
+    "music_theory.descending-chromatic-bass-line": [
+      "music_theory.enharmonic-german-augmented-sixth-chord"
+    ],
+    "music_theory.determine-chord-scale-from-notes": [
+      "music_theory.lydian-mode",
+      "music_theory.octatonic-scales"
+    ],
+    "music_theory.determining-root-position": [
+      "music_theory.root-position"
+    ],
+    "music_theory.development": [
+      "music_theory.motive"
+    ],
+    "music_theory.developmental-function": [
+      "music_theory.cadence-demarcation-rule"
+    ],
+    "music_theory.diatonic-chord": [
+      "music_theory.roman-numeral-notation"
+    ],
+    "music_theory.diatonic-chord-progression": [
+      "music_theory.roman-numeral-notation"
+    ],
+    "music_theory.diatonic-common-chords": [
+      "music_theory.modulation"
+    ],
+    "music_theory.diminished-chord-tonicization": [
+      "music_theory.tonicization"
+    ],
+    "music_theory.diminished-interval": [
+      "music_theory.interval-quality-rules"
+    ],
+    "music_theory.diminished-seventh-chord": [
+      "music_theory.chromatic-voice-leading"
+    ],
+    "music_theory.diminished-triad-notation": [
+      "music_theory.triad"
+    ],
+    "music_theory.direct-modulation": [
+      "music_theory.modulation-without-pivot-chords"
+    ],
+    "music_theory.distinctive-bass-lines": [
+      "music_theory.accompanimental-textures"
+    ],
+    "music_theory.dominant-function": [
+      "music_theory.harmonic-flowchart",
+      "music_theory.modulation-without-pivot-chords"
+    ],
+    "music_theory.dot-musical-notation": [
+      "music_theory.note-duration-relationships"
+    ],
+    "music_theory.double-period": [
+      "music_theory.antecedent-group",
+      "music_theory.cadential-scheme",
+      "music_theory.consequent-group"
+    ],
+    "music_theory.double-whole-note-breve": [
+      "music_theory.note-duration-relationships"
+    ],
+    "music_theory.doubling-rule-for-root-position-triads": [
+      "music_theory.voice-leading-root-position-triads"
+    ],
+    "music_theory.doubling-rules-for-triads": [
+      "music_theory.bass-movement-rules",
+      "music_theory.diminished-triad-doubling"
+    ],
+    "music_theory.dynamic-level": [
+      "music_theory.musical-section-contrast"
+    ],
+    "music_theory.elements-of-music": [
+      "music_theory.articulation",
+      "music_theory.dynamics",
+      "music_theory.harmony",
+      "music_theory.melody",
+      "music_theory.register",
+      "music_theory.rhythm",
+      "music_theory.texture",
+      "music_theory.timbre"
+    ],
+    "music_theory.eleventh-and-thirteenth-chord-construction": [
+      "music_theory.jazz-chord-types"
+    ],
+    "music_theory.elision": [
+      "music_theory.phrase"
+    ],
+    "music_theory.elision-rule": [
+      "music_theory.phrase"
+    ],
+    "music_theory.enharmonic-equivalence": [
+      "music_theory.integer-notation-for-pitches"
+    ],
+    "music_theory.enharmonic-german-augmented-sixth-chord": [
+      "music_theory.harmonic-resolution-of-enharmonic-german-augmented-sixth",
+      "music_theory.voice-leading-for-augmented-sixth-chords"
+    ],
+    "music_theory.enharmonic-modulation": [
+      "music_theory.ger6",
+      "music_theory.ger6-pivot-chord",
+      "music_theory.modulation",
+      "music_theory.resolve-enharmonic-respelling",
+      "music_theory.v7-pivot-chord"
+    ],
+    "music_theory.enharmonic-notes": [
+      "music_theory.flat-symbol",
+      "music_theory.piano-note-naming-convention",
+      "music_theory.sharp-symbol"
+    ],
+    "music_theory.enharmonic-respell-rules": [
+      "music_theory.ger6-pivot-chord",
+      "music_theory.v7-pivot-chord"
+    ],
+    "music_theory.enharmonic-respelling-rule": [
+      "music_theory.jazz-chord-analysis"
+    ],
+    "music_theory.enharmonic-spelling": [
+      "music_theory.chord-symbol-notation"
+    ],
+    "music_theory.episode": [
+      "music_theory.motivic-fragmentation"
+    ],
+    "music_theory.era-based-classification-rule": [
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.escape-tone": [
+      "music_theory.escape-tone-resolution-pattern"
+    ],
+    "music_theory.even-numbered-intervals-rule": [
+      "music_theory.interval"
+    ],
+    "music_theory.exception-for-deceptive-cadence-in-major-with-ˆ7-in-soprano": [
+      "music_theory.voice-leading-root-position-triads"
+    ],
+    "music_theory.exception-for-deceptive-cadence-in-minor": [
+      "music_theory.voice-leading-root-position-triads"
+    ],
+    "music_theory.expository-function": [
+      "music_theory.cadence-demarcation-rule"
+    ],
+    "music_theory.extension-of-a-motive": [
+      "music_theory.motive"
+    ],
+    "music_theory.fifth-species-counterpoint": [
+      "music_theory.invention-exposition"
+    ],
+    "music_theory.figured-bass": [
+      "music_theory.baroque-era",
+      "music_theory.chromatic-alteration-in-figured-bass",
+      "music_theory.figured-bass-notation-convention",
+      "music_theory.interval-numbering-in-figured-bass"
+    ],
+    "music_theory.figured-bass-inversion-symbols": [
+      "music_theory.seventh-chord-figured-bass-symbols",
+      "music_theory.triad-figured-bass-symbols"
+    ],
+    "music_theory.figured-bass-numbering-convention": [
+      "music_theory.figured-bass-inversion-symbols"
+    ],
+    "music_theory.find-diatonic-common-chord": [
+      "music_theory.diatonic-pivot-chord"
+    ],
+    "music_theory.first-inversion-chord-doubling-rule": [
+      "music_theory.voice-leading-principles"
+    ],
+    "music_theory.first-section": [
+      "music_theory.key-modulation-rule"
+    ],
+    "music_theory.first-species-counterpoint": [
+      "music_theory.cantus-firmus",
+      "music_theory.counterpoint"
+    ],
+    "music_theory.form-analysis": [
+      "music_theory.cadence-types"
+    ],
+    "music_theory.form-identification-heuristic": [
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.forte-number": [
+      "music_theory.complement-set"
+    ],
+    "music_theory.fourth-species-counterpoint-rules": [
+      "music_theory.approach-of-perfect-consonances",
+      "music_theory.direct-perfect-consonance-avoidance",
+      "music_theory.dissonance-handling",
+      "music_theory.suspension-resolution",
+      "music_theory.syncopation-handling"
+    ],
+    "music_theory.fugue": [
+      "music_theory.microharmony"
+    ],
+    "music_theory.fugue-exposition": [
+      "music_theory.response"
+    ],
+    "music_theory.fugue-structure-analysis": [
+      "music_theory.countersubject",
+      "music_theory.episode",
+      "music_theory.exposition",
+      "music_theory.fugue-formal-structure-requirement",
+      "music_theory.response",
+      "music_theory.subject"
+    ],
+    "music_theory.fully-diminished-seventh-as-pivot-chord": [
+      "music_theory.enharmonic-resolution-rule",
+      "music_theory.tonicization-rule-for-diminished-chords"
+    ],
+    "music_theory.function-vs-root-labeling": [
+      "music_theory.secondary-dominant"
+    ],
+    "music_theory.ger6-pivot-chord": [
+      "music_theory.pivot-chord-function"
+    ],
+    "music_theory.git-commit-message-linting": [
+      "music_theory.commit-message-format-rule"
+    ],
+    "music_theory.gnu-free-documentation-license": [
+      "music_theory.document"
+    ],
+    "music_theory.guide-tones": [
+      "music_theory.circle-of-fifths-progression"
+    ],
+    "music_theory.half-cadence": [
+      "music_theory.cadence"
+    ],
+    "music_theory.harmonic-and-melodic-indicators-rule": [
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.harmonic-closed-section": [
+      "music_theory.song-section-analysis"
+    ],
+    "music_theory.harmonic-function": [
+      "music_theory.dominant-function",
+      "music_theory.harmonic-rhythm-consistency",
+      "music_theory.harmonic-stability-rule",
+      "music_theory.pre-dominant-function",
+      "music_theory.roman-numeral-notation",
+      "music_theory.tonic-function",
+      "music_theory.tonic-prolongation-function",
+      "music_theory.tonic-tonic-prolongation-predominant-dominant-progression"
+    ],
+    "music_theory.harmonic-key": [
+      "music_theory.musical-section-contrast"
+    ],
+    "music_theory.harmonic-minor-scale": [
+      "music_theory.key-signature-rules"
+    ],
+    "music_theory.harmonic-open-section": [
+      "music_theory.song-section-analysis"
+    ],
+    "music_theory.harmonic-pattern-criterion": [
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.harmonic-progression": [
+      "music_theory.circle-of-fifths-progression",
+      "music_theory.harmonic-function"
+    ],
+    "music_theory.harmonic-rhythm": [
+      "music_theory.sequence-construction-rule"
+    ],
+    "music_theory.harmonic-sequence": [
+      "music_theory.dominant-function-exception",
+      "music_theory.root-position-analysis",
+      "music_theory.sequence-construction-rule",
+      "music_theory.tonic-prolongation-exception"
+    ],
+    "music_theory.harmonic-texture-rules": [
+      "music_theory.block-chord-accompaniments"
+    ],
+    "music_theory.harmonically-closed-section": [
+      "music_theory.aaba-form-convention"
+    ],
+    "music_theory.harmonically-open-section": [
+      "music_theory.aaba-form-convention"
+    ],
+    "music_theory.harmonization-of-borrowed-scale-degrees": [
+      "music_theory.borrowed-chord"
+    ],
+    "music_theory.harmonization-of-descending-bass-lines": [
+      "music_theory.chromatic-pre-dominant-chords"
+    ],
+    "music_theory.i-vii-vi-vii-progression": [
+      "music_theory.fourth-chord-elimination-rule",
+      "music_theory.progression-rotation-rule"
+    ],
+    "music_theory.identifying-inversions": [
+      "music_theory.inverted-triad"
+    ],
+    "music_theory.impermissible-resolution-exception": [
+      "music_theory.voice-leading-resolution-rules"
+    ],
+    "music_theory.impressionist-musical-techniques": [
+      "music_theory.extended-chord-construction",
+      "music_theory.parallel-voice-motion",
+      "music_theory.use-of-modes-in-impressionist-music"
+    ],
+    "music_theory.incomplete-neighbor": [
+      "music_theory.non-chord-tone-usage"
+    ],
+    "music_theory.incorrect-rhythmic-notation-correction": [
+      "music_theory.rhythmic-notation"
+    ],
+    "music_theory.integer-notation-for-intervals": [
+      "music_theory.pitch-class-set"
+    ],
+    "music_theory.integer-notation-for-pitches": [
+      "music_theory.pitch-class-set"
+    ],
+    "music_theory.interval": [
+      "music_theory.harmonic-interval",
+      "music_theory.melodic-interval"
+    ],
+    "music_theory.interval-analysis": [
+      "music_theory.chord-progression"
+    ],
+    "music_theory.interval-class": [
+      "music_theory.forte-numbers"
+    ],
+    "music_theory.interval-identification-method-1": [
+      "music_theory.major-or-minor-intervals"
+    ],
+    "music_theory.interval-identification-method-2": [
+      "music_theory.interval-quality"
+    ],
+    "music_theory.interval-identification-rule": [
+      "music_theory.interval-writing-above-note",
+      "music_theory.interval-writing-below-note"
+    ],
+    "music_theory.interval-inversion-rule": [
+      "music_theory.major-interval",
+      "music_theory.minor-interval",
+      "music_theory.perfect-interval"
+    ],
+    "music_theory.interval-numbering-in-figured-bass": [
+      "music_theory.inversion-symbol-usage"
+    ],
+    "music_theory.interval-vector": [
+      "music_theory.normal-form"
+    ],
+    "music_theory.interval-vector-construction": [
+      "music_theory.interval-vector-length-rule",
+      "music_theory.interval-vector-zero-rule"
+    ],
+    "music_theory.invention-exposition": [
+      "music_theory.bachs-c-major-invention",
+      "music_theory.bachs-e-minor-invention",
+      "music_theory.harmonic-pattern-rule"
+    ],
+    "music_theory.inversion-form": [
+      "music_theory.row-transposition-rule"
+    ],
+    "music_theory.inversion-notation-rule": [
+      "music_theory.fully-diminished-seventh-chord"
+    ],
+    "music_theory.inversion-of-intervals": [
+      "music_theory.finding-inverted-interval"
+    ],
+    "music_theory.inversion-symbol-omission-rule": [
+      "music_theory.seventh-chord-figured-bass-symbols"
+    ],
+    "music_theory.inversionally-related-sets": [
+      "music_theory.tni-operation"
+    ],
+    "music_theory.invert-around-axis": [
+      "music_theory.modulo-12-reduction"
+    ],
+    "music_theory.inverted-seventh-chord": [
+      "music_theory.voice-leading-successive-seventh-chords"
+    ],
+    "music_theory.iv5-sus-chord": [
+      "music_theory.iv5-sus-chord-substitution-rule",
+      "music_theory.v7-chord"
+    ],
+    "music_theory.jazz-chord-analysis": [
+      "music_theory.analyze-jazz-chord-steps"
+    ],
+    "music_theory.jazz-chord-construction": [
+      "music_theory.dominant-seventh-chord",
+      "music_theory.major-seventh-chord",
+      "music_theory.minor-seventh-chord"
+    ],
+    "music_theory.jazz-chord-types": [
+      "music_theory.ninth-chord-notation"
+    ],
+    "music_theory.jazz-chord-voicing": [
+      "music_theory.guide-tones"
+    ],
+    "music_theory.key-modulation-rule": [
+      "music_theory.balanced-binary-form"
+    ],
+    "music_theory.key-relationship": [
+      "music_theory.diatonic-pivot-chord"
+    ],
+    "music_theory.key-signature-construction-rule": [
+      "music_theory.minor-key-signature"
+    ],
+    "music_theory.lead-sheet-analysis-rule": [
+      "music_theory.augmented-sixth-chord"
+    ],
+    "music_theory.lead-sheet-notation": [
+      "music_theory.analyze-non-chord-tones"
+    ],
+    "music_theory.lead-sheet-notation-convention": [
+      "music_theory.correcting-misspelled-triads",
+      "music_theory.inverted-triad-analysis",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.lead-sheet-symbols": [
+      "music_theory.roman-numeral-analysis",
+      "music_theory.roman-numerals-in-music-theory",
+      "music_theory.triad"
+    ],
+    "music_theory.major-or-minor-intervals": [
+      "music_theory.interval-quality"
+    ],
+    "music_theory.major-scale": [
+      "music_theory.key-signature",
+      "music_theory.tetrachord"
+    ],
+    "music_theory.major-triad-notation": [
+      "music_theory.triad"
+    ],
+    "music_theory.melodic-bass-six-four-chord": [
+      "music_theory.figured-bass-inversion-symbols"
+    ],
+    "music_theory.melodic-minor-scale": [
+      "music_theory.key-signature-rules"
+    ],
+    "music_theory.melodic-motive": [
+      "music_theory.motif-labeling-convention",
+      "music_theory.motivic-alteration-procedure"
+    ],
+    "music_theory.melodic-pattern-repetition-for-key-change": [
+      "music_theory.modulation-without-pivot-chords"
+    ],
+    "music_theory.melody-origin-criterion": [
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.menuetto-diagram": [
+      "music_theory.sonata-form-structure"
+    ],
+    "music_theory.meter-identification-rule": [
+      "music_theory.time-signature"
+    ],
+    "music_theory.middle-c": [
+      "music_theory.octave-register-numbering-convention"
+    ],
+    "music_theory.minor-scale": [
+      "music_theory.key-signature"
+    ],
+    "music_theory.minor-scale-flattening-rule": [
+      "music_theory.natural-minor-scale"
+    ],
+    "music_theory.minor-seventh-with-minor-third": [
+      "music_theory.jazz-chord-types"
+    ],
+    "music_theory.minor-triad-notation": [
+      "music_theory.triad"
+    ],
+    "music_theory.minuet-and-trio": [
+      "music_theory.structural-function"
+    ],
+    "music_theory.mirror-inversion": [
+      "music_theory.development"
+    ],
+    "music_theory.mode": [
+      "music_theory.scale-degree"
+    ],
+    "music_theory.mode-mixture": [
+      "music_theory.bass-line-pattern-in-mode-mixture",
+      "music_theory.borrowed-chord",
+      "music_theory.lead-sheet-symbols",
+      "music_theory.picardy-third",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.modification-requirements-rule": [
+      "music_theory.gnu-free-documentation-license"
+    ],
+    "music_theory.modulation": [
+      "music_theory.closely-related-keys"
+    ],
+    "music_theory.modulo-12-arithmetic": [
+      "music_theory.integer-notation-for-intervals",
+      "music_theory.integer-notation-for-pitches"
+    ],
+    "music_theory.moonlight-sonata": [
+      "music_theory.neapolitan-chord"
+    ],
+    "music_theory.motive": [
+      "music_theory.melodic-analysis"
+    ],
+    "music_theory.motivic-structure-analysis": [
+      "music_theory.phrase-diagram-creation"
+    ],
+    "music_theory.music-notation-fundamentals": [
+      "music_theory.key-signature-rules",
+      "music_theory.pitch-representation-system",
+      "music_theory.rhythmic-patterns"
+    ],
+    "music_theory.music-theory-textbook": [
+      "music_theory.motive-analysis",
+      "music_theory.phrase-analysis"
+    ],
+    "music_theory.musical-alphabet": [
+      "music_theory.octave-register"
+    ],
+    "music_theory.musical-form-labeling-convention": [
+      "music_theory.form-diagramming-process",
+      "music_theory.sectional-form"
+    ],
+    "music_theory.naming-convention-for-forms": [
+      "music_theory.continuous-form",
+      "music_theory.sectional-form"
+    ],
+    "music_theory.natural-minor-scale": [
+      "music_theory.key-signature-rules"
+    ],
+    "music_theory.neapolitan-chord": [
+      "music_theory.harmonic-function",
+      "music_theory.lead-sheet-symbols",
+      "music_theory.modulation",
+      "music_theory.neapolitan-chord-notation-convention",
+      "music_theory.neapolitan-inversion-labeling",
+      "music_theory.pre-dominant-chord-substitution",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.non-chord-tone": [
+      "music_theory.cadence",
+      "music_theory.voice-leading"
+    ],
+    "music_theory.non-chord-tone-annotation": [
+      "music_theory.melodic-motive"
+    ],
+    "music_theory.non-chord-tone-handling": [
+      "music_theory.voice-leading"
+    ],
+    "music_theory.non-chord-tone-placement-rule": [
+      "music_theory.anticipation",
+      "music_theory.appoggiatura",
+      "music_theory.neighbor-tone",
+      "music_theory.passing-tone",
+      "music_theory.suspension-interval-numbers"
+    ],
+    "music_theory.non-chord-tone-type": [
+      "music_theory.analyze-non-chord-tones"
+    ],
+    "music_theory.non-twelve-tone-serialism": [
+      "music_theory.twelve-tone-row"
+    ],
+    "music_theory.normal-form-algorithm": [
+      "music_theory.pitch-class-set"
+    ],
+    "music_theory.normal-form-transposition": [
+      "music_theory.prime-form"
+    ],
+    "music_theory.octave-equivalence": [
+      "music_theory.integer-notation-for-pitches"
+    ],
+    "music_theory.octave-register": [
+      "music_theory.middle-c"
+    ],
+    "music_theory.odd-number-intervals-in-chords": [
+      "music_theory.seventh-chord"
+    ],
+    "music_theory.odd-numbered-intervals-rule": [
+      "music_theory.interval"
+    ],
+    "music_theory.offbeats": [
+      "music_theory.polka-style-offbeats",
+      "music_theory.reggae-style-offbeats"
+    ],
+    "music_theory.opaque-copy": [
+      "music_theory.document"
+    ],
+    "music_theory.order-of-flats": [
+      "music_theory.key-signature"
+    ],
+    "music_theory.order-of-sharps": [
+      "music_theory.key-signature"
+    ],
+    "music_theory.overlap-presentation-rule": [
+      "music_theory.row-form-presentation"
+    ],
+    "music_theory.pandiatonicism": [
+      "music_theory.dissonant-interval-usage",
+      "music_theory.non-functional-harmonic-progression"
+    ],
+    "music_theory.parallel-5ths-and-8ves-avoidance": [
+      "music_theory.non-chord-tone-embellishment"
+    ],
+    "music_theory.parallel-fifthdiminished-fifth-avoidance": [
+      "music_theory.voice-leading"
+    ],
+    "music_theory.parallel-fifths-avoidance": [
+      "music_theory.incomplete-v7-chord",
+      "music_theory.resolving-vii7-principle"
+    ],
+    "music_theory.parallel-fifths-rule": [
+      "music_theory.six-four-chord"
+    ],
+    "music_theory.parallel-four-tones-rule": [
+      "music_theory.six-four-chord"
+    ],
+    "music_theory.parallelism-in-harmony": [
+      "music_theory.roman-numerals"
+    ],
+    "music_theory.passing-six-four-chord": [
+      "music_theory.six-four-chord-occurrence-rules"
+    ],
+    "music_theory.passing-tone-qualifiers": [
+      "music_theory.passing-tone"
+    ],
+    "music_theory.pedal-point": [
+      "music_theory.non-chord-tone-usage-rules",
+      "music_theory.suspension"
+    ],
+    "music_theory.pedal-six-four-chord": [
+      "music_theory.figured-bass-inversion-symbols"
+    ],
+    "music_theory.perfect-authentic-cadence": [
+      "music_theory.cadence-requirement-rule"
+    ],
+    "music_theory.perfect-intervals": [
+      "music_theory.interval-quality"
+    ],
+    "music_theory.period": [
+      "music_theory.antecedent",
+      "music_theory.consequent"
+    ],
+    "music_theory.phase-shifting": [
+      "music_theory.pattern-rotation"
+    ],
+    "music_theory.phrase": [
+      "music_theory.melodic-analysis",
+      "music_theory.phrase-length-rule"
+    ],
+    "music_theory.phrase-combination-structure": [
+      "music_theory.cadence-type",
+      "music_theory.phrase-combination-hierarchy"
+    ],
+    "music_theory.picardy-3rd": [
+      "music_theory.tonic-function-in-minor-keys"
+    ],
+    "music_theory.pitch-class-integer": [
+      "music_theory.twelve-tone-row"
+    ],
+    "music_theory.pitch-integer": [
+      "music_theory.row-transposition-rule"
+    ],
+    "music_theory.pivot-chord-selection-criteria": [
+      "music_theory.diatonic-pivot-chord"
+    ],
+    "music_theory.pivot-chord-transposition-algorithm": [
+      "music_theory.dominant-seventh-resolution"
+    ],
+    "music_theory.plagal-cadence": [
+      "music_theory.cadence",
+      "music_theory.pre-dominant-function"
+    ],
+    "music_theory.polychord": [
+      "music_theory.polychord-inversion-rule",
+      "music_theory.polychord-notation-rule",
+      "music_theory.roman-numerals"
+    ],
+    "music_theory.practice-exercise-format": [
+      "music_theory.key-signature",
+      "music_theory.scale-degree-names"
+    ],
+    "music_theory.pre-dominant-function": [
+      "music_theory.harmonic-flowchart"
+    ],
+    "music_theory.prime-form": [
+      "music_theory.row-transposition-rule"
+    ],
+    "music_theory.prime-form-notation": [
+      "music_theory.prime-form-computation"
+    ],
+    "music_theory.progression-rotation": [
+      "music_theory.chord-progression-animation"
+    ],
+    "music_theory.proportion-analysis-rule": [
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.proportion-criterion-for-distinguishing-forms": [
+      "music_theory.rounded-binary-form"
+    ],
+    "music_theory.quartal-voicing": [
+      "music_theory.lead-sheet-symbols"
+    ],
+    "music_theory.quintal-voicing": [
+      "music_theory.lead-sheet-symbols"
+    ],
+    "music_theory.raiders-march": [
+      "music_theory.neapolitan-chord"
+    ],
+    "music_theory.recurring-accidentals": [
+      "music_theory.flat-symbol-as-key-indicator"
+    ],
+    "music_theory.relative-major-rule": [
+      "music_theory.relative-minor"
+    ],
+    "music_theory.repetition-of-the-bass-note": [
+      "music_theory.voice-leading-root-position-triads"
+    ],
+    "music_theory.respell-interval": [
+      "music_theory.enharmonic-equivalent"
+    ],
+    "music_theory.response": [
+      "music_theory.countersubject"
+    ],
+    "music_theory.retrograde": [
+      "music_theory.motive"
+    ],
+    "music_theory.retrograde-form": [
+      "music_theory.row-transposition-rule"
+    ],
+    "music_theory.retrograde-inversion-form": [
+      "music_theory.row-transposition-rule"
+    ],
+    "music_theory.rhythm-patterns-in-popular-music": [
+      "music_theory.texture-in-music"
+    ],
+    "music_theory.rhythmic-expansion-rule": [
+      "music_theory.habanera-rhythm"
+    ],
+    "music_theory.rhythmic-notation-error": [
+      "music_theory.beat-grouping-rule"
+    ],
+    "music_theory.rhythmic-patterns": [
+      "music_theory.pitch-representation-system"
+    ],
+    "music_theory.rhythmic-value": [
+      "music_theory.musical-section-contrast"
+    ],
+    "music_theory.rhythmic-value-summation": [
+      "music_theory.rhythmic-notation"
+    ],
+    "music_theory.roman-numeral-analysis": [
+      "music_theory.cadence-types",
+      "music_theory.harmonic-function"
+    ],
+    "music_theory.roman-numeral-chord-labeling": [
+      "music_theory.cadence-type-classification"
+    ],
+    "music_theory.roman-numeral-chord-symbols": [
+      "music_theory.augmented-chord-notation",
+      "music_theory.diminished-chord-notation",
+      "music_theory.lowercase-roman-numeral-convention",
+      "music_theory.slash-chord-notation",
+      "music_theory.uppercase-roman-numeral-convention"
+    ],
+    "music_theory.roman-numeral-labeling-convention": [
+      "music_theory.secondary-dominant"
+    ],
+    "music_theory.roman-numeral-notation": [
+      "music_theory.generate-diatonic-chords"
+    ],
+    "music_theory.roman-numeral-notation-for-seventh-chords": [
+      "music_theory.fully-diminished-seventh-chord",
+      "music_theory.half-diminished-seventh-chord",
+      "music_theory.major-seventh-chord",
+      "music_theory.minor-seventh-chord"
+    ],
+    "music_theory.roman-numeral-notation-in-minor-keys": [
+      "music_theory.cadence"
+    ],
+    "music_theory.roman-numerals": [
+      "music_theory.modulation"
+    ],
+    "music_theory.roman-numerals-in-music-theory": [
+      "music_theory.cadence-type"
+    ],
+    "music_theory.rondo-character": [
+      "music_theory.rondo-character-tempo-rule",
+      "music_theory.staccato-articulation-rule"
+    ],
+    "music_theory.rondo-form": [
+      "music_theory.musical-section-contrast",
+      "music_theory.retransition",
+      "music_theory.rondo-key-relationships",
+      "music_theory.rondo-structural-functions",
+      "music_theory.structural-function"
+    ],
+    "music_theory.rounded-binary-form": [
+      "music_theory.beethoven-era-classification-rule",
+      "music_theory.repetition-pattern-in-rounded-binary",
+      "music_theory.tonic-chord-ending-constraint"
+    ],
+    "music_theory.row-transformation": [
+      "music_theory.twelve-tone-row"
+    ],
+    "music_theory.rules-of-melody": [
+      "music_theory.avoid-augmented-intervals",
+      "music_theory.consecutive-leaps-outline-triad",
+      "music_theory.leap-direction-change",
+      "music_theory.tendency-tone-resolution"
+    ],
+    "music_theory.scale-construction-from-chord-tones": [
+      "music_theory.bebop-scale-harmonization"
+    ],
+    "music_theory.scale-degree": [
+      "music_theory.chord-scale-relationship"
+    ],
+    "music_theory.scale-degree-mapping": [
+      "music_theory.major-scale-construction"
+    ],
+    "music_theory.scale-degree-names": [
+      "music_theory.dominant",
+      "music_theory.leading-tone",
+      "music_theory.mediant",
+      "music_theory.minor-scale",
+      "music_theory.subdominant",
+      "music_theory.submediant",
+      "music_theory.supertonic",
+      "music_theory.tonic"
+    ],
+    "music_theory.second-section": [
+      "music_theory.key-modulation-rule"
+    ],
+    "music_theory.second-species-counterpoint-rules": [
+      "music_theory.allowed-leaps",
+      "music_theory.avoiding-tritones",
+      "music_theory.barline-crossing-rules",
+      "music_theory.beginning-and-ending-notes",
+      "music_theory.concluding-formulas",
+      "music_theory.consonant-harmonic-intervals",
+      "music_theory.half-note-constraints",
+      "music_theory.note-repetition-avoidance"
+    ],
+    "music_theory.secondary-diminished-chord": [
+      "music_theory.harmonic-function-flowchart",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.secondary-diminished-chords": [
+      "music_theory.modulation"
+    ],
+    "music_theory.secondary-dominant": [
+      "music_theory.cadence",
+      "music_theory.tonicization"
+    ],
+    "music_theory.secondary-dominant-chord": [
+      "music_theory.chromatic-harmony",
+      "music_theory.chromaticism-in-secondary-dominants",
+      "music_theory.irregular-resolution-of-secondary-dominant",
+      "music_theory.lead-sheet-notation-convention",
+      "music_theory.leading-tone-in-secondary-dominants",
+      "music_theory.tonicizing-function"
+    ],
+    "music_theory.secondary-section": [
+      "music_theory.document"
+    ],
+    "music_theory.secundal-voicing": [
+      "music_theory.lead-sheet-symbols"
+    ],
+    "music_theory.sequence": [
+      "music_theory.development"
+    ],
+    "music_theory.sequential-modulation": [
+      "music_theory.modulation-without-pivot-chords"
+    ],
+    "music_theory.serial-analysis-rule": [
+      "music_theory.twelve-tone-row"
+    ],
+    "music_theory.set-inversion": [
+      "music_theory.prime-form"
+    ],
+    "music_theory.set-theory": [
+      "music_theory.pitch-class-set"
+    ],
+    "music_theory.seventh-chord": [
+      "music_theory.fully-diminished-seventh-chord",
+      "music_theory.half-diminished-seventh-chord",
+      "music_theory.major-minor-seventh-chord",
+      "music_theory.major-seventh-chord",
+      "music_theory.minor-seventh-chord"
+    ],
+    "music_theory.seventh-chord-analysis": [
+      "music_theory.lead-sheet-symbol",
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.seventh-chord-resolution-rule": [
+      "music_theory.seventh-chord",
+      "music_theory.voice-leading"
+    ],
+    "music_theory.seventh-chord-usage-in-harmonization": [
+      "music_theory.voice-leading-resolution"
+    ],
+    "music_theory.simple-binary-form": [
+      "music_theory.classical-era-musical-structure"
+    ],
+    "music_theory.simple-meter": [
+      "music_theory.beat-grouping-rule",
+      "music_theory.time-signature"
+    ],
+    "music_theory.six-four-chord": [
+      "music_theory.cadential-six-four-chord",
+      "music_theory.passing-six-four-chord",
+      "music_theory.pedal-six-four-chord"
+    ],
+    "music_theory.sonata-form": [
+      "music_theory.sonata-principle",
+      "music_theory.structural-function"
+    ],
+    "music_theory.song-section-analysis": [
+      "music_theory.form-analysis-practice-rule"
+    ],
+    "music_theory.species-counterpoint": [
+      "music_theory.contrapuntal-texture",
+      "music_theory.first-species-counterpoint-rules",
+      "music_theory.fourth-species-counterpoint-rules",
+      "music_theory.second-species-counterpoint-rules",
+      "music_theory.third-species-counterpoint-rules"
+    ],
+    "music_theory.standard-chord-progressions": [
+      "music_theory.ii-v-i-progression",
+      "music_theory.iiiviiiv-progression"
+    ],
+    "music_theory.star-trek-end-credits": [
+      "music_theory.neapolitan-chord"
+    ],
+    "music_theory.subphrase": [
+      "music_theory.melodic-analysis",
+      "music_theory.motif-labeling-convention"
+    ],
+    "music_theory.subphrase-analysis-focus": [
+      "music_theory.subphrase"
+    ],
+    "music_theory.subphrase-labeling-convention": [
+      "music_theory.subphrase"
+    ],
+    "music_theory.subtonic-vii-chord": [
+      "music_theory.subtonic-vii-function-in-popular-music"
+    ],
+    "music_theory.subtonic-vii-function-in-popular-music": [
+      "music_theory.subtonic-vii-pre-dominant-function"
+    ],
+    "music_theory.subtonic-vs-leading-tone": [
+      "music_theory.scale-degree-names"
+    ],
+    "music_theory.sus-chord": [
+      "music_theory.first-inversion",
+      "music_theory.root-position",
+      "music_theory.second-inversion",
+      "music_theory.sus-chord-notation"
+    ],
+    "music_theory.suspension": [
+      "music_theory.suspension-interval-notation"
+    ],
+    "music_theory.suspension-interval-notation": [
+      "music_theory.suspension-classification-rule"
+    ],
+    "music_theory.syncopation": [
+      "music_theory.beat-grouping",
+      "music_theory.downbeat-visibility-rule"
+    ],
+    "music_theory.terminative-function": [
+      "music_theory.cadence-demarcation-rule"
+    ],
+    "music_theory.ternary-form": [
+      "music_theory.form-diagramming-process",
+      "music_theory.structural-function"
+    ],
+    "music_theory.tertian-voicing": [
+      "music_theory.lead-sheet-symbols"
+    ],
+    "music_theory.tetrachord": [
+      "music_theory.half-step-interval",
+      "music_theory.whole-step-interval"
+    ],
+    "music_theory.texture": [
+      "music_theory.horizontal-elements",
+      "music_theory.vertical-elements"
+    ],
+    "music_theory.texture-in-music": [
+      "music_theory.articulation-in-music",
+      "music_theory.form-in-popular-music",
+      "music_theory.musical-section-contrast"
+    ],
+    "music_theory.third-species-counterpoint-rules": [
+      "music_theory.avoid-perfect-unisons-and-fifths",
+      "music_theory.concluding-formulas",
+      "music_theory.consonance-on-downbeats"
+    ],
+    "music_theory.tie-breaking-rule": [
+      "music_theory.absolute-tie-resolution-rule"
+    ],
+    "music_theory.tie-musical-notation": [
+      "music_theory.note-duration-relationships"
+    ],
+    "music_theory.time-signature": [
+      "music_theory.eighth-note",
+      "music_theory.half-note",
+      "music_theory.quarter-note",
+      "music_theory.sixteenth-note",
+      "music_theory.thirty-second-note",
+      "music_theory.whole-note"
+    ],
+    "music_theory.tonic-dominant-tonic-progression": [
+      "music_theory.dominant-function",
+      "music_theory.harmonic-flowchart",
+      "music_theory.tonic-function"
+    ],
+    "music_theory.tonic-function": [
+      "music_theory.harmonic-flowchart"
+    ],
+    "music_theory.tonic-function-usage": [
+      "music_theory.chord-label"
+    ],
+    "music_theory.tonic-mode-mixture": [
+      "music_theory.modulation"
+    ],
+    "music_theory.tonic-predominant-dominant-tonic-progression": [
+      "music_theory.dominant-function",
+      "music_theory.harmonic-flowchart",
+      "music_theory.pre-dominant-function",
+      "music_theory.tonic-function"
+    ],
+    "music_theory.tonic-prolongation-function": [
+      "music_theory.harmonic-flowchart"
+    ],
+    "music_theory.tonicizing-function": [
+      "music_theory.roman-numeral-analysis-convention"
+    ],
+    "music_theory.transitional-function": [
+      "music_theory.cadence-demarcation-rule"
+    ],
+    "music_theory.transparent-copy": [
+      "music_theory.document"
+    ],
+    "music_theory.transposition-tn": [
+      "music_theory.prime-form",
+      "music_theory.set-class"
+    ],
+    "music_theory.triad-inversion": [
+      "music_theory.triad"
+    ],
+    "music_theory.triad-labeling-rule": [
+      "music_theory.lead-sheet-symbols",
+      "music_theory.roman-numerals-in-music-theory"
+    ],
+    "music_theory.triad-types": [
+      "music_theory.sus-chords"
+    ],
+    "music_theory.trio-diagram": [
+      "music_theory.sonata-form-structure"
+    ],
+    "music_theory.tritone": [
+      "music_theory.harmonic-function"
+    ],
+    "music_theory.tritone-substitution": [
+      "music_theory.ii-v-i-progression"
+    ],
+    "music_theory.tritone-substitution-rule": [
+      "music_theory.circle-of-fifths-progression"
+    ],
+    "music_theory.tuplet": [
+      "music_theory.tuplet-notation-rule"
+    ],
+    "music_theory.twelve-tone-matrix": [
+      "music_theory.row-form-presentation",
+      "music_theory.twelve-tone-technique-rules"
+    ],
+    "music_theory.twelve-tone-row": [
+      "music_theory.matrix-construction-algorithm",
+      "music_theory.row-form"
+    ],
+    "music_theory.twelve-tone-technique": [
+      "music_theory.chromatic-scale-usage-rule",
+      "music_theory.fixed-order-principle",
+      "music_theory.note-repetition-constraint",
+      "music_theory.transformation-operations-rule"
+    ],
+    "music_theory.two-reprise-continuous-rounded-binary-form": [
+      "music_theory.repetition-pattern-in-rounded-binary"
+    ],
+    "music_theory.types-of-motion": [
+      "music_theory.contrary-motion",
+      "music_theory.oblique-motion",
+      "music_theory.parallel-motion",
+      "music_theory.similar-motion"
+    ],
+    "music_theory.upper-structure-notes": [
+      "music_theory.f13sus2-9"
+    ],
+    "music_theory.use-of-modes-in-impressionist-music": [
+      "music_theory.church-mode"
+    ],
+    "music_theory.use-of-raised-6th-and-7th-in-minor-keys": [
+      "music_theory.diatonic-harmony"
+    ],
+    "music_theory.v7-pivot-chord": [
+      "music_theory.pivot-chord-function"
+    ],
+    "music_theory.v7iv-in-minor-mode": [
+      "music_theory.chromaticism-in-secondary-dominants"
+    ],
+    "music_theory.verbatim-copying-rule": [
+      "music_theory.gnu-free-documentation-license"
+    ],
+    "music_theory.versechorus-form": [
+      "music_theory.versechorus-form-structure"
+    ],
+    "music_theory.vertical-elements": [
+      "music_theory.contrapuntal-texture"
+    ],
+    "music_theory.viiø7iii-in-minor-key": [
+      "music_theory.secondary-diminished-chord"
+    ],
+    "music_theory.voice-leading": [
+      "music_theory.augmented-sixth-chord-resolution",
+      "music_theory.avoid-parallel-fifths",
+      "music_theory.chorale-style-voice-leading",
+      "music_theory.double-thirds",
+      "music_theory.johann-sebastian-bach-chorales",
+      "music_theory.piano-style-voice-leading",
+      "music_theory.roman-numeral-analysis",
+      "music_theory.satb-voice-leading"
+    ],
+    "music_theory.voice-leading-analysis": [
+      "music_theory.deceptive-cadence"
+    ],
+    "music_theory.voice-leading-borrowed-chords": [
+      "music_theory.resolving-secondary-vii7-and-viiø7-chords",
+      "music_theory.tendency-tone-resolution"
+    ],
+    "music_theory.voice-leading-constraint": [
+      "music_theory.non-chord-tone"
+    ],
+    "music_theory.voice-leading-principles": [
+      "music_theory.four-part-voicing-techniques"
+    ],
+    "music_theory.voice-leading-resolution-rule": [
+      "music_theory.complete-resolution",
+      "music_theory.incomplete-resolution"
+    ],
+    "music_theory.voice-leading-resolution-rules": [
+      "music_theory.free-resolution-method",
+      "music_theory.strict-resolution-method"
+    ],
+    "music_theory.voice-leading-second-inversion-triads": [
+      "music_theory.avoid-parallel-fifths-in-voice-leading"
+    ],
+    "music_theory.voice-leading-secondary-chord-resolution": [
+      "music_theory.chromatic-voice-leading"
+    ],
+    "music_theory.voice-leading-successive-seventh-chords": [
+      "music_theory.parallel-fifths-in-voice-leading"
+    ],
+    "music_theory.voice-ranges": [
+      "music_theory.types-of-motion"
+    ],
+    "music_theory.write-secondary-diminished-chord-procedure": [
+      "music_theory.secondary-diminished-chord-analysis-rule"
+    ],
+    "music_theory.write-secondary-dominant": [
+      "music_theory.secondary-dominant"
+    ],
+    "music_theory.write-specified-row-forms": [
+      "music_theory.twelve-tone-matrix"
+    ],
+    "music_theory.written-out-repeats": [
+      "music_theory.musical-form-analysis"
+    ],
+    "music_theory.z-relation": [
+      "music_theory.prime-form"
+    ]
+  },
+  "depends_on": {
+    "music_theory.accidental-handling-in-intervals": [
+      "music_theory.interval-identification-method-1"
+    ],
+    "music_theory.additive-minimalism": [
+      "music_theory.musical-pattern-repetition"
+    ],
+    "music_theory.alteration-notation-convention": [
+      "music_theory.jazz-chord-construction"
+    ],
+    "music_theory.alternate-voicing-rule": [
+      "music_theory.voice-leading-secondary-chord-resolution"
+    ],
+    "music_theory.analyze-jazz-chord-steps": [
+      "music_theory.enharmonic-respelling-rule",
+      "music_theory.major-chord-members-up-to-13th"
+    ],
+    "music_theory.analyze-secondary-diminished-chord-procedure": [
+      "music_theory.diminished-seventh-chord"
+    ],
+    "music_theory.analyze-secondary-dominant": [
+      "music_theory.chord-quality-rule"
+    ],
+    "music_theory.antecedent": [
+      "music_theory.inconclusive-cadence"
+    ],
+    "music_theory.antecedent-group": [
+      "music_theory.cadential-scheme"
+    ],
+    "music_theory.approach-ending-by-contrary-motion": [
+      "music_theory.first-species-counterpoint"
+    ],
+    "music_theory.augmented-chord-notation": [
+      "music_theory.roman-numeral-chord-symbols"
+    ],
+    "music_theory.augmented-sixth-chord": [
+      "music_theory.chord-resolution-pattern",
+      "music_theory.stacked-thirds-analysis-rule"
+    ],
+    "music_theory.augmented-sixth-chord-resolution": [
+      "music_theory.voice-leading"
+    ],
+    "music_theory.avoiding-parallel-4rds": [
+      "music_theory.voice-leading-resolution"
+    ],
+    "music_theory.balanced-binary-form": [
+      "music_theory.first-section",
+      "music_theory.second-section"
+    ],
+    "music_theory.begin-with-octave-or-unison": [
+      "music_theory.first-species-counterpoint"
+    ],
+    "music_theory.borrowed-chord": [
+      "music_theory.scale-degree-harmonization",
+      "music_theory.stacking-thirds-for-chord-identification"
+    ],
+    "music_theory.cadence": [
+      "music_theory.diatonic-chord-progression"
+    ],
+    "music_theory.cadence-demarcation-rule": [
+      "music_theory.structural-function"
+    ],
+    "music_theory.chord-progression-analysis": [
+      "music_theory.voice-leading-analysis"
+    ],
+    "music_theory.chord-scale-relationship": [
+      "music_theory.avoid-augmented-seconds-and-consecutive-half-steps",
+      "music_theory.key-context-influence-on-scale-choice"
+    ],
+    "music_theory.chord-symbol-notation": [
+      "music_theory.bebop-scale-harmonization"
+    ],
+    "music_theory.chromatic-alteration-in-figured-bass": [
+      "music_theory.interval-numbering-in-figured-bass"
+    ],
+    "music_theory.chromatic-resolution": [
+      "music_theory.secondary-dominant-chord"
+    ],
+    "music_theory.circle-of-fifths-progression": [
+      "music_theory.diatonic-chord-construction"
+    ],
+    "music_theory.complement-set": [
+      "music_theory.prime-form"
+    ],
+    "music_theory.consequent": [
+      "music_theory.conclusive-cadence"
+    ],
+    "music_theory.consequent-group": [
+      "music_theory.cadential-scheme"
+    ],
+    "music_theory.determine-row-form": [
+      "music_theory.inversion-form",
+      "music_theory.pitch-integer",
+      "music_theory.prime-form",
+      "music_theory.retrograde-form",
+      "music_theory.retrograde-inversion-form"
+    ],
+    "music_theory.determining-quality": [
+      "music_theory.root-position"
+    ],
+    "music_theory.diatonic-pivot-chord": [
+      "music_theory.key-relationship"
+    ],
+    "music_theory.diminished-chord-notation": [
+      "music_theory.roman-numeral-chord-symbols"
+    ],
+    "music_theory.document-combination-rules": [
+      "music_theory.invariant-sections"
+    ],
+    "music_theory.dominant-function": [
+      "music_theory.tonic-function"
+    ],
+    "music_theory.double-neighbor": [
+      "music_theory.harmonic-context-rule"
+    ],
+    "music_theory.eleventh-and-thirteenth-chord-construction": [
+      "music_theory.ninth-chord-notation"
+    ],
+    "music_theory.end-on-octave-or-unison": [
+      "music_theory.first-species-counterpoint"
+    ],
+    "music_theory.extended-chord-construction": [
+      "music_theory.parallel-voice-motion"
+    ],
+    "music_theory.extension-notation-convention": [
+      "music_theory.jazz-chord-construction"
+    ],
+    "music_theory.f13sus2-9": [
+      "music_theory.guide-tones"
+    ],
+    "music_theory.figured-bass": [
+      "music_theory.bass-line"
+    ],
+    "music_theory.figured-bass-notation-rules": [
+      "music_theory.roman-numeral-analysis"
+    ],
+    "music_theory.free-resolution-method": [
+      "music_theory.voice-leading-resolution-rules"
+    ],
+    "music_theory.fugue": [
+      "music_theory.episode",
+      "music_theory.fugue-exposition",
+      "music_theory.fugue-subject"
+    ],
+    "music_theory.git-diff-parsing": [
+      "music_theory.git-commit-message-linting"
+    ],
+    "music_theory.harmonic-function": [
+      "music_theory.diatonic-chord-progression",
+      "music_theory.pitch-representation-system"
+    ],
+    "music_theory.harmonic-progression": [
+      "music_theory.form-in-popular-music"
+    ],
+    "music_theory.incorrect-rhythmic-notation-correction": [
+      "music_theory.beat-grouping"
+    ],
+    "music_theory.interval-class": [
+      "music_theory.interval-vector"
+    ],
+    "music_theory.interval-classifications": [
+      "music_theory.pitch-representation-system"
+    ],
+    "music_theory.interval-quality": [
+      "music_theory.interval-identification-rule"
+    ],
+    "music_theory.interval-size": [
+      "music_theory.interval-identification-rule"
+    ],
+    "music_theory.interval-vector-construction": [
+      "music_theory.interval-class"
+    ],
+    "music_theory.invention-exposition": [
+      "music_theory.invention-exposition-construction-rules"
+    ],
+    "music_theory.invert-interval": [
+      "music_theory.interval-size"
+    ],
+    "music_theory.iv-chord-function-in-popular-music": [
+      "music_theory.subtonic-vii-function-in-popular-music"
+    ],
+    "music_theory.key-identification-rule": [
+      "music_theory.structural-function"
+    ],
+    "music_theory.key-recognition-after-modulation": [
+      "music_theory.recurring-accidentals"
+    ],
+    "music_theory.key-signature-notation-rule": [
+      "music_theory.roman-numerals-in-music-theory"
+    ],
+    "music_theory.lead-sheet-symbols": [
+      "music_theory.closely-related-keys"
+    ],
+    "music_theory.leading-tone-adjustment": [
+      "music_theory.first-species-counterpoint"
+    ],
+    "music_theory.leading-tone-function": [
+      "music_theory.chromatic-pivot-chord"
+    ],
+    "music_theory.lowercase-roman-numeral-convention": [
+      "music_theory.roman-numeral-chord-symbols"
+    ],
+    "music_theory.major-scale": [
+      "music_theory.half-step-interval",
+      "music_theory.whole-step-interval"
+    ],
+    "music_theory.major-scale-construction": [
+      "music_theory.key-signature-order"
+    ],
+    "music_theory.melodic-analysis": [
+      "music_theory.subphrase"
+    ],
+    "music_theory.meter": [
+      "music_theory.beat"
+    ],
+    "music_theory.modified-version": [
+      "music_theory.modified-version"
+    ],
+    "music_theory.modulation": [
+      "music_theory.key-confirmation-rule"
+    ],
+    "music_theory.music-interval": [
+      "music_theory.scale-degree"
+    ],
+    "music_theory.non-chord-tone-placement-rules": [
+      "music_theory.analyze-non-chord-tones"
+    ],
+    "music_theory.normal-form-algorithm": [
+      "music_theory.absolute-tie-resolution-rule",
+      "music_theory.tie-breaking-rule"
+    ],
+    "music_theory.normal-form-transposition": [
+      "music_theory.normal-form-constraint"
+    ],
+    "music_theory.objectionable-parallels-rule": [
+      "music_theory.types-of-motion"
+    ],
+    "music_theory.pandiatonicism": [
+      "music_theory.diatonic-notes"
+    ],
+    "music_theory.period": [
+      "music_theory.cadence",
+      "music_theory.phrase"
+    ],
+    "music_theory.phrase": [
+      "music_theory.cadence"
+    ],
+    "music_theory.phrase-chain": [
+      "music_theory.half-cadence"
+    ],
+    "music_theory.phrase-combination-hierarchy": [
+      "music_theory.cadence-type"
+    ],
+    "music_theory.phrase-group": [
+      "music_theory.half-cadence"
+    ],
+    "music_theory.piano-note-naming-convention": [
+      "music_theory.octave-register"
+    ],
+    "music_theory.pitch-representation-system": [
+      "music_theory.key-signature-rules"
+    ],
+    "music_theory.prime-form-computation": [
+      "music_theory.inversion-of-normal-form",
+      "music_theory.normal-form",
+      "music_theory.pitch-class-transposition-rule"
+    ],
+    "music_theory.relicensing-conditions": [
+      "music_theory.invariant-sections"
+    ],
+    "music_theory.resolve-enharmonic-respelling": [
+      "music_theory.pivot-chord"
+    ],
+    "music_theory.roman-numeral-analysis": [
+      "music_theory.closely-related-keys",
+      "music_theory.inversion-notation-rule",
+      "music_theory.voice-leading"
+    ],
+    "music_theory.rondo-key-relationships": [
+      "music_theory.retransition"
+    ],
+    "music_theory.row-form-presentation": [
+      "music_theory.inversion-form",
+      "music_theory.prime-form"
+    ],
+    "music_theory.rules-of-spacing": [
+      "music_theory.rules-of-melody"
+    ],
+    "music_theory.scale-construction-from-chord-tones": [
+      "music_theory.enharmonic-spelling"
+    ],
+    "music_theory.secondary-diminished-chord": [
+      "music_theory.chromaticism-in-secondary-diminished-chords"
+    ],
+    "music_theory.secondary-dominant-chord": [
+      "music_theory.diatonic-harmony"
+    ],
+    "music_theory.sentence-in-music": [
+      "music_theory.subphrase"
+    ],
+    "music_theory.set-inversion": [
+      "music_theory.normal-form-constraint"
+    ],
+    "music_theory.slash-chord-notation": [
+      "music_theory.roman-numeral-chord-symbols"
+    ],
+    "music_theory.sonata-form": [
+      "music_theory.development",
+      "music_theory.exposition",
+      "music_theory.recapitulation"
+    ],
+    "music_theory.strict-resolution-method": [
+      "music_theory.voice-leading-resolution-rules"
+    ],
+    "music_theory.subtonic-vii-function-in-popular-music": [
+      "music_theory.plagal-cadence"
+    ],
+    "music_theory.suspension": [
+      "music_theory.suspension-resolution-rule"
+    ],
+    "music_theory.tendency-tones": [
+      "music_theory.parallel-fifths-avoidance",
+      "music_theory.resolving-vii7-principle"
+    ],
+    "music_theory.texture-analysis-rule": [
+      "music_theory.horizontal-elements",
+      "music_theory.vertical-elements"
+    ],
+    "music_theory.tni-operation": [
+      "music_theory.invert-around-axis",
+      "music_theory.modulo-12-reduction"
+    ],
+    "music_theory.tonicization-via-accidentals": [
+      "music_theory.chromatic-pivot-chord"
+    ],
+    "music_theory.triad": [
+      "music_theory.chord-quality"
+    ],
+    "music_theory.triad-types": [
+      "music_theory.inverted-triad-analysis"
+    ],
+    "music_theory.tuplet": [
+      "music_theory.beat"
+    ],
+    "music_theory.uppercase-roman-numeral-convention": [
+      "music_theory.roman-numeral-chord-symbols"
+    ],
+    "music_theory.versechorus-form-structure": [
+      "music_theory.hook"
+    ],
+    "music_theory.voice-leading": [
+      "music_theory.seventh-chord"
+    ],
+    "music_theory.voice-leading-of-augmented-sixth-chords": [
+      "music_theory.voice-leading-of-neapolitan-chord"
+    ],
+    "music_theory.voice-leading-resolution-rule": [
+      "music_theory.circle-of-fifths-progression-rule"
+    ],
+    "music_theory.voice-leading-second-inversion-triads": [
+      "music_theory.no-double-third-in-v-chord"
+    ],
+    "music_theory.voice-leading-successive-seventh-chords": [
+      "music_theory.resolving-seventh-chord"
+    ],
+    "music_theory.write-secondary-diminished-chord-procedure": [
+      "music_theory.diminished-seventh-chord",
+      "music_theory.half-diminished-seventh-chord"
+    ],
+    "music_theory.write-specified-row-forms": [
+      "music_theory.pitch-class-startingending-convention"
+    ]
+  },
+  "derives_from": {
+    "music_theory.augmented-sixth-chord": [
+      "music_theory.french-augmented-sixth-chord",
+      "music_theory.german-augmented-sixth-chord",
+      "music_theory.italian-augmented-sixth-chord"
+    ],
+    "music_theory.consecutive-inversion-chords": [
+      "music_theory.avoid-parallel-fifths"
+    ],
+    "music_theory.minor-scale": [
+      "music_theory.harmonic-minor-scale",
+      "music_theory.melodic-minor-scale",
+      "music_theory.natural-minor-scale"
+    ]
+  },
+  "appears_in": {
+    "music_theory.non-chord-tone": [
+      "music_theory.johann-sebastian-bach-chorales"
+    ]
+  },
+  "contrasts_with": {
+    "music_theory.quartal-harmony": [
+      "music_theory.tertian-harmony"
+    ],
+    "music_theory.quintal-harmony": [
+      "music_theory.tertian-harmony"
+    ],
+    "music_theory.secundal-harmony": [
+      "music_theory.tertian-harmony"
+    ]
+  },
+  "is_a": {
+    "music_theory.tonic-tonic-prolongation-predominant-dominant-progression": [
+      "music_theory.progression"
+    ]
+  }
+}
