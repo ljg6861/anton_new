@@ -9,6 +9,7 @@ from server.agent.tools.tool_manager import tool_manager
 from server.agent.react.react_agent import ReActAgent
 from server.agent.react.token_budget import TokenBudget
 from server.agent.knowledge_store import KnowledgeStore
+from server.agent.react.research_enhancer import ResearchEnhancer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -124,6 +125,13 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
     # Extract user query for learning context
     user_content = " ".join([msg.get("content", "") for msg in messages if msg.get("role") == "user"])
     
+    # Initialize research enhancement system
+    research_enhancer = ResearchEnhancer()
+    research_requirement = research_enhancer.analyze_query_complexity(user_content)
+    
+    logger.info(f"🔍 Research requirement: min_sources={research_requirement.min_sources}, "
+               f"fact_verification={research_requirement.fact_verification_needed}")
+    
     # Initialize pack integration variables
     domain_knowledge = ""
     pack_name = ""
@@ -140,7 +148,8 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
             if domain_knowledge and domain_knowledge.strip():
                 logger.info(f"Successfully integrated pack: {pack_name}")
                 # Add step content to show pack selection
-                yield f"🎓 Using {pack_name} pack for specialized knowledge..."
+                yield f"<step>Knowledge Pack Selection</step>"
+                yield f"<step_content>🎓 Using {pack_name} pack for specialized knowledge</step_content>"
             else:
                 logger.info(f"Selected pack {pack_name} but no domain knowledge retrieved")
     except Exception as e:
@@ -154,7 +163,7 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
         "read_file"
     ])
     
-    # Create enhanced chat prompt that includes domain knowledge
+    # Create enhanced chat prompt that includes domain knowledge and research requirements
     domain_knowledge_section = ""
     if domain_knowledge:
         domain_knowledge_section = f"""
@@ -163,6 +172,21 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
 {domain_knowledge}
 
 Use this domain knowledge to provide detailed, accurate answers. This knowledge comes from the {pack_name} learning pack and should be your primary source for relevant questions.
+"""
+
+    # Add research enhancement guidance based on query complexity
+    research_guidance = ""
+    if research_requirement.min_sources > 1:
+        research_guidance = f"""
+
+🔍 RESEARCH REQUIREMENTS FOR THIS QUERY:
+- MINIMUM {research_requirement.min_sources} different sources required
+- {'FACT VERIFICATION mandatory for basic claims' if research_requirement.fact_verification_needed else ''}
+- Use diverse search queries - avoid repetitive searches
+- Cross-check information from multiple sources before responding
+- For music/technical topics: verify album names, dates, artist details, and technical information
+
+DO NOT provide your final answer until you have conducted thorough research meeting these requirements.
 """
 
     chat_prompt = f"""You are Anton, a helpful assistant with access to powerful research tools and domain knowledge.
@@ -181,6 +205,7 @@ MANDATORY TOOL USAGE RULES:
 - Weather questions → Use web_search → Use the weather links/data you found to answer
 - Product questions → Use web_search → Use the product info you found to answer  
 - Current events → Use web_search → Use the news results you found to answer
+- Music/technical analysis → Use multiple web_search calls with different queries → Verify facts before answering
 
 EXAMPLE CORRECT BEHAVIOR:
 User: "Weather in Orlando?"
@@ -196,7 +221,7 @@ Your available tools:
 - search_codebase: Code-related questions
 - read_file: File content questions
 
-Remember: After using tools successfully, confidently provide information based on what you found!{domain_knowledge_section}"""
+Remember: After using tools successfully, confidently provide information based on what you found!{domain_knowledge_section}{research_guidance}"""
 
     # Create chat messages with the enhanced prompt
     chat_messages = [{"role": "system", "content": chat_prompt}] + messages
@@ -266,14 +291,62 @@ Remember: After using tools successfully, confidently provide information based 
     
     tools_used = []
     research_conducted = False
+    tool_calls_made = []
+    research_validated = False
     
     async for chunk in react_agent.execute_react_loop_streaming(chat_messages, logger):
-        # Track tool usage for learning
+        # Track tool usage for learning and research validation
         if chunk.startswith("<step>Using "):
             tool_name = chunk.replace("<step>Using ", "").replace("</step>", "")
             tools_used.append(tool_name)
             if "web_search" in tool_name or "search_codebase" in tool_name:
                 research_conducted = True
+                
+            # Track tool call for research validation (initialize with basic info)
+            tool_calls_made.append({
+                'name': tool_name,
+                'status': 'started',
+                'arguments': {}  # Will be filled when we get results
+            })
+        
+        # Track successful tool completions and capture arguments from logs
+        elif chunk.startswith("<step_content>✅") and "completed" in chunk:
+            if tool_calls_made:
+                tool_calls_made[-1]['status'] = 'success'
+                # Note: We don't have access to the actual arguments here in the streaming,
+                # but the research validation will handle missing arguments gracefully
+        
+        # Before generating response, validate research depth
+        elif chunk.startswith("<step>Generating response</step>") and not research_validated:
+            # Only validate for queries that need research
+            if research_requirement.min_sources > 1:
+                # Validate research depth before allowing response
+                is_sufficient, issues = research_enhancer.validate_research_depth(
+                    user_content, tool_calls_made, research_requirement
+                )
+                
+                if not is_sufficient:
+                    logger.warning(f"🔍 Research insufficient: {issues}")
+                    suggestions = research_enhancer.suggest_additional_research(
+                        user_content, tool_calls_made, research_requirement
+                    )
+                    
+                    # Provide research guidance instead of generating response
+                    guidance = research_enhancer.generate_research_guidance(
+                        user_content, issues, suggestions
+                    )
+                    
+                    yield f"<step>Research Enhancement Required</step>"
+                    yield f"<step_content>{guidance}</step_content>"
+                    
+                    # Don't yield the generating response step yet
+                    continue
+                else:
+                    research_validated = True
+                    logger.info("✅ Research validation passed")
+            else:
+                research_validated = True
+                logger.info("✅ Research validation skipped (not required for this query type)")
         
         # Pass through step markers and step content for UI processing
         if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
@@ -288,11 +361,27 @@ Remember: After using tools successfully, confidently provide information based 
     # Record this chat interaction as a learning episode
     yield f"<step>Recording Learning</step>"
     
-    # Determine success based on whether research was conducted when needed
+    # Determine success based on research quality and depth
     success = True
     confidence = 0.8
     
-    if any(keyword in user_content.lower() for keyword in ["what is", "tell me about", "weather", "news"]):
+    # Evaluate research quality for knowledge-intensive queries
+    if research_requirement.min_sources > 1:
+        is_sufficient, issues = research_enhancer.validate_research_depth(
+            user_content, tool_calls_made, research_requirement
+        )
+        
+        if is_sufficient and research_conducted:
+            learning_msg = f"✅ Conducted thorough research ({len(tool_calls_made)} sources) for complex query"
+            confidence = 0.95
+        elif research_conducted:
+            learning_msg = f"⚠️ Conducted some research but could be more thorough: {'; '.join(issues)}"
+            confidence = 0.7
+        else:
+            learning_msg = "❌ Failed to conduct required research for knowledge-intensive query"
+            success = False
+            confidence = 0.3
+    elif any(keyword in user_content.lower() for keyword in ["what is", "tell me about", "weather", "news"]):
         # Questions that should trigger research
         if research_conducted:
             learning_msg = "✅ Successfully researched unknown topic before responding"

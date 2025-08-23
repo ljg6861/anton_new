@@ -23,9 +23,9 @@ from server.agent.tools.tool_manager import tool_manager
 from .token_budget import TokenBudget
 from .memory_manager import MemoryManager
 from .token_loop_detector import TokenLoopDetector
-from .system_prompt_builder import SystemPromptBuilder
 from .tool_formatter import ToolFormatter
 from .response_processor import ResponseProcessor
+from .research_enhancer import ResearchEnhancer
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +61,9 @@ class ReActAgent:
         self.budget = token_budget or TokenBudget()
         self.memory = MemoryManager(self.budget)
         self.loop_detector = TokenLoopDetector()
-        self.prompt_builder = SystemPromptBuilder(self.memory, self.knowledge_store)
         self.tool_formatter = ToolFormatter(self.memory)
         self.response_processor = ResponseProcessor(self.knowledge_store, self.memory)
+        self.research_enhancer = ResearchEnhancer()  # Keep for potential future use
         
     
     def estimate_tokens(self, text: str) -> int:

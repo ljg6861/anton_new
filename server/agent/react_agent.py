@@ -11,9 +11,9 @@ from .react import (
     TokenBudget,
     TokenLoopDetector,
     MemoryManager,
-    SystemPromptBuilder,
     ToolFormatter,
     ResponseProcessor,
+    ResearchEnhancer,
     ReActAgent
 )
 
@@ -22,8 +22,8 @@ __all__ = [
     'TokenBudget',
     'TokenLoopDetector',
     'MemoryManager', 
-    'SystemPromptBuilder',
     'ToolFormatter',
     'ResponseProcessor',
+    'ResearchEnhancer',
     'ReActAgent'
 ]
