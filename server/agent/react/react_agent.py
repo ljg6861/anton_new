@@ -241,9 +241,11 @@ class ReActAgent:
                 last_msg = react_messages[-1]
                 logger.info(f"Most recent message ({last_msg.get('role', 'unknown')}): {last_msg.get('content', '')[:200]}...")
             
-            response = (self._execute_llm_request(react_messages, logger))
-            response = response['choices'][0]['message']
-            tool_calls = response['tool_calls']
+            # Use non-streaming method to get response and check for tool calls
+            # TODO: Implement proper streaming that can handle tool calls
+            response_data = self._execute_llm_request(react_messages, logger)
+            response = response_data['choices'][0]['message']
+            tool_calls = response.get('tool_calls')
             
             # Log the LLM response
             if tool_calls:
@@ -256,9 +258,9 @@ class ReActAgent:
                     tool_name = tool_call['function']['name']
                     tool_args = tool_call['function']['arguments']
                     
-                    # Stream tool execution step with actual args
-                    yield f"<step>Using Tool: {tool_name}</step>"
-                    async for char in self._stream_step_content(f"Tool: {tool_name}\nArgs: {str(tool_args)[:200]}"):
+                    # Stream tool execution step with clean info
+                    yield f"<step>Using {tool_name}</step>"
+                    async for char in self._stream_step_content(f"Executing {tool_name}..."):
                         yield char
                     
                     # Create a signature for this tool call
@@ -316,9 +318,8 @@ class ReActAgent:
                         result = tool_manager.run_tool(tool_name, tool_args)
                         logger.info(f"✅ Tool {tool_name} completed successfully. Result length: {len(str(result))} chars")
                         
-                        # Stream tool completion with actual result preview
-                        result_preview = str(result)[:300] + "..." if len(str(result)) > 300 else str(result)
-                        async for char in self._stream_step_content(f"TOOL COMPLETED\nTool: {tool_name}\nResult: {result_preview}"):
+                        # Don't show full tool results in step_content to keep UI clean, but confirm success
+                        async for char in self._stream_step_content(f"✅ {tool_name} completed - information gathered"):
                             yield char
                             
                         react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : result}) 
@@ -332,15 +333,22 @@ class ReActAgent:
                             
                         react_messages.append({'role' : 'function', 'name' : tool_name, 'content' : str(e)}) 
             else:
-                # Add the assistant's final response and stream it
-                logger.info(f"🏁 FINAL RESPONSE: {response['content'][:200]}...")
-                react_messages.append({'role' : 'assistant', 'content' : response['content']})
+                # Add the assistant's final response and stream it token by token
+                final_content = response['content']
+                logger.info(f"🏁 FINAL RESPONSE: {final_content[:200]}...")
+                react_messages.append({'role' : 'assistant', 'content': final_content})
                 
-                # Stream the final response with context
-                async for char in self._stream_step_content(f"FINAL RESPONSE\nContent: {response['content'][:500]}"):
-                    yield char
+                # Stream step indicating response is ready
+                yield f"<step>Generating response</step>"
                 
-                yield response['content']
+                # Stream the actual final response as proper tokens
+                words = final_content.split()
+                for i, word in enumerate(words):
+                    # Add space except for the first word
+                    token = word if i == 0 else f" {word}"
+                    yield f"<token>{token}</token>"
+                    await asyncio.sleep(0.03)  # Small delay for streaming effect
+                
                 return
         
         # If we reached max iterations, stream the final message
@@ -357,10 +365,9 @@ class ReActAgent:
         return result
 
     async def _stream_step_content(self, text: str) -> AsyncGenerator[str, None]:
-        """Stream text character by character with a typing effect for step content."""
-        for char in text:
-            yield f"<step_content>{char}</step_content>"
-            await asyncio.sleep(0.01)  # Faster delay for tool content
+        """Stream text as step content for user visibility."""
+        yield f"<step_content>{text}</step_content>"
+        await asyncio.sleep(0.05)  # Brief pause for better UX
 
 
     
@@ -416,6 +423,37 @@ class ReActAgent:
                 msg_copy.pop("name", None)
             sanitized_messages.append(msg_copy)
         return sanitized_messages
+
+    async def _execute_llm_request_streaming(
+        self,
+        messages: List[Dict[str, str]],
+        logger: Any,
+    ) -> AsyncGenerator[str, None]:
+        """Execute LLM request with streaming support for better UX"""
+        from server.agent.agentic_flow.helpers_and_prompts import call_model_server
+        
+        sanitized_messages = self._sanitize_messages_for_vllm(messages)
+        
+        # Stream tokens from the model
+        async for token in call_model_server(sanitized_messages, self.tools or []):
+            yield token
+
+    async def _execute_llm_request_and_parse(
+        self,
+        messages: List[Dict[str, str]],
+        logger: Any,
+    ) -> Dict[str, Any]:
+        """Execute LLM request and parse the complete response"""
+        full_content = ""
+        async for token in self._execute_llm_request_streaming(messages, logger):
+            full_content += token
+        
+        # For now, assume no tool calls and return simple response
+        # TODO: Parse tool calls from the response if needed
+        return {
+            'content': full_content.strip(),
+            'tool_calls': None
+        }
 
     def _execute_llm_request(
         self,

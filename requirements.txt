@@ -5,6 +5,9 @@ docker_py==1.10.6
 duckduckgo_search==8.1.1
 fastapi==0.116.1
 fitz==0.0.1.dev2
+google-api-python-client==2.147.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
 httpx==0.28.1
 numpy==2.3.2
 openai>=1.0.0

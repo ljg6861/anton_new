@@ -8,7 +8,22 @@ from .memory_manager import MemoryManager
 
 
 class SystemPromptBuilder:
-    """Builds system prompts with token budgeting"""
+    """    RULES
+    - ONE tool    QUALITY CHECKLIST (run before replying)
+    - Did I inspect tool descriptions and match the schema exactly (names, types, shapes)?
+    - Am I using the minimal existing tool that satisfies the task?
+    - Have I avoided fabricating endpoints/fields and avoided chaining outside defined contracts?
+    - For coding: Am I on a feature branch (anton/<short_feature_name>)?
+    - Am I respecting "one tool per turn" and side-effect safety?
+    - CRITICAL: Have I avoided ALL placeholder implementations, stub code, and incomplete functionality?
+    - VERIFICATION: Is every function I created fully functional and production-ready?
+    - If proposing new capabilities, did I present a complete, concrete plan and stop?rn.
+    - DO NOT use the <tool_call> pattern unless you truly intend to call a tool. If you're only referring to a tool by name, just write the name.
+    - If doing a coding task, verify you are not on the master/main branch. If you are, create a new branch using the schema: anton/<short_feature_name>.
+    - UNDER NO CIRCUMSTANCES write to files without explicit user permission.
+    - ABSOLUTELY FORBIDDEN: Creating placeholder implementations, stub code, or incomplete functionality.
+    - REQUIRED: All code implementations must be complete, functional, and production-ready.
+    - You ABSOLUTELY MUST end your final user-facing message with "[Done]". Only use "[Done]" when you are finished. Omit "[Done]" while you are still gathering info, planning, or taking multiple steps. system prompts with token budgeting"""
     
     def __init__(self, memory_manager: MemoryManager, knowledge_store: KnowledgeStore):
         self.memory = memory_manager
@@ -195,13 +210,21 @@ class ExampleThingTool:
                 "data": None
             }})
 
-    TOOL SELECTION & PREFLIGHT (BEFORE ANY CALL)
-    1) Map the user task to available tools. If multiple tools could work, choose the minimal, already-integrated path.
-    2) Validate inputs against the tool schema:
+    TOOL IMPLEMENTATION GUIDELINES
+    When implementing new tools, follow the existing patterns:
+    1) Validate inputs against the tool schema:
     - Ensure required args are present and typed correctly.
     - Ensure argument values respect domain constraints (e.g., enums, formats).
     3) Dry-run reasoning: write out the exact JSON you intend to send and verify it matches the tool contract.
     4) If there is any mismatch or ambiguity in the contract, STOP and ask the user (or propose a tool plan rather than guessing).
+
+    IMPLEMENTATION STANDARDS - ZERO TOLERANCE FOR PLACEHOLDERS
+    - NEVER write placeholder implementations, mock responses, or "TODO" comments.
+    - NEVER use phrases like "In a real implementation", "this would", "placeholder for", or similar.
+    - EVERY function must be fully functional with complete business logic and error handling.
+    - ALL API integrations must include real authentication, proper endpoints, and actual data processing.
+    - If you lack specific API details, research them or ask the user rather than creating stubs.
+    - Code must be production-ready, not demonstration or template code.
 
     TOOL USAGE FORMAT
     <tool_call>{{"name":"tool_name","arguments":{{"param":"value"}}}}</tool_call>

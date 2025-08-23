@@ -117,10 +117,10 @@ async def execute_agentic_flow(initial_messages: List[Dict[str, str]]) -> AsyncG
         yield f"Error: Unknown route '{route}' provided by the router."
 
 async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
-    """Enhanced chat route with tool calling capabilities using ReAct agent"""
-    logger.info("Handling chat route with tool support")
+    """Enhanced chat route with tool calling capabilities and mandatory research for unknown topics"""
+    logger.info("Handling chat route with research-first approach")
     
-    # Set up tools available for chat (same as researcher)
+    # Set up tools available for chat (including research tools)
     chat_tools = tool_manager.get_tools_by_names([
         "search_codebase",
         "web_search", 
@@ -128,12 +128,30 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
         "read_file"
     ])
     
-    # Create enhanced chat prompt that mentions tool availability
-    chat_prompt = """You are Anton, a friendly and helpful assistant. You have access to tools that can help you provide better answers:
+    # Create enhanced chat prompt that mandates research for unknown topics
+    chat_prompt = """You are Anton, a friendly and helpful assistant. You must be accurate and well-informed.
 
-Use tools when they would help provide a more accurate or complete answer. If the user asks about code, files, or needs current information, consider using the appropriate tools. Keep your responses conversational and helpful.
+CRITICAL REQUIREMENT: Before answering ANY question about products, brands, substances, or topics you're uncertain about, you MUST research them first using the web_search tool. This is mandatory - DO NOT guess or provide potentially incorrect information.
 
-For simple questions that don't require tools, respond directly without using tools.
+IMPORTANT: When you successfully use tools and get results, you DO have access to that information. You are NOT limited to saying "I don't have access" - if you just searched for something and got results, use those results to answer the question directly and helpfully.
+
+EXAMPLE MANDATORY RESEARCH SITUATIONS:
+- Someone asks about "zyns" or any product/brand you're unsure about → FIRST use web_search to find out what it is
+- Someone asks about current events or weather → FIRST use web_search for current information  
+- Someone asks about withdrawal symptoms from unknown substances → FIRST research the substance
+
+Your process should be:
+1. If uncertain about any topic → Use web_search tool to research it
+2. Read and understand the research results
+3. Then provide an accurate, well-informed response based on the research YOU JUST CONDUCTED
+4. NEVER say "I don't have access" if you just successfully used tools to get information
+
+Tools available:
+- web_search: For researching products, current information, weather, and unknown topics
+- search_codebase: For code-related questions
+- read_file: For file content questions
+
+Use these tools proactively when needed for accuracy, and then confidently use the results to help the user.
 """
 
     # Create chat messages with the enhanced prompt
@@ -156,8 +174,14 @@ For simple questions that don't require tools, respond directly without using to
     )
     
     # Execute chat with tool support using ReAct agent
-    logger.info("Starting ReAct agent for chat with tool support")
+    logger.info("Starting ReAct agent for chat with research capability")
     async for chunk in react_agent.execute_react_loop_streaming(chat_messages, logger):
-        # Filter out step markers for cleaner chat experience
-        if not (chunk.startswith("<step>") or chunk.startswith("<step_content>")):
+        # Pass through step markers and step content for UI processing
+        if chunk.startswith("<step>") or chunk.startswith("<step_content>"):
             yield chunk
+        elif chunk.startswith("<token>"):
+            # Pass through token chunks as-is for proper streaming
+            yield chunk
+        else:
+            # For any other content, skip it (shouldn't happen with proper tagging)
+            continue

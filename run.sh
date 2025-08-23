@@ -2,6 +2,14 @@
 set -Eeuo pipefail
 cd "$(dirname "$0")"  # project root
 
+# ── Activate virtual environment ─────────────────────────────────────────────
+if [[ -d ".venv" ]]; then
+  echo "🐍 Activating virtual environment..."
+  source .venv/bin/activate
+else
+  echo "⚠️  No virtual environment found (.venv directory missing)"
+fi
+
 # ── Env ────────────────────────────────────────────────────────────────────────
 if [[ -f .env.vllm ]]; then
   echo "🔧 Loading vLLM environment from .env.vllm..."
