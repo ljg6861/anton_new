@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import AsyncGenerator, Dict, List, Optional
 from pathlib import Path
 import httpx
@@ -139,9 +140,10 @@ async def _handle_chat_route(messages: List[Dict[str, str]]) -> AsyncGenerator[s
     async def llm_callback(prompt: str) -> str:
         """Callback for LLM-based research analysis"""
         try:
+            vllm_port = os.getenv("VLLM_PORT", "8003")
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    "http://localhost:8003/v1/chat/completions",
+                    f"http://localhost:{vllm_port}/v1/chat/completions",
                     json={
                         "model": "anton",
                         "messages": [

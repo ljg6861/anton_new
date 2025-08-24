@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Any, AsyncGenerator, Dict, List
 
 import httpx
@@ -19,7 +20,8 @@ async def call_model_server(messages: List[Dict[str, str]], tools: List[Dict[str
             "max_tokens": 9000
         }
 
-        vllm_url = "http://localhost:8003"
+        vllm_port = os.getenv("VLLM_PORT", "8003")
+        vllm_url = f"http://localhost:{vllm_port}"
 
         for attempt in range(3):
           try:
@@ -90,7 +92,8 @@ async def call_model_server_with_config(
         "max_tokens": max_tokens
     }
 
-    vllm_url = "http://localhost:8003"
+    vllm_port = os.getenv("VLLM_PORT", "8003")
+    vllm_url = f"http://localhost:{vllm_port}"
 
     for attempt in range(3):
         try:
@@ -158,7 +161,8 @@ async def call_model_for_summarization(conversation_history: str) -> str:
         "max_tokens": 2000
     }
 
-    vllm_url = "http://localhost:8003"
+    vllm_port = os.getenv("VLLM_PORT", "8003")
+    vllm_url = f"http://localhost:{vllm_port}"
     
     try:
         async with httpx.AsyncClient(timeout=90.0) as client:

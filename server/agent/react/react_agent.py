@@ -6,6 +6,7 @@ Enhanced with tool learning capabilities.
 import asyncio
 import json
 import logging
+import os
 import re
 from typing import AsyncGenerator, List, Dict, Any, Optional
 
@@ -223,44 +224,6 @@ class ReActAgent:
             role = msg.get("role")
             if role:
                 self.knowledge_store.add_message(role, msg.get("content", ""))
-
-    async def _llm_analysis_callback(self, analysis_prompt: str) -> str:
-        """
-        Callback function for LLM analysis of tool learning patterns.
-        Uses the same LLM that powers the agent for consistency.
-        """
-        try:
-            logger.info("Performing LLM analysis for tool learning pattern")
-            
-            analysis_messages = [
-                {"role": "system", "content": "You are an expert at analyzing tool execution patterns to extract useful learnings."},
-                {"role": "user", "content": analysis_prompt}
-            ]
-            
-            # Use the same API endpoint as the main agent
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.api_base_url}/v1/chat/completions",
-                    json={
-                        "model": "gpt-4",  # Or whatever model the agent uses
-                        "messages": analysis_messages,
-                        "temperature": 0.1,  # Low temperature for analytical tasks
-                        "max_tokens": 1000
-                    }
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    logger.info("LLM learning analysis completed successfully")
-                    return content
-                else:
-                    logger.error(f"LLM analysis request failed: {response.status_code}")
-                    return "Analysis failed: HTTP error"
-                    
-        except Exception as e:
-            logger.error(f"Error in LLM analysis callback: {e}", exc_info=True)
-            return f"Analysis failed: {str(e)}"
     
     async def execute_react_loop_streaming(self, react_messages: List[Dict[str, str]], 
                                          logger: Any) -> AsyncGenerator[str, None]:
@@ -584,7 +547,8 @@ class ReActAgent:
             request_payload["tools"] = self.tools
             request_payload["tool_choice"] = "auto"
 
-        vllm_url = "http://localhost:8003"
+        vllm_port = os.getenv("VLLM_PORT", "8003")
+        vllm_url = f"http://localhost:{vllm_port}"
         url = f"{vllm_url}/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",

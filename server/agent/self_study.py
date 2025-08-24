@@ -590,7 +590,7 @@ def parse_args():
     ap.add_argument("--save-good-examples", action="store_true")
     ap.add_argument("--log-level", default="INFO")
     ap.add_argument("--solver", choices=["model","agent"], default="model")
-    ap.add_argument("--solver-url", required=False, default="http://localhost:8001", help="Base URL for solver (model or agent)")
+    ap.add_argument("--solver-url", required=False, default=f"http://localhost:{os.getenv('AGENT_PORT', '8001')}", help="Base URL for solver (model or agent)")
     ap.add_argument("--agent-path", default="/v1/agent/chat", help="Agent streaming path (override to match your server)")
     ap.add_argument("--evaluator", action="store_true", help="Run baseline without domain embeddings/bundle during solving")
     return ap.parse_args()

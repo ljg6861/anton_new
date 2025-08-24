@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 MD_DEBUG = os.getenv("ANTON_MD_DEBUG", "0") == "1"
 
 # vLLM Configuration
-VLLM_HOST = os.getenv("VLLM_HOST", "http://localhost:8003")
+VLLM_PORT = os.getenv("VLLM_PORT", "8003")
+VLLM_HOST = os.getenv("VLLM_HOST", f"http://localhost:{VLLM_PORT}")
 VLLM_API_KEY = os.getenv("VLLM_API_KEY", "anton-vllm-key")
 DEFAULT_MODEL = os.getenv("VLLM_MODEL", "qwen-coder-32b")
 

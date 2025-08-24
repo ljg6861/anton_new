@@ -1322,7 +1322,7 @@ async def handle_task_route(messages: List[Dict[str, str]], goal: str, knowledge
                 yield chunk
         
         findings_summary = f"{len(research_findings)} findings" if research_findings else "No findings"
-        async for content in stream_step_content(f"RESEARCH COMPLETE\nDuration: {research_duration:.1f}s\nFindings: {findings_summary}"):
+        async for content in stream_step_content(f"RESEARCH COMPLETE\nDuration: {research_duration:.1f}s\nFindings: {findings_summary} \n{research_findings}"):
             yield content
     else:
         logger.info("🔬 PHASE 2: RESEARCH SKIPPED (sufficient existing knowledge)")

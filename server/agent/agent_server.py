@@ -117,6 +117,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Agent Logic Server", lifespan=lifespan)
 
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "agent"}
+
 
 @app.post("/v1/agent/chat")
 async def agent_chat(request: AgentChatRequest):
